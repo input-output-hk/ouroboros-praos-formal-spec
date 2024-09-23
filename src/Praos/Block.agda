@@ -26,15 +26,8 @@ module _ ⦃ _ : Config ⦄ where
   open Party public
 
   data Honesty : PartyId → Set where
-
-    Honest : ∀ {p : PartyId}
-      → Honesty p
-
-    Corrupt : ∀ {p : PartyId}
-      → Honesty p
-
-  PartyTup = ∃[ p ] (Honesty p)
-  Parties = List PartyTup
+    Honest : ∀ {p : PartyId}  → Honesty p
+    Corrupt : ∀ {p : PartyId} → Honesty p
 
   record Block : Set
   record BlockBody : Set

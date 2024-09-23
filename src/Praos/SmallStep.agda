@@ -79,8 +79,6 @@ module _ ⦃ _ : Config ⦄
            {T : Type} {blockTree : TreeType T}
            {S : Type} {adversarialState₀ : S}
            {txSelection : Slot → PartyId → List Tx}
-           {parties : Parties} -- TODO: use parties from blockTrees
-                               -- i.e. allow dynamic participation
            where
 
     open TreeType blockTree
@@ -132,7 +130,7 @@ module _ ⦃ _ : Config ⦄
     m , fᵈ ⇑ M =
       record M
         { messages =
-            map (λ { (p , h) → ⦅ p , h , m , fᵈ p ⦆}) parties
+            map (λ { p → ⦅ p , honesty p , m , fᵈ p ⦆}) (L.allFin (numParties))
             ++ messages
         ; history = m ∷ history
         }
