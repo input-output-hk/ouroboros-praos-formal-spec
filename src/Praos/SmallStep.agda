@@ -99,9 +99,6 @@ module _ ⦃ _ : Config ⦄
         history : List Message
         adversarialState : S
 
-      blockTrees' : List T
-      blockTrees' = map proj₂ blockTrees
-
     -- Updating a local block-tree upon receiving a message
 
     data _[_]→_ : T → Message → T → Type where
@@ -126,18 +123,15 @@ module _ ⦃ _ : Config ⦄
         }
       where open State M
 
-    _,_⇑_ : Message → (PartyId → Delay) → State → State
-    m , fᵈ ⇑ M =
+    delay_by_update_ : Message → (PartyId → Delay) → State → State
+    delay m by fᵈ update M =
       record M
         { messages =
-            map (λ { p → ⦅ p , honest? p , m , fᵈ p ⦆}) (L.allFin (numParties))
+            map (λ { p → ⦅ p , honest? p , m , fᵈ p ⦆}) (L.allFin numParties)
             ++ messages
         ; history = m ∷ history
         }
       where open State M
-
-    delay_by_update_ : Message → (PartyId → Delay) → State → State
-    delay m@(ChainMsg x) by fᵈ update M = m , fᵈ ⇑ M
 
     -- Fetching of messages
 
