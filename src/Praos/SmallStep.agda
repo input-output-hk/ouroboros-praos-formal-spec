@@ -189,7 +189,7 @@ module _ ⦃ _ : Config ⦄
                  update M
 
     -- Small-step semantics
-    -- The small-step semantics describe the evolution of the global state.
+    -- The small-step semantics describe the evolution of the global state
 
     variable
       M N O : State

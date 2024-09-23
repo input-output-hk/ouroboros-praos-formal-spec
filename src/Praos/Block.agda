@@ -8,7 +8,7 @@ Slot = ℕ
 Tx = ⊤
 Payload = List Tx
 
-record Config : Set where
+record Config : Type where
   field numParties : ℕ
 
 module _ ⦃ _ : Config ⦄ where
@@ -18,19 +18,19 @@ module _ ⦃ _ : Config ⦄ where
   -- Finite number of parties
   PartyId = Fin numParties
 
-  record Party : Set where
+  record Party : Type where
     constructor MkParty
     field partyId : PartyId
           vkey : VerificationKey
 
   open Party public
 
-  data Honesty : PartyId → Set where
+  data Honesty : PartyId → Type where
     Honest : ∀ {p : PartyId}  → Honesty p
     Corrupt : ∀ {p : PartyId} → Honesty p
 
-  record Block : Set
-  record BlockBody : Set
+  record Block : Type
+  record BlockBody : Type
 
   record Block where
     field slotNumber : Slot
@@ -49,7 +49,7 @@ module _ ⦃ _ : Config ⦄ where
 
   open BlockBody public
 
-module _ {a : Set} ⦃ _ : Hashable a ⦄
+module _ {a : Type} ⦃ _ : Hashable a ⦄
   where
 
   open Hashable ⦃...⦄

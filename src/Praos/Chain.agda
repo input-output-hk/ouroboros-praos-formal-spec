@@ -10,20 +10,20 @@ module _ ⦃ _ : Config ⦄ where
 
   open Config ⦃...⦄
 
-  record Network : Set₁ where
+  record Network : Type₁ where
     field
       Δ : ℕ
       honest? : ∀ (p : PartyId) → Honesty p
 
-  record Postulates : Set₁ where
+  record Postulates : Type₁ where
     field
-      IsSlotLeader : PartyId → Slot → LeadershipProof → Set
-      IsBlockSignature : Block → Signature → Set
+      IsSlotLeader : PartyId → Slot → LeadershipProof → Type
+      IsBlockSignature : Block → Signature → Type
 
   -- Chain
   Chain = List Block
 
-  data _⪯_ : Chain → Chain → Set where
+  data _⪯_ : Chain → Chain → Type where
 
     Prefix : ∀ {c₁ c₂ c₃ : Chain}
       → c₁ ++ c₃ ≡ c₂
@@ -43,7 +43,7 @@ module _ ⦃ _ : Config ⦄
 
   -- Validity of a chain
 
-  data ValidChain : Chain → Set where
+  data ValidChain : Chain → Type where
 
     Genesis : ValidChain []
 
