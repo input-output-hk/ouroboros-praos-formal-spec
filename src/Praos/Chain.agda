@@ -6,13 +6,14 @@ open Nat using (_≤?_)
 open import Praos.Block
 open import Praos.Crypto
 
-record Network : Set₁ where
-  field
-    Δ : ℕ
-
 module _ ⦃ _ : Config ⦄ where
 
   open Config ⦃...⦄
+
+  record Network : Set₁ where
+    field
+      Δ : ℕ
+      honesty : ∀ (p : PartyId) → Honesty p
 
   record Postulates : Set₁ where
     field
