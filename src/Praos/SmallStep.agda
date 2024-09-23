@@ -11,12 +11,14 @@ open import Praos.Block
 open import Praos.Chain
 open import Praos.Crypto
 
-module _ ⦃ _ : Hashable Block ⦄
+module _ ⦃ _ : Config ⦄
+         ⦃ _ : Hashable Block ⦄
          ⦃ _ : Hashable (List Tx) ⦄
          ⦃ _ : Network ⦄
          ⦃ _ : Postulates ⦄
          where
 
+  open Config ⦃...⦄
   open Hashable ⦃...⦄
   open Network ⦃...⦄
   open Postulates ⦃...⦄
