@@ -1,0 +1,4 @@
+name: praos
+depend: standard-library iog-prelude
+include: src
+flags: --erasure
