@@ -6,32 +6,37 @@ open Nat using (_≤?_)
 open import Praos.Block
 open import Praos.Crypto
 
-record Postulates : Set₁ where
-  field
-    IsSlotLeader : PartyId → Slot → LeadershipProof → Set
-    IsBlockSignature : Block → Signature → Set
-
 record Network : Set₁ where
   field
     Δ : ℕ
 
--- Chain
+module _ ⦃ _ : Config ⦄ where
 
-Chain = List Block
+  open Config ⦃...⦄
 
-data _⪯_ : Chain → Chain → Set where
+  record Postulates : Set₁ where
+    field
+      IsSlotLeader : PartyId → Slot → LeadershipProof → Set
+      IsBlockSignature : Block → Signature → Set
 
-  Prefix : ∀ {c₁ c₂ c₃ : Chain}
-    → c₁ ++ c₃ ≡ c₂
-    → c₁ ⪯ c₂
+  -- Chain
+  Chain = List Block
 
-prune : Slot → Chain → Chain
-prune sl = filter ((_≤? sl) ∘ slotNumber)
+  data _⪯_ : Chain → Chain → Set where
 
-module _ ⦃ _ : Hashable Block ⦄
+    Prefix : ∀ {c₁ c₂ c₃ : Chain}
+      → c₁ ++ c₃ ≡ c₂
+      → c₁ ⪯ c₂
+
+  prune : Slot → Chain → Chain
+  prune sl = filter ((_≤? sl) ∘ slotNumber)
+
+module _ ⦃ _ : Config ⦄
+         ⦃ _ : Hashable Block ⦄
          ⦃ _ : Postulates ⦄
          where
 
+  open Config ⦃...⦄
   open Hashable ⦃...⦄
   open Postulates ⦃...⦄
 

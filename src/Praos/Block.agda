@@ -8,45 +8,53 @@ Slot = ℕ
 Tx = ⊤
 Payload = List Tx
 
-PartyId = ℕ -- TODO: Data.Fin ?
+record Config : Set where
+  field numParties : ℕ
 
-record Party : Set where
-  constructor MkParty
-  field partyId : PartyId
-        vkey : VerificationKey
+module _ ⦃ _ : Config ⦄ where
 
-open Party public
+  open Config ⦃...⦄
 
-data Honesty : PartyId → Set where
+  -- Finite number of parties
+  PartyId = Fin numParties
 
-  Honest : ∀ {p : PartyId}
-    → Honesty p
+  record Party : Set where
+    constructor MkParty
+    field partyId : PartyId
+          vkey : VerificationKey
 
-  Corrupt : ∀ {p : PartyId}
-    → Honesty p
+  open Party public
 
-PartyTup = ∃[ p ] (Honesty p)
-Parties = List PartyTup
+  data Honesty : PartyId → Set where
 
-record Block : Set
-record BlockBody : Set
+    Honest : ∀ {p : PartyId}
+      → Honesty p
 
-record Block where
-  field slotNumber : Slot
-        creatorId : PartyId
-        parentBlock : Hash Block
-        leadershipProof : LeadershipProof
-        signature : Signature
-        bodyHash : Hash Payload
+    Corrupt : ∀ {p : PartyId}
+      → Honesty p
 
-open Block public
+  PartyTup = ∃[ p ] (Honesty p)
+  Parties = List PartyTup
 
-record BlockBody where
-  constructor MkBlockBody
-  field blockHash : Hash Payload
-        payload : Payload
+  record Block : Set
+  record BlockBody : Set
 
-open BlockBody public
+  record Block where
+    field slotNumber : Slot
+          creatorId : PartyId
+          parentBlock : Hash Block
+          leadershipProof : LeadershipProof
+          signature : Signature
+          bodyHash : Hash Payload
+
+  open Block public
+
+  record BlockBody where
+    constructor MkBlockBody
+    field blockHash : Hash Payload
+          payload : Payload
+
+  open BlockBody public
 
 module _ {a : Set} ⦃ _ : Hashable a ⦄
   where
