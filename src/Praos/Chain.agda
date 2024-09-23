@@ -13,7 +13,7 @@ module _ ⦃ _ : Config ⦄ where
   record Network : Set₁ where
     field
       Δ : ℕ
-      honesty : ∀ (p : PartyId) → Honesty p
+      honest? : ∀ (p : PartyId) → Honesty p
 
   record Postulates : Set₁ where
     field

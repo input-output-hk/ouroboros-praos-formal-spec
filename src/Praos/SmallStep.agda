@@ -130,7 +130,7 @@ module _ ⦃ _ : Config ⦄
     m , fᵈ ⇑ M =
       record M
         { messages =
-            map (λ { p → ⦅ p , honesty p , m , fᵈ p ⦆}) (L.allFin (numParties))
+            map (λ { p → ⦅ p , honest? p , m , fᵈ p ⦆}) (L.allFin (numParties))
             ++ messages
         ; history = m ∷ history
         }
