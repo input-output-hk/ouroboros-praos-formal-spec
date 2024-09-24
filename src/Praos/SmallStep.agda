@@ -51,19 +51,11 @@ module _ ⦃ _ : Config ⦄
                     (preferredChain : T → Chain)
          : Type₁ where
     field
-      instantiated :
-        preferredChain tree₀ ≡ []
-
-      valid : ∀ (t : T)
-        → ValidChain (preferredChain t)
-
-      optimal : ∀ (c : Chain) (t : T)
-        → ValidChain c
-        → c ∈ chains t
+      instantiated : preferredChain tree₀ ≡ []
+      valid : ∀ (t : T) → ValidChain (preferredChain t)
+      optimal : ∀ (c : Chain) (t : T) → ValidChain c → c ∈ chains t
         → length c ≤ length (preferredChain t)
-
-      self-contained : ∀ (t : T)
-        → preferredChain t ∈ chains t
+      self-contained : ∀ (t : T) → preferredChain t ∈ chains t
 
   record TreeType (T : Type) : Type₁ where
     field
