@@ -33,10 +33,9 @@ module _ ⦃ _ : Config ⦄
   pattern 𝟚 = fsuc (fsuc fzero)
 
   record Envelope : Type where
-    constructor ⦅_,_,_,_⦆
+    constructor ⦅_,_,_⦆
     field
       partyId : PartyId
-      honesty : Honesty partyId
       message : Message
       delay : Delay
 
@@ -118,7 +117,7 @@ module _ ⦃ _ : Config ⦄
     delay m by fᵈ update M = let open State M in
       record M
         { messages =
-            map (λ p → ⦅ p , honest? p , m , fᵈ p ⦆) (L.allFin numParties)
+            map (λ p → ⦅ p , m , fᵈ p ⦆) (L.allFin numParties)
             ++ messages
         ; history = m ∷ history
         }
@@ -129,10 +128,10 @@ module _ ⦃ _ : Config ⦄
       where
 
       honest : ∀ {p} {t t′} {m} {N} → let open State N in
-          (m∈ms : ⦅ p , Honest , m , 𝟘 ⦆ ∈ messages) →
+          (m∈ms : ⦅ p , m , 𝟘 ⦆ ∈ messages) →
         ∙ blockTrees ⁉ p ≡ just t
         ∙ t [ m ]→ t′
-          ────────────────────────────────────────────
+          ────────────────────────────────────
           Honest {p} ⊢
           N [ m ]⇀ record N
             { blockTrees = set p t′ blockTrees
@@ -174,7 +173,7 @@ module _ ⦃ _ : Config ⦄
           ──────────────────────────────
           Honest {p} ⊢
             M ↷ delay ChainMsg vc by fᵈ
-                 update M
+                update M
 
     -- Small-step semantics
     -- The small-step semantics describe the evolution of the global state
