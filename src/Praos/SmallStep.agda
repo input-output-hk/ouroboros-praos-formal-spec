@@ -106,24 +106,22 @@ module _ ⦃ _ : Config ⦄
         open L.All using (All)
 
     tick : State → State
-    tick M =
+    tick M = let open State M in
       record M
         { clock = suc clock
         ; messages =
             map (λ m → record m { delay = pred (delay m) })
               messages
         }
-      where open State M
 
     delay_by_update_ : Message → (PartyId → Delay) → State → State
-    delay m by fᵈ update M =
+    delay m by fᵈ update M = let open State M in
       record M
         { messages =
             map (λ p → ⦅ p , honest? p , m , fᵈ p ⦆) (L.allFin numParties)
             ++ messages
         ; history = m ∷ history
         }
-      where open State M
 
     -- Fetching of messages
 
@@ -148,9 +146,7 @@ module _ ⦃ _ : Config ⦄
       record
         { slotNumber = s
         ; creatorId = p
-        ; parentBlock =
-            let open IsTreeType
-            in tipHash (preferredChain t)
+        ; parentBlock = tipHash (preferredChain t)
         ; leadershipProof = π
         ; bodyHash =
             let txs = txSelection s p
