@@ -100,7 +100,7 @@ module _ ⦃ _ : Config ⦄
           t [ ChainMsg {c} vc ]→ addChain t vc
 
     Fetched : State → Type
-    Fetched = All (λ { z → delay z ≢ 𝟘 }) ∘ messages
+    Fetched = All ((_≢ 𝟘) ∘ delay) ∘ messages
       where
         open State
         open L.All using (All)
@@ -110,7 +110,7 @@ module _ ⦃ _ : Config ⦄
       record M
         { clock = suc clock
         ; messages =
-            map (λ where e → record e { delay = pred (delay e) })
+            map (λ m → record m { delay = pred (delay m) })
               messages
         }
       where open State M
@@ -119,7 +119,7 @@ module _ ⦃ _ : Config ⦄
     delay m by fᵈ update M =
       record M
         { messages =
-            map (λ { p → ⦅ p , honest? p , m , fᵈ p ⦆}) (L.allFin numParties)
+            map (λ p → ⦅ p , honest? p , m , fᵈ p ⦆) (L.allFin numParties)
             ++ messages
         ; history = m ∷ history
         }

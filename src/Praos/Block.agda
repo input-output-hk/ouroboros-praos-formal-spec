@@ -9,7 +9,8 @@ Tx = ⊤
 Payload = List Tx
 
 record Config : Type where
-  field numParties : ℕ
+  field
+    numParties : ℕ
 
 module _ ⦃ _ : Config ⦄ where
 
@@ -20,8 +21,9 @@ module _ ⦃ _ : Config ⦄ where
 
   record Party : Type where
     constructor MkParty
-    field partyId : PartyId
-          vkey : VerificationKey
+    field
+      partyId : PartyId
+      vkey : VerificationKey
 
   open Party public
 
@@ -33,19 +35,21 @@ module _ ⦃ _ : Config ⦄ where
   record BlockBody : Type
 
   record Block where
-    field slotNumber : Slot
-          creatorId : PartyId
-          parentBlock : Hash Block
-          leadershipProof : LeadershipProof
-          signature : Signature
-          bodyHash : Hash Payload
+    field
+      slotNumber : Slot
+      creatorId : PartyId
+      parentBlock : Hash Block
+      leadershipProof : LeadershipProof
+      signature : Signature
+      bodyHash : Hash Payload
 
   open Block public
 
   record BlockBody where
     constructor MkBlockBody
-    field blockHash : Hash Payload
-          payload : Payload
+    field
+      blockHash : Hash Payload
+      payload : Payload
 
   open BlockBody public
 
