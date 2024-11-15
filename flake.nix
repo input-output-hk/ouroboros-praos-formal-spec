@@ -1,5 +1,5 @@
 {
-  description = "praos-formal-spec";
+  description = "ouroboros-praos-formal-spec";
 
   inputs = {
     iogx = {
