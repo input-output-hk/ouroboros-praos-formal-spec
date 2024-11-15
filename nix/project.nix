@@ -8,7 +8,7 @@ let
       "https://input-output-hk.github.io/cardano-haskell-packages" =
         inputs.iogx.inputs.CHaP;
     };
-    name = "praos-formal-spec";
+    name = "ouroboros-praos-formal-spec";
     compiler-nix-name = lib.mkDefault "ghc96";
     flake.variants.profiled.modules = [{
       enableProfiling = true;
@@ -22,4 +22,5 @@ let
     shellArgs = repoRoot.nix.shell;
   };
 
-in project
+in
+project

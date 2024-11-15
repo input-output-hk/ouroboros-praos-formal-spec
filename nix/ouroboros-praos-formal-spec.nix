@@ -2,9 +2,9 @@
 
 repoRoot.nix.agda-packages.mkDerivation {
   version = "1.0";
-  pname = "praos";
+  pname = "ouroboros-praos-formal-spec";
   src = ./..;
-  meta = { description = "Agda library for Praos."; };
+  meta = { description = "Ouroboros Praos formal specification"; };
   buildInputs = [ repoRoot.nix.agda-stdlib repoRoot.nix.iog-prelude ];
   everythingFile = "./src/Everything.agda";
   preBuild = ''

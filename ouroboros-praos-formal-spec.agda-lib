@@ -1,4 +1,5 @@
-name: praos
+name: ouroboros-praos-formal-spec
 depend: standard-library iog-prelude
 include: src
 flags: --erasure
+

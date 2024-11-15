@@ -3,7 +3,7 @@
 cabalProject:
 
 {
-  name = "praos-formal-spec";
+  name = "ouroboros-praos-formal-spec";
 
   packages = with pkgs; [
 

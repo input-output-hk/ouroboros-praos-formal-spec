@@ -2,13 +2,13 @@
 
 let
   project = repoRoot.nix.project;
-  praos-agda = repoRoot.nix.praos-agda;
+  ouroboros-praos-formal-spec = repoRoot.nix.ouroboros-praos-formal-spec;
 in
 [
   (project.flake)
   {
     inherit repoRoot;
-    packages.praos = praos-agda;
+    packages.ouroboros-praos-formal-spec = ouroboros-praos-formal-spec;
     devShells.profiled = project.variants.profiled.devShell;
   }
 ]
