@@ -10,6 +10,7 @@ cabalProject:
     # Agda packages.
     repoRoot.nix.agda-with-stdlib
     repoRoot.nix.agda-stdlib
+    repoRoot.nix.agda-stdlib-classes
     repoRoot.nix.iog-prelude
     repoRoot.nix.emacs-with-packages
 

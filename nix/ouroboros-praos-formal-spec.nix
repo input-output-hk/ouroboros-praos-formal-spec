@@ -5,7 +5,7 @@ repoRoot.nix.agda-packages.mkDerivation {
   pname = "ouroboros-praos-formal-spec";
   src = ./..;
   meta = { description = "Ouroboros Praos formal specification"; };
-  buildInputs = [ repoRoot.nix.agda-stdlib repoRoot.nix.iog-prelude ];
+  buildInputs = [ repoRoot.nix.agda-stdlib repoRoot.nix.iog-prelude repoRoot.nix.agda-stdlib-classes ];
   everythingFile = "./src/Everything.agda";
   preBuild = ''
     # Create the missing everything file.
