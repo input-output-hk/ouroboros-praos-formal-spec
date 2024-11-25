@@ -40,28 +40,7 @@ module Properties.Safety
   where
 
 open import Protocol.Semantics {T} {AdversarialState} {honestyOf} {txSelection} {processMsgsᶜ} {makeBlockᶜ}
-open GlobalState
-
-N₀ : GlobalState
-N₀ =
-  record
-    { clock     = slot₀
-    ; messages  = []
-    ; states    = L.foldr (λ p states → set p (it .def) states) [] parties₀
-    ; history   = []
-    ; advState  = adversarialState₀
-    ; execOrder = parties₀
-    ; progress  = ready
-    }
-
-isSuperSlot : Slot → Type
-isSuperSlot sl = length (filter (λ p → ¿ winner p sl × isHonest p ¿) parties₀) ≡ 1
-
-isSuperBlock : Block → Type
-isSuperBlock b = isHonest (b .pid) × isSuperSlot (b .slot)
-
-superBlocks : GlobalState → List Block
-superBlocks N = L.deduplicate _≟_ $ filter ¿ isSuperBlock ¿¹ (blockHistory N)
+open import Properties.Common {T} {AdversarialState} {honestyOf} {txSelection} {processMsgsᶜ} {makeBlockᶜ} {adversarialState₀} {parties₀}
 
 private variable
   N₁ N₂ : GlobalState

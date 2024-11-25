@@ -62,6 +62,7 @@ instance
 -- Party's local state
 
 record LocalState : Type where
+  constructor ⟪_⟫
   field
     tree : T
 
