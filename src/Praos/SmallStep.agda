@@ -104,6 +104,16 @@ module _ ⦃ _ : Config ⦄
         open State
         open L.All using (All)
 
+    Created : State → Type
+    Created = All ((_≢ 𝟘) ∘ delay) ∘ messages
+            -- FIXME: slot leader proofs globally available...?
+            -- filter (λ p → IsSlotLeader p clock π) (L.allFin numParties)
+            -- filter honest
+            -- check block creatorId
+      where
+        open State
+        open L.All using (All)
+
     tick : State → State
     tick M = let open State M in
       record M
@@ -169,6 +179,7 @@ module _ ⦃ _ : Config ⦄
           in
           (vc : ValidChain (b ∷ pref))
           (fᵈ : PartyId → Delay) →
+        ∙ IsSlotLeader p clock π
         ∙ blockTrees ⁉ p ≡ just t
           ──────────────────────────────
           Honest {p} ⊢
@@ -198,6 +209,7 @@ module _ ⦃ _ : Config ⦄
 
       NextSlot :
         ∙ Fetched M
+        ∙ Created M
           ──────────
           M ↝ tick M
 
