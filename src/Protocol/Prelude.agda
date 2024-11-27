@@ -1,7 +1,8 @@
 module Protocol.Prelude where
 
 open import Data.List.Relation.Binary.Permutation.Propositional using (_↭_) public
-open import Relation.Binary.Construct.Closure.ReflexiveTransitive using (Star) public
+open import Relation.Binary.Construct.Composition using (_;_) public
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive using (Star; _◅◅_) public
 open import Data.Fin.Patterns using (0F; 1F; 2F) public
 open import Prelude.Init public
 open import Prelude.DecEq public

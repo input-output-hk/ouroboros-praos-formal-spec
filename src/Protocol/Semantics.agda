@@ -53,7 +53,7 @@ honestBlocks : Chain → List Block
 honestBlocks = L.filter ¿ isHonestBlock ¿¹
 
 _⊆ʰ_ : List Block → List Block → Type
-_⊆ʰ_ = _⊆_ on honestBlocks
+_⊆ʰ_ = _⊆ˢ_ on honestBlocks
 
 instance
   Default-T : Default T

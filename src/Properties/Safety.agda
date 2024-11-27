@@ -128,13 +128,188 @@ isForgingFree N = isForgingFreeD N × isForgingFreeB N
 
 -- Main lemma for proving the Common Prefix property
 
+-- TODO: Use Yves' RTC property in branch "proofs" in the Peras repo.
+
+open import Relation.Binary.Definitions using (Reflexive; RightTrans)
+open import Relation.Binary using (_⇒_; _⇔_)
+open Star
+
+T⇒Star[T] : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → T ⇒ Star T
+T⇒Star[T] = _◅ ε
+
+-- TODO: Perhaps move to stdlib.
+Star⇒≡⊎∃ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} {i k} → Star T i k → i ≡ k ⊎ (∃[ j ] Star T i j × T j k)
+Star⇒≡⊎∃ ε = inj₁ refl
+Star⇒≡⊎∃ {i = i} (iTj ◅ jT⋆k) with Star⇒≡⊎∃ jT⋆k
+... | inj₁ j≡k                 = inj₂ (i , ε , subst _ j≡k iTj)
+... | inj₂ (k′ , jT⋆k′ , k′Tk) = inj₂ (k′ , iTj ◅ jT⋆k′ , k′Tk)
+
+{-
+≡⊎∃⇒Star : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} {i k} → i ≡ k ⊎ (∃[ j ] Star T i j × T j k) → Star T i k
+≡⊎∃⇒Star (inj₁ i≡k) = subst _ i≡k ε
+≡⊎∃⇒Star (inj₂ (j , iT⋆j , jTk)) = {!!}
+-}
+
+data Starᵈ {ℓ ℓ′} {I : Set ℓ} (T : Rel I ℓ′) : Rel I (ℓ ⊔ₗ ℓ′) where
+  ⟨_⟩ᵈ : T ⇒ Starᵈ T
+  εᵈ   : Reflexive  (Starᵈ T)
+  _◅ᵈ_ : Transitive (Starᵈ T)
+
+Star⇒Starᵈ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Star T ⇒ Starᵈ T
+Star⇒Starᵈ ε            = εᵈ
+Star⇒Starᵈ (iTj ◅ jT⋆k) = ⟨ iTj ⟩ᵈ ◅ᵈ Star⇒Starᵈ jT⋆k
+
+Starᵈ⇒Star : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Starᵈ T ⇒ Star T
+Starᵈ⇒Star ⟨ iTj ⟩ᵈ       = iTj ◅ ε
+Starᵈ⇒Star εᵈ             = ε
+Starᵈ⇒Star (iT⋆j ◅ᵈ jT⋆k) = Starᵈ⇒Star iT⋆j ◅◅ Starᵈ⇒Star jT⋆k
+
+Starᵈ⇔Star : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Starᵈ T ⇔ Star T
+Starᵈ⇔Star = Starᵈ⇒Star , Star⇒Starᵈ
+
+data Starʳ {ℓ ℓ′} {I : Set ℓ} (T : Rel I ℓ′) : Rel I (ℓ ⊔ₗ ℓ′) where
+  εʳ   : Reflexive  (Starʳ T)
+  _◅ʳ_ : RightTrans (Starʳ T) T
+
+infixr 5 _◅◅ʳ_
+
+_◅◅ʳ_ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Transitive (Starʳ T)
+xs ◅◅ʳ εʳ        = xs
+xs ◅◅ʳ (ys ◅ʳ y) = (xs ◅◅ʳ ys) ◅ʳ y
+
+Starʳ⇒Starᵈ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Starʳ T ⇒ Starᵈ T
+Starʳ⇒Starᵈ εʳ            = εᵈ
+Starʳ⇒Starᵈ (iT⋆j ◅ʳ jTk) = Starʳ⇒Starᵈ iT⋆j ◅ᵈ ⟨ jTk ⟩ᵈ
+
+Starᵈ⇒Starʳ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Starᵈ T ⇒ Starʳ T
+Starᵈ⇒Starʳ ⟨ iTk ⟩ᵈ       = εʳ ◅ʳ iTk
+Starᵈ⇒Starʳ εᵈ             = εʳ
+Starᵈ⇒Starʳ (iT⋆j ◅ᵈ jT⋆k) = Starᵈ⇒Starʳ iT⋆j ◅◅ʳ Starᵈ⇒Starʳ jT⋆k
+
+Starᵈ⇔Starʳ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Starᵈ T ⇔ Starʳ T
+Starᵈ⇔Starʳ = Starᵈ⇒Starʳ , Starʳ⇒Starᵈ
+
+open import Function.Base using (λ-; _$-)
+
+{-
+--test2 : ∀ {a b} {A : Set a} {R : A → A → Set b} → ({x y : A} → R x y) → ((x y : A) → R x y)
+--test2 = λ- {!!}
+--test2 f = λ- (λ- f)
+
+test3 : ∀ {a b c} {A : Set a} {B : A → Set b} {C : {x : A} → B x → Set c} →
+      (f : ∀ {x} (y : B x) → C y) (g : (x : A) → B x) (x : A) → f (g x) ≡ (f ∘ g) x
+test3 f g x = refl
+
+test3' : ∀ {a b} {A : Set a} {R : A → A → Set b} → (f : {x y : A} → R x y) → λ- (λ- f) ≡ (λ- ∘ λ-) f
+test3' = {!!}
+
+--test3' : {!!}
+--test3' f = test3 λ- λ- f
+-}
+
+test1 : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → ∀ x y → Star T x y → Starᵈ T x y
+test1 = λ- (λ- (proj₂ Starᵈ⇔Star))
+
+test2 : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → ∀ x y → Starᵈ T x y → Starʳ T x y
+test2 = λ- (λ- (proj₁ Starᵈ⇔Starʳ))
+
+
+infixr 9 _∘⇒_
+--_∘⇒_ : ∀ {ℓ ℓ′} {A : Type ℓ′} {R S T : Rel A ℓ} → R ⇒ S → S ⇒ T → R ⇒ T
+--_∘⇒_ : ∀ {ℓ ℓ′ ℓ″ ℓ'''} {A : Type ℓ} {R : Rel A ℓ′} {S : Rel A ℓ″} {T : Rel A ℓ'''} → R ⇒ S → S ⇒ T → R ⇒ T
+--_∘⇒_ : ∀ {ℓ ℓ′} {A : Type ℓ} {R : Rel A ℓ′} {S : Rel A ℓ′} {T : Rel A ℓ′} → R ⇒ S → S ⇒ T → R ⇒ T
+_∘⇒_ : ∀ {ℓ ℓ′  ℓ″ ℓ‴} {A : Type ℓ} {R : Rel A ℓ′} {S : Rel A ℓ″} {T : Rel A ℓ‴} → R ⇒ S → S ⇒ T → R ⇒ T
+(p1 ∘⇒ p2) {x} {y} = p2 {x} {y} ∘ p1 {x} {y}
+
+Star⇒Starʳ : ∀ {ℓ ℓ′} {I : Type ℓ} {T : Rel I ℓ′} → Star T ⇒ Starʳ T
+Star⇒Starʳ {x = x} {y = y} = proj₁ Starᵈ⇔Starʳ {x} {y} ∘ proj₂ Starᵈ⇔Star {x} {y}
+
+Starʳ⇒Star : ∀ {ℓ ℓ′} {I : Type ℓ} {T : Rel I ℓ′} → Starʳ T ⇒ Star T
+Starʳ⇒Star {x = x} {y = y} = proj₁ Starᵈ⇔Star {x} {y} ∘ proj₂ Starᵈ⇔Starʳ {x} {y}
+--Starʳ⇒Star {x = x} {y = y} = (proj₂ Starᵈ⇔Starʳ {x} {y} ∘⇒ proj₁ Starᵈ⇔Star) {x} {y}
+
+Star⇔Starʳ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Star T ⇔ Starʳ T
+Star⇔Starʳ = Star⇒Starʳ , Starʳ⇒Star
+
+
+infix 2 _↝⋆ʳ_
+_↝⋆ʳ_ = Starʳ _↝_
+
+
+
 module LA = L.All
 
-superBlockPositions : ∀ {N : GlobalState} {sb b : Block} →
+blockHistoryPreservation : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → blockHistory N₁ ⊆ˢ blockHistory N₂
+blockHistoryPreservation = {!!}
+
+isCollisionFreePrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isCollisionFree N₂ → isCollisionFree N₁
+isCollisionFreePrev N₁↝⋆N₂ cfN₂ = L.All.anti-mono {!!} {!!}  -- {!blockHistoryPreservation N₁↝⋆N₂!} {!!}
+
+isForgingFreeDPrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isForgingFreeD N₂ → isForgingFreeD N₁
+isForgingFreeDPrev = {!!}
+
+isForgingFreeBPrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isForgingFreeB N₂ → isForgingFreeB N₁
+isForgingFreeBPrev = {!!}
+
+isForgingFreePrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isForgingFree N₂ → isForgingFree N₁
+isForgingFreePrev N₁↝⋆N₂ (ffDN₂ , ffBN₂) = isForgingFreeDPrev N₁↝⋆N₂ ffDN₂ , isForgingFreeBPrev N₁↝⋆N₂ ffBN₂
+
+historyMsgsDeliveryPreservation : ∀ {N p} → N .history ⊆ˢ executeMsgsDelivery p N .history
+historyMsgsDeliveryPreservation = {!!}
+
+historyMsgsDeliveryPreservation⋆ : ∀ {N ps} → N .history ⊆ˢ L.foldr executeMsgsDelivery N ps .history
+historyMsgsDeliveryPreservation⋆ {N} {[]}     = L.SubS.⊆-refl
+historyMsgsDeliveryPreservation⋆ {N} {p ∷ ps} = L.SubS.⊆-trans (historyMsgsDeliveryPreservation⋆ {N} {ps}) (historyMsgsDeliveryPreservation {L.foldr executeMsgsDelivery N ps} {p})
+
+honestBlockHistoryMsgsDeliveryPreservation : ∀ {N} →
+    N₀ ↝⋆ N
+  → isForgingFree (record (L.foldr executeMsgsDelivery N (N .execOrder)) { progress = msgsDelivered })
+  → N .progress ≡ ready
+  → honestBlockHistory N ≡ honestBlockHistory (L.foldr executeMsgsDelivery N (N .execOrder))
+honestBlockHistoryMsgsDeliveryPreservation = {!!}
+
+honestPosMsgsDeliveryPreservation : ∀ {N b} →
+    N₀ ↝⋆ N
+  → isForgingFree N
+  → isCollisionFree (L.foldr executeMsgsDelivery N (N .execOrder))
+  → b ∈ honestBlockHistory N
+  → N .progress ≡ ready
+  → blockPos b N ≡ blockPos b (L.foldr executeMsgsDelivery N (N .execOrder))
+honestPosMsgsDeliveryPreservation = {!!}
+
+superBlockPositions : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
   → isCollisionFree N
   → isForgingFree N
   → LA.All
       (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
       (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
-superBlockPositions = {!!}
+{-      
+superBlockPositions N₀↝⋆N cfp ffp with Star⇒≡⊎∃ N₀↝⋆N
+... | inj₁ N₀≡N rewrite sym N₀≡N = LA.All.[]
+... | inj₂ (N′ , N₀↝⋆N′ , N′↝N) with superBlockPositions N₀↝⋆N′ {!!} {!!}
+... |   x = {!!}
+{- with N′↝N
+... |   deliverMsgs progress≡ready = {!!}
+... |   makeBlock x = {!!}
+... |   advanceRound x = {!!}
+... |   permuteParties x = {!!}
+... |   permuteMsgs x = {!!}
+-}
+-}
+superBlockPositions = superBlockPositionsʳ ∘ Star⇒Starʳ
+  where
+    superBlockPositionsʳ : ∀ {N : GlobalState} →
+        N₀ ↝⋆ʳ N
+      → isCollisionFree N
+      → isForgingFree N
+      → LA.All
+          (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
+          (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
+    superBlockPositionsʳ εʳ cfp ffp = LA.All.[]
+    superBlockPositionsʳ (N₀↝⋆ʳN′ ◅ʳ N′↝N) cfp ffp with N′↝N | superBlockPositionsʳ N₀↝⋆ʳN′ (isCollisionFreePrev (N′↝N ◅ ε) cfp)  (isForgingFreePrev (N′↝N ◅ ε) ffp)
+    ... | deliverMsgs    N′Ready         | ih = {!!}
+    ... | makeBlock      N′MsgsDelivered | ih = {!!}
+    ... | advanceRound   _ | ih = ih
+    ... | permuteParties _ | ih = ih
+    ... | permuteMsgs    _ | ih = ih
