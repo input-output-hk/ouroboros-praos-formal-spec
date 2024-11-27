@@ -230,9 +230,9 @@ tick N =
 -- Reachability relation
 
 private variable
-  N : GlobalState
+  M N O : GlobalState
 
-data _↝_ : GlobalState → GlobalState → Type₁ where
+data _↝_ : GlobalState → GlobalState → Type where
 
   deliverMsgs :
     ∙ N .progress ≡ ready
@@ -261,5 +261,7 @@ data _↝_ : GlobalState → GlobalState → Type₁ where
 
 infix 2 _↝⋆_
 
-_↝⋆_ : GlobalState → GlobalState → Type₁
-_↝⋆_ = Star _↝_
+
+data _↝⋆_ : GlobalState → GlobalState → Type where
+  ∎ : M ↝⋆ M
+  _↣_ : M ↝⋆ N → N ↝ O → M ↝⋆ O
