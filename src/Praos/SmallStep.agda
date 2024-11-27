@@ -82,13 +82,19 @@ module _ ⦃ _ : Config ⦄
     -- Global state
 
     record State : Type where
-      constructor ⟦_,_,_,_,_⟧
+      constructor ⟦_,_,_,_,_,_⟧
       field
         clock : Slot
         blockTrees : AssocList PartyId T
         messages : List Envelope
         history : List Message
+        touched : AssocList PartyId Slot
         adversarialState : S
+
+    touch : PartyId → State → State
+    touch p s =
+      let open State s
+      in record s { touched = (p , clock) ∷ touched }
 
     -- Updating a local block-tree upon receiving a message
 
@@ -105,13 +111,9 @@ module _ ⦃ _ : Config ⦄
         open L.All using (All)
 
     Created : State → Type
-    Created = All ((_≢ 𝟘) ∘ delay) ∘ messages
-            -- FIXME: slot leader proofs globally available...?
-            -- filter (λ p → IsSlotLeader p clock π) (L.allFin numParties)
-            -- filter honest
-            -- check block creatorId
+    Created s = All (λ p → (p , clock) ∈ touched) (L.allFin numParties)
       where
-        open State
+        open State s
         open L.All using (All)
 
     tick : State → State
@@ -183,8 +185,15 @@ module _ ⦃ _ : Config ⦄
         ∙ blockTrees ⁉ p ≡ just t
           ──────────────────────────────
           Honest {p} ⊢
-            M ↷ delay ChainMsg vc by fᵈ
-                update M
+            M ↷ touch p (
+                  delay ChainMsg vc by fᵈ
+                  update M)
+
+      notSlotLeader : ∀ {p} {M} {π}
+        → let open State M in
+        ∙ ¬ IsSlotLeader p clock π
+          ──────────────────────────────
+          Honest {p} ⊢ M ↷ touch p M
 
     -- Small-step semantics
     -- The small-step semantics describe the evolution of the global state
