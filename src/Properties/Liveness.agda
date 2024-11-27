@@ -8,6 +8,7 @@ open import Protocol.Crypto using (Hashable)
 open import Protocol.Message
 open import Protocol.Network
 open import Protocol.TreeType
+
 open Params ⦃ ... ⦄
 open Honesty
 open Hashable ⦃ ... ⦄
@@ -42,6 +43,20 @@ module Properties.Liveness
 open import Protocol.Semantics {T} {AdversarialState} {honestyOf} {txSelection} {processMsgsᶜ} {makeBlockᶜ}
 open import Properties.Common {T} {AdversarialState} {honestyOf} {txSelection} {processMsgsᶜ} {makeBlockᶜ} {adversarialState₀} {parties₀}
 
+open import Data.List.Membership.DecPropositional {A = Block} _≟_ renaming (_∈_ to _∈ˢ_)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties
+
+
+lemma-permutation : ∀ {N : GlobalState} →
+  states (L.foldr executeMsgsDelivery N (N .execOrder)) ↭ N .states
+lemma-permutation = {!!}
+
+lemma2-permutation : ∀ {N : GlobalState} → clock
+      (L.foldr executeMsgsDelivery N
+       (N .execOrder))
+      ≡ N .clock
+lemma2-permutation = {!!}
+
 knowledgePropagation : ∀ {N₁ N₂ : GlobalState} {p₁ p₂ : Party} {t₁ t₂ : T} →
     honestyOf p₁ ≡ honest
   → honestyOf p₂ ≡ honest
@@ -54,7 +69,19 @@ knowledgePropagation : ∀ {N₁ N₂ : GlobalState} {p₁ p₂ : Party} {t₁ t
   → N₁ .progress ≡ ready
   → N₂ .progress ≡ msgsDelivered
   → N₁ .clock ≡ N₂ .clock
-  → allBlocks t₁ ⊆ allBlocks t₂
-knowledgePropagation = {!!}
-  
-  
+  → allBlocks t₁ ⊆ˢ allBlocks t₂
+knowledgePropagation h₁ h₂ p₁∈p p₂∈p N₀↝⋆N ∎ p₁∈N p₂∈N r d _ = {!!}
+  -- let x = trans (sym r) d in ⊥-elim (ready≢delivered x) -- contradiction ready and delivered
+knowledgePropagation h₁ h₂ p₁∈p p₂∈p N₀↝⋆N₁ (N₁↝⋆N ↣ permuteParties _) p₁∈N₁ p₂∈N₂ refl refl refl =
+  knowledgePropagation h₁ h₂ p₁∈p p₂∈p N₀↝⋆N₁ N₁↝⋆N p₁∈N₁ p₂∈N₂ refl refl refl
+knowledgePropagation h₁ h₂ p₁∈p p₂∈p N₀↝⋆N₁ (N₁↝⋆N ↣ permuteMsgs _) p₁∈N₁ p₂∈N₂ refl refl refl =
+  knowledgePropagation h₁ h₂ p₁∈p p₂∈p N₀↝⋆N₁ N₁↝⋆N p₁∈N₁ p₂∈N₂ refl refl refl
+knowledgePropagation {N₁} {N₂} {p₁} {p₂} {t₁} {t₂} h₁ h₂ p₁∈p p₂∈p N₀↝⋆N₁ (N₁↝⋆N ↣ deliverMsgs {N} refl) p₁∈N₁ p₂∈N₂ refl refl refl {x} b
+  with L.foldr executeMsgsDelivery N (N .execOrder) | executeMsgsDelivery p₂ N
+... | xx | yy = {!!}
+
+{-
+  with x ∈? allBlocks t₂
+... | yes p = p
+... | no ¬p = {!!}
+-}
