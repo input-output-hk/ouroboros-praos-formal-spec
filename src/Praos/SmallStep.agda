@@ -110,8 +110,8 @@ module _ ⦃ _ : Config ⦄
         open State
         open L.All using (All)
 
-    Created : State → Type
-    Created s = All (λ p → (p , clock) ∈ touched) (L.allFin numParties)
+    Touched : State → Type
+    Touched s = All (λ p → (p , clock) ∈ touched) (L.allFin numParties)
       where
         open State s
         open L.All using (All)
@@ -218,7 +218,7 @@ module _ ⦃ _ : Config ⦄
 
       NextSlot :
         ∙ Fetched M
-        ∙ Created M
+        ∙ Touched M
           ──────────
           M ↝ tick M
 
