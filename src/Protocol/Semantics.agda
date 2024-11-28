@@ -112,7 +112,7 @@ record GlobalState : Type where
     progress  : Progress
 
   blockHistory : List Block
-  blockHistory = map (λ where (newBlock b) → b) history
+  blockHistory = map projBlock history
 
 open GlobalState
 

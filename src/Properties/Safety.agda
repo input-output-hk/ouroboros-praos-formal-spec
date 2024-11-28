@@ -12,9 +12,10 @@ open Params ⦃ ... ⦄
 open Honesty
 open Hashable ⦃ ... ⦄
 open Envelope
+open import Relation.Binary.PropositionalEquality.Properties
 
 module Properties.Safety
-  ⦃ _ : Params ⦄
+  ⦃ ps : Params ⦄
   ⦃ _ : Block ⦄
   ⦃ _ : Hashable Block ⦄
   ⦃ _ : Default Block ⦄
@@ -239,8 +240,78 @@ _↝⋆ʳ_ = Starʳ _↝_
 
 module LA = L.All
 
-blockHistoryPreservation : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → blockHistory N₁ ⊆ˢ blockHistory N₂
-blockHistoryPreservation = {!!}
+-- the standard library version is strangely for f : A → A → A
+foldr-preservesʳ' : ∀{A B : Set}{P : B → Set} {f : A → B → B} →
+  (∀ x {y} → P y → P (f x y)) → ∀ {e} → P e → ∀ xs → P (L.foldr f e xs)
+foldr-preservesʳ' pres Pe []       = Pe
+foldr-preservesʳ' pres Pe (_ ∷ xs) = pres _ (foldr-preservesʳ' pres Pe xs)
+
+blockHistoryPreservation-broadcastMsgᶜ : (msg : Message)(ϕ : DelayMap)(N : GlobalState) →
+  blockHistory N ⊆ˢ blockHistory (broadcastMsgᶜ msg ϕ N)
+blockHistoryPreservation-broadcastMsgᶜ msg ϕ N p = there p
+
+blockHistoryPreservation-broadcastMsgsᶜ : (mϕs : List (Message × DelayMap))
+  (N : GlobalState) →
+  blockHistory N ⊆ˢ blockHistory (broadcastMsgsᶜ mϕs N)
+blockHistoryPreservation-broadcastMsgsᶜ mϕs N {x = x} p = foldr-preservesʳ'
+  {P = λ N → x ∈ blockHistory N}
+  (λ x {N} → blockHistoryPreservation-broadcastMsgᶜ (proj₁ x) (proj₂ x) N)
+  p
+  mϕs
+
+blockHistoryPreservation-executeMsgsDelivery : (p : Party)(N : GlobalState) →
+  blockHistory N ⊆ˢ blockHistory (executeMsgsDelivery p N)
+blockHistoryPreservation-executeMsgsDelivery p N q with states N ⁉ p
+... | nothing = q
+... | just l with honestyOf p
+... | honest  = q
+... | corrupt =  blockHistoryPreservation-broadcastMsgsᶜ
+  (proj₁ (processMsgsᶜ _ _ _ _ _))
+  _
+  q 
+
+blockHistoryPreservation-deliverMsgs : (N : GlobalState) →
+  blockHistory N ⊆ˢ blockHistory (L.foldr executeMsgsDelivery N (N .execOrder))
+blockHistoryPreservation-deliverMsgs N p = foldr-preservesʳ'
+  {P = λ N → _ ∈ blockHistory N}
+  (λ x {N} → blockHistoryPreservation-executeMsgsDelivery x N)
+  p
+  (N .execOrder)
+
+
+blockHistoryPreservation-executeBlockMaking : (p : Party)(N : GlobalState) →
+  blockHistory N ⊆ˢ blockHistory (executeBlockMaking p N)
+blockHistoryPreservation-executeBlockMaking p N q with states N ⁉ p
+... | nothing = q
+... | just l with honestyOf p
+... | corrupt = blockHistoryPreservation-broadcastMsgsᶜ
+  (proj₁ (makeBlockᶜ _ _ _ _))
+  _
+  q
+... | honest with Params.winnerᵈ ps {p} {N .clock}
+... | ⁇ (yes p) = there q
+... | ⁇ (no p) = q
+
+blockHistoryPreservation-makeBlock : (N : GlobalState) →
+  blockHistory N ⊆ˢ blockHistory (L.foldr executeBlockMaking N (N .execOrder))
+blockHistoryPreservation-makeBlock N p = foldr-preservesʳ'
+  {P = λ N → _ ∈ blockHistory N}
+  (λ x {N} → blockHistoryPreservation-executeBlockMaking x N)
+  p
+  (N .execOrder)
+
+blockHistoryPreservation : ∀ {N₁ N₂} → N₁ ↝ N₂ → blockHistory N₁ ⊆ˢ blockHistory N₂
+blockHistoryPreservation {N₁ = N} (deliverMsgs p) q =
+  blockHistoryPreservation-deliverMsgs N q
+blockHistoryPreservation {N₁ = N} (makeBlock p) q =
+  blockHistoryPreservation-makeBlock N q
+blockHistoryPreservation (advanceRound p)   q = q
+blockHistoryPreservation (permuteParties p) q = q
+blockHistoryPreservation (permuteMsgs p)    q = q
+
+blockHistoryPreservation⋆ : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → blockHistory N₁ ⊆ˢ blockHistory N₂
+blockHistoryPreservation⋆ ε q = q
+blockHistoryPreservation⋆ (p ◅ ps) q = blockHistoryPreservation⋆ ps (blockHistoryPreservation p q)
 
 isCollisionFreePrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isCollisionFree N₂ → isCollisionFree N₁
 isCollisionFreePrev N₁↝⋆N₂ cfN₂ = L.All.anti-mono {!!} {!!}  -- {!blockHistoryPreservation N₁↝⋆N₂!} {!!}
