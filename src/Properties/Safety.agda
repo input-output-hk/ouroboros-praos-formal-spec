@@ -321,7 +321,6 @@ cartesianProduct-⊆ˢ-Mono {xs = xs} {ys = ys} xs⊆ˢys {x₁ , x₂} [x₁,x�
     prf : x₁ ∈ ys × x₂ ∈ ys
     prf = let (x₁∈xs , x₂∈xs) = L.Mem.∈-cartesianProduct⁻ xs xs [x₁,x₂]∈xs×xs in xs⊆ˢys x₁∈xs , xs⊆ˢys x₂∈xs
 
-
 isCollisionFreePrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isCollisionFree N₂ → isCollisionFree N₁
 isCollisionFreePrev N₁↝⋆N₂ cfN₂ =  LA.anti-mono (cartesianProduct-⊆ˢ-Mono (L.SubS.∷⁺ʳ genesisBlock (blockHistoryPreservation⋆ N₁↝⋆N₂))) cfN₂ 
 
