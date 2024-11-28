@@ -4,6 +4,7 @@ open import Protocol.Prelude
 open import Protocol.BaseTypes using (Slot; slot₀; Honesty)
 open import Protocol.Params using (Params)
 open import Protocol.Block
+open import Protocol.Chain using (genesisBlock)
 open import Protocol.Crypto using (Hashable)
 open import Protocol.Message
 open import Protocol.Network
@@ -239,11 +240,18 @@ _↝⋆ʳ_ = Starʳ _↝_
 
 module LA = L.All
 
+-- TODO: Check if already in stdlib, otherwise maybe add.
+cartesianProduct-⊆ˢ-Mono : ∀ {A : Set} {xs ys : List A} → xs ⊆ˢ ys → L.cartesianProduct xs xs ⊆ˢ L.cartesianProduct ys ys
+cartesianProduct-⊆ˢ-Mono {xs = xs} {ys = ys} xs⊆ˢys {x₁ , x₂} [x₁,x₂]∈xs×xs = L.Mem.∈-cartesianProduct⁺ (proj₁ prf) (proj₂ prf)
+  where
+    prf : x₁ ∈ ys × x₂ ∈ ys
+    prf = let (x₁∈xs , x₂∈xs) = L.Mem.∈-cartesianProduct⁻ xs xs [x₁,x₂]∈xs×xs in xs⊆ˢys x₁∈xs , xs⊆ˢys x₂∈xs
+
 blockHistoryPreservation : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → blockHistory N₁ ⊆ˢ blockHistory N₂
 blockHistoryPreservation = {!!}
 
 isCollisionFreePrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isCollisionFree N₂ → isCollisionFree N₁
-isCollisionFreePrev N₁↝⋆N₂ cfN₂ = L.All.anti-mono {!!} {!!}  -- {!blockHistoryPreservation N₁↝⋆N₂!} {!!}
+isCollisionFreePrev N₁↝⋆N₂ cfN₂ = LA.anti-mono (cartesianProduct-⊆ˢ-Mono (L.SubS.∷⁺ʳ genesisBlock (blockHistoryPreservation N₁↝⋆N₂))) cfN₂
 
 isForgingFreeDPrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isForgingFreeD N₂ → isForgingFreeD N₁
 isForgingFreeDPrev = {!!}
