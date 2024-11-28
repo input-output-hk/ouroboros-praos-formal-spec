@@ -323,7 +323,7 @@ cartesianProduct-⊆ˢ-Mono {xs = xs} {ys = ys} xs⊆ˢys {x₁ , x₂} [x₁,x�
 
 
 isCollisionFreePrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isCollisionFree N₂ → isCollisionFree N₁
-isCollisionFreePrev N₁↝⋆N₂ cfN₂ = LA.anti-mono (cartesianProduct-⊆ˢ-Mono (L.SubS.∷⁺ʳ genesisBlock (blockHistoryPreservation N₁↝⋆N₂))) cfN₂
+isCollisionFreePrev N₁↝⋆N₂ cfN₂ =  LA.anti-mono (cartesianProduct-⊆ˢ-Mono (L.SubS.∷⁺ʳ genesisBlock (blockHistoryPreservation⋆ N₁↝⋆N₂))) cfN₂ 
 
 isForgingFreeDPrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isForgingFreeD N₂ → isForgingFreeD N₁
 isForgingFreeDPrev = {!!}
