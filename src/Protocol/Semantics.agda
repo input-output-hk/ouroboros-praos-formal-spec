@@ -261,4 +261,4 @@ data _↝_ : GlobalState → GlobalState → Type₁ where
 infix 2 _↝⋆_
 
 _↝⋆_ : GlobalState → GlobalState → Type₁
-_↝⋆_ = Star _↝_
+_↝⋆_ = RTC.Star _↝_

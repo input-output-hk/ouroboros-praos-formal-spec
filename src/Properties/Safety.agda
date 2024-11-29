@@ -65,6 +65,30 @@ isSuperBlock b = isHonest (b .pid) × isSuperSlot (b .slot)
 superBlocks : GlobalState → List Block
 superBlocks N = L.deduplicate _≟_ $ filter ¿ isSuperBlock ¿¹ (blockHistory N)
 
+-- TODO: Perhaps move to stdlib.
+filter-∘-comm : ∀ {A : Set} {P : Pred A ℓ} {Q : Pred A ℓ} (P? : Decidable¹ P) (Q? : Decidable¹ Q) → filter P? ∘ filter Q? ≗ filter Q? ∘ filter P?
+filter-∘-comm P? Q? [] = refl
+filter-∘-comm P? Q? (x ∷ xs) with ih ← filter-∘-comm P? Q? xs | does (P? x) in eqp | does (Q? x) in eqq
+... | true  | true  rewrite eqp | eqq | ih = refl
+... | true  | false rewrite eqp | eqq | ih = refl
+... | false | true  rewrite eqp | eqq | ih = refl
+... | false | false rewrite eqp | eqq | ih = refl
+
+-- TODO: Perhaps move to stdlib.
+filter-∘-× : ∀ {A : Set} {P : Pred A ℓ} {Q : Pred A ℓ} (P? : Decidable¹ P) (Q? : Decidable¹ Q) → filter (λ x → P? x ×-dec Q? x) ≗ filter P? ∘ filter Q?
+filter-∘-× P? Q? [] = refl
+filter-∘-× P? Q? (x ∷ xs) with ih ← filter-∘-× P? Q? xs | does (P? x) in eqp | does (Q? x) in eqq
+... | true  | true  rewrite eqp | eqq | ih = refl
+... | true  | false rewrite eqp | eqq | ih = refl
+... | false | true  rewrite eqp | eqq | ih = refl
+... | false | false rewrite eqp | eqq | ih = refl
+
+superBlocksAltDef : ∀ N → superBlocks N ≡ (L.deduplicate _≟_ $ filter ¿ isSuperSlot ∘ slot ¿¹ (honestBlockHistory N))
+superBlocksAltDef N
+  rewrite filter-∘-comm ¿ isSuperSlot ∘ slot ¿¹ ¿ isHonest ∘ pid ¿¹ (blockHistory N)
+        | sym $ filter-∘-× ¿ isHonest ∘ pid ¿¹ ¿ isSuperSlot ∘ slot ¿¹ (blockHistory N)
+        = refl
+
 private variable
   N₁ N₂ : GlobalState
 
@@ -233,26 +257,22 @@ Starʳ⇒Star {x = x} {y = y} = proj₁ Starᵈ⇔Star {x} {y} ∘ proj₂ Star�
 Star⇔Starʳ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Star T ⇔ Starʳ T
 Star⇔Starʳ = Star⇒Starʳ , Starʳ⇒Star
 
-
 infix 2 _↝⋆ʳ_
 _↝⋆ʳ_ = Starʳ _↝_
-
-
 
 module LA = L.All
 
 -- the standard library version is strangely for f : A → A → A
-foldr-preservesʳ' : ∀{A B : Set}{P : B → Set} {f : A → B → B} →
+foldr-preservesʳ' : ∀ {A B : Set} {P : B → Set} {f : A → B → B} →
   (∀ x {y} → P y → P (f x y)) → ∀ {e} → P e → ∀ xs → P (L.foldr f e xs)
 foldr-preservesʳ' pres Pe []       = Pe
 foldr-preservesʳ' pres Pe (_ ∷ xs) = pres _ (foldr-preservesʳ' pres Pe xs)
 
-blockHistoryPreservation-broadcastMsgᶜ : (msg : Message)(ϕ : DelayMap)(N : GlobalState) →
+blockHistoryPreservation-broadcastMsgᶜ : ∀ (msg : Message) (ϕ : DelayMap) (N : GlobalState) →
   blockHistory N ⊆ˢ blockHistory (broadcastMsgᶜ msg ϕ N)
 blockHistoryPreservation-broadcastMsgᶜ msg ϕ N p = there p
 
-blockHistoryPreservation-broadcastMsgsᶜ : (mϕs : List (Message × DelayMap))
-  (N : GlobalState) →
+blockHistoryPreservation-broadcastMsgsᶜ : ∀ (mϕs : List (Message × DelayMap)) (N : GlobalState) →
   blockHistory N ⊆ˢ blockHistory (broadcastMsgsᶜ mϕs N)
 blockHistoryPreservation-broadcastMsgsᶜ mϕs N {x = x} p = foldr-preservesʳ'
   {P = λ N → x ∈ blockHistory N}
@@ -260,18 +280,18 @@ blockHistoryPreservation-broadcastMsgsᶜ mϕs N {x = x} p = foldr-preservesʳ'
   p
   mϕs
 
-blockHistoryPreservation-executeMsgsDelivery : (p : Party)(N : GlobalState) →
+blockHistoryPreservation-executeMsgsDelivery : ∀ (p : Party) (N : GlobalState) →
   blockHistory N ⊆ˢ blockHistory (executeMsgsDelivery p N)
 blockHistoryPreservation-executeMsgsDelivery p N q with states N ⁉ p
 ... | nothing = q
 ... | just l with honestyOf p
-... | honest  = q
-... | corrupt =  blockHistoryPreservation-broadcastMsgsᶜ
+... |   honest  = q
+... |   corrupt = blockHistoryPreservation-broadcastMsgsᶜ
   (proj₁ (processMsgsᶜ _ _ _ _ _))
   _
   q 
 
-blockHistoryPreservation-deliverMsgs : (N : GlobalState) →
+blockHistoryPreservation-deliverMsgs : ∀ (N : GlobalState) →
   blockHistory N ⊆ˢ blockHistory (L.foldr executeMsgsDelivery N (N .execOrder))
 blockHistoryPreservation-deliverMsgs N p = foldr-preservesʳ'
   {P = λ N → _ ∈ blockHistory N}
@@ -279,21 +299,20 @@ blockHistoryPreservation-deliverMsgs N p = foldr-preservesʳ'
   p
   (N .execOrder)
 
-
 blockHistoryPreservation-executeBlockMaking : (p : Party)(N : GlobalState) →
   blockHistory N ⊆ˢ blockHistory (executeBlockMaking p N)
 blockHistoryPreservation-executeBlockMaking p N q with states N ⁉ p
 ... | nothing = q
 ... | just l with honestyOf p
-... | corrupt = blockHistoryPreservation-broadcastMsgsᶜ
+... |   corrupt = blockHistoryPreservation-broadcastMsgsᶜ
   (proj₁ (makeBlockᶜ _ _ _ _))
   _
   q
-... | honest with Params.winnerᵈ ps {p} {N .clock}
-... | ⁇ (yes p) = there q
-... | ⁇ (no p) = q
+... |   honest with Params.winnerᵈ ps {p} {N .clock}
+... |     ⁇ (yes p) = there q
+... |     ⁇ (no p) = q
 
-blockHistoryPreservation-makeBlock : (N : GlobalState) →
+blockHistoryPreservation-makeBlock : ∀ (N : GlobalState) →
   blockHistory N ⊆ˢ blockHistory (L.foldr executeBlockMaking N (N .execOrder))
 blockHistoryPreservation-makeBlock N p = foldr-preservesʳ'
   {P = λ N → _ ∈ blockHistory N}
@@ -355,6 +374,26 @@ honestPosMsgsDeliveryPreservation : ∀ {N b} →
   → N .progress ≡ ready
   → blockPos b N ≡ blockPos b (L.foldr executeMsgsDelivery N (N .execOrder))
 honestPosMsgsDeliveryPreservation = {!!}
+
+-- TODO: More involved than needed, simplify using superBlocksAltDef.
+superBlocksInHonestBlockHistory :  ∀ {N} → superBlocks N ⊆ˢ honestBlockHistory N
+superBlocksInHonestBlockHistory {N} {b} b∈sbsN =
+  let
+    (b∈hbh , bIsHonest , _) = L.Mem.∈-filter⁻ ¿ isSuperBlock ¿¹ {xs = blockHistory N} (L.Mem.∈-deduplicate⁻ _≟_ (filter ¿ isSuperBlock ¿¹ (blockHistory N)) b∈sbsN)
+  in
+    L.Mem.∈-filter⁺ ¿ isHonestBlock ¿¹ b∈hbh bIsHonest
+
+superBlocksMsgsDeliveryPreservation : ∀ {N} →
+    N₀ ↝⋆ N
+  → isForgingFree (record (L.foldr executeMsgsDelivery N (N .execOrder)) { progress = msgsDelivered })
+  → N .progress ≡ ready
+  → superBlocks N ≡ superBlocks (L.foldr executeMsgsDelivery N (N .execOrder))
+superBlocksMsgsDeliveryPreservation {N} N₀↝⋆N ffN′ NReady
+  rewrite
+    superBlocksAltDef N
+  | superBlocksAltDef (L.foldr executeMsgsDelivery N (N .execOrder))
+  | honestBlockHistoryMsgsDeliveryPreservation N₀↝⋆N ffN′ NReady
+    = refl
 
 superBlockPositions : ∀ {N : GlobalState} →
     N₀ ↝⋆ N

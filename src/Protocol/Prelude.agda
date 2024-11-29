@@ -2,7 +2,11 @@ module Protocol.Prelude where
 
 open import Data.List.Relation.Binary.Permutation.Propositional using (_↭_) public
 open import Relation.Binary.Construct.Composition using (_;_) public
-open import Relation.Binary.Construct.Closure.ReflexiveTransitive using (Star; _◅◅_) public
+module RTC where
+  open import Relation.Binary.Construct.Closure.ReflexiveTransitive public
+open RTC public using (Star; _◅◅_; foldl)
+open import Relation.Binary.PropositionalEquality using (_≗_) public
+open import Relation.Nullary.Decidable.Core using (does) public
 open import Data.Fin.Patterns using (0F; 1F; 2F) public
 open import Prelude.Init public
 open import Prelude.DecEq public
