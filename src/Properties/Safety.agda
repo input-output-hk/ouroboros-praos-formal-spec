@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- FIXME: Remove later
-
 open import Protocol.Prelude
 open import Protocol.BaseTypes using (Slot; slot₀; Honesty)
 open import Protocol.Params using (Params)
@@ -16,7 +14,7 @@ open Envelope
 open import Relation.Binary.PropositionalEquality.Properties
 
 module Properties.Safety
-  ⦃ ps : Params ⦄
+  ⦃ params : Params ⦄
   ⦃ _ : Block ⦄
   ⦃ _ : Hashable Block ⦄
   ⦃ _ : Default Block ⦄
@@ -41,7 +39,14 @@ module Properties.Safety
   {parties₀ : List Party}
   where
 
+open import Function.Bundles
+open import Data.List.Membership.Propositional.Properties.Ext using (x∈x∷xs)
+open import Data.List.Properties.Ext using (filter-∘-comm; filter-∘-×)
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
+open import Prelude.STS.Properties.Ext using (⊢—[]→∗⇒⊢—[]→∗ʳ)
+open import Protocol.BaseTypes using (slot₀)
 open import Protocol.Semantics {T} {AdversarialState} {honestyOf} {txSelection} {processMsgsᶜ} {makeBlockᶜ}
+
 open GlobalState
 
 N₀ : GlobalState
@@ -49,7 +54,7 @@ N₀ =
   record
     { clock     = slot₀
     ; messages  = []
-    ; states    = L.foldr (λ p states → set p (it .def) states) [] parties₀
+    ; states    = map (_, it .def) parties₀
     ; history   = []
     ; advState  = adversarialState₀
     ; execOrder = parties₀
@@ -65,69 +70,67 @@ isSuperBlock b = isHonest (b .pid) × isSuperSlot (b .slot)
 superBlocks : GlobalState → List Block
 superBlocks N = L.deduplicate _≟_ $ filter ¿ isSuperBlock ¿¹ (blockHistory N)
 
--- TODO: Perhaps move to stdlib.
-filter-∘-comm : ∀ {A : Set} {P : Pred A ℓ} {Q : Pred A ℓ} (P? : Decidable¹ P) (Q? : Decidable¹ Q) → filter P? ∘ filter Q? ≗ filter Q? ∘ filter P?
-filter-∘-comm P? Q? [] = refl
-filter-∘-comm P? Q? (x ∷ xs) with ih ← filter-∘-comm P? Q? xs | does (P? x) in eqp | does (Q? x) in eqq
-... | true  | true  rewrite eqp | eqq | ih = refl
-... | true  | false rewrite eqp | eqq | ih = refl
-... | false | true  rewrite eqp | eqq | ih = refl
-... | false | false rewrite eqp | eqq | ih = refl
-
--- TODO: Perhaps move to stdlib.
-filter-∘-× : ∀ {A : Set} {P : Pred A ℓ} {Q : Pred A ℓ} (P? : Decidable¹ P) (Q? : Decidable¹ Q) → filter (λ x → P? x ×-dec Q? x) ≗ filter P? ∘ filter Q?
-filter-∘-× P? Q? [] = refl
-filter-∘-× P? Q? (x ∷ xs) with ih ← filter-∘-× P? Q? xs | does (P? x) in eqp | does (Q? x) in eqq
-... | true  | true  rewrite eqp | eqq | ih = refl
-... | true  | false rewrite eqp | eqq | ih = refl
-... | false | true  rewrite eqp | eqq | ih = refl
-... | false | false rewrite eqp | eqq | ih = refl
-
 superBlocksAltDef : ∀ N → superBlocks N ≡ (L.deduplicate _≟_ $ filter ¿ isSuperSlot ∘ slot ¿¹ (honestBlockHistory N))
 superBlocksAltDef N
   rewrite filter-∘-comm ¿ isSuperSlot ∘ slot ¿¹ ¿ isHonest ∘ pid ¿¹ (blockHistory N)
-        | sym $ filter-∘-× ¿ isHonest ∘ pid ¿¹ ¿ isSuperSlot ∘ slot ¿¹ (blockHistory N)
-        = refl
+    | sym $ filter-∘-× ¿ isHonest ∘ pid ¿¹ ¿ isSuperSlot ∘ slot ¿¹ (blockHistory N)
+    = refl
 
-private variable
-  N₁ N₂ : GlobalState
+module _ where
 
-data MsgsDeliverySteps : GlobalState → GlobalState → Type₁ where
+  private variable
+    N₁ N₂ : GlobalState
 
-  refineStepR :
-    ∙ N₁ ↝⋆ N₂
-    ────────────────────────────────────
-    MsgsDeliverySteps N₁ N₂
+  -- The messages delivery phase sub-step relation.
+  data _↷↓_ : GlobalState → GlobalState → Type where
 
-  progressR :
-    ∙ MsgsDeliverySteps (record N₁ { progress = msgsDelivered }) N₂
-    ────────────────────────────────────
-    MsgsDeliverySteps N₁ N₂
+    refine↓ :
+      ∙ N₁ ↝⋆ N₂
+      ────────────────────────────────────
+      N₁ ↷↓ N₂
 
-  deliveryStep : ∀ {p} →
-    ∙ MsgsDeliverySteps (executeMsgsDelivery p N₁) N₂
-    ────────────────────────────────────
-    MsgsDeliverySteps N₁ N₂
+    progress↓ :
+      ∙ record N₁ { progress = msgsDelivered } ↷↓ N₂
+      ────────────────────────────────────
+      N₁ ↷↓ N₂
 
-data BlockMakingSteps : GlobalState → GlobalState → Type₁ where
+    delivery↓ : ∀ {N′ : GlobalState} {p : Party} →
+      ∙ _ ⊢ N₁ —[ p ]↓→ N′
+      ∙ N′ ↷↓ N₂
+      ────────────────────────────────────
+      N₁ ↷↓ N₂
 
-  refineStepB :
-    ∙ N₁ ↝⋆ N₂
-    ────────────────────────────────────
-    BlockMakingSteps N₁ N₂
+  ↷↓-refl : ∀ {N} → N ↷↓ N
+  ↷↓-refl = refine↓ ε
+    where open Star
 
-  progressB :
-    ∙ BlockMakingSteps (record N₁ { progress = blockMade }) N₂
-    ────────────────────────────────────
-    BlockMakingSteps N₁ N₂
+  -- The block making phase sub-step relation.
+  data _↷↑_ : GlobalState → GlobalState → Type where
 
-  blockMakingStep : ∀ {p} →
-    ∙ BlockMakingSteps (executeBlockMaking p N₁) N₂
-    ────────────────────────────────────
-    BlockMakingSteps N₁ N₂
+    refine↑ :
+      ∙ N₁ ↝⋆ N₂
+      ────────────────────────────────────
+      N₁ ↷↑ N₂
 
-isForgingFreeD : GlobalState → Type₁
-isForgingFreeD N₂ = ∀ {N₁} → MsgsDeliverySteps N₁ N₂ → ∀ {p} →
+    progress↑ :
+      ∙ record N₁ { progress = blockMade } ↷↑ N₂
+      ────────────────────────────────────
+      N₁ ↷↑ N₂
+
+    blockMaking↑ : ∀ {N′ : GlobalState} {p : Party} →
+      ∙ _ ⊢ N₁ —[ p ]↑→ N′
+      ∙ N′ ↷↑ N₂
+      ────────────────────────────────────
+      N₁ ↷↑ N₂
+
+-- The condition `∀ {N₁} → N₁ ↷↓ N₂ → ∀ {p} → ...` forces the forging-free property
+-- to hold at each previous "sub-step" within the delivery phase. A sub-step is either changing the
+-- progress to `msgsDelivered` or execute the messages delivery for a party `p`.
+-- Thus, an honest block can be broadcast by a corrupt party _only_ if such block was already in the
+-- history at the beginning of the delivery phase. This is crucial for the proof of the lemma
+-- `honestBlockHistoryMsgsDeliveryPreservation`.
+isForgingFree↓ : GlobalState → Type
+isForgingFree↓ N₂ = ∀ {N₁ : GlobalState} → N₁ ↷↓ N₂ → ∀ {p : Party} →
   let
     (msgs , N₁′) = fetchNewMsgs p N₁
     mds = processMsgsᶜ
@@ -137,130 +140,28 @@ isForgingFreeD N₂ = ∀ {N₁} → MsgsDeliverySteps N₁ N₂ → ∀ {p} →
       (N₁′ .messages)
       (N₁′ .advState)
       .proj₁
-    nbs = map (λ where (newBlock b , _) → b) mds
+    nbs = map (projBlock ∘ proj₁) mds
   in
     nbs ⊆ʰ blockHistory N₁′
 
-isForgingFreeB : GlobalState → Type₁
-isForgingFreeB N₂ = ∀ {N₁} → BlockMakingSteps N₁ N₂ →
+isForgingFree↓Prev : ∀ {N₁ N₂ : GlobalState} → isForgingFree↓ N₂ → N₁ ↝⋆ N₂ → isForgingFree↓ N₁
+isForgingFree↓Prev ffD prf H = ffD (isForgingFree↓Prev′ H prf)
+  where
+    isForgingFree↓Prev′ : ∀ {N₁ N₂ N′ : GlobalState} → N₁ ↷↓ N′ → N′ ↝⋆ N₂ → N₁ ↷↓ N₂
+    isForgingFree↓Prev′ (refine↓ x)     prf = refine↓ (x ◅◅ prf)
+    isForgingFree↓Prev′ (progress↓ x)   prf = progress↓ (isForgingFree↓Prev′ x prf)
+    isForgingFree↓Prev′ (delivery↓ x y) prf = delivery↓ x (isForgingFree↓Prev′ y prf)
+
+isForgingFree↑ : GlobalState → Type
+isForgingFree↑ N₂ = ∀ {N₁ : GlobalState} → N₁ ↷↑ N₂ →
   let
     mds = makeBlockᶜ (N₁ .clock) (N₁ .history) (N₁ .messages) (N₁ .advState) .proj₁
-    nbs = map (λ where (newBlock b , _) → b) mds
+    nbs = map (projBlock ∘ proj₁) mds
   in
     nbs ⊆ʰ blockHistory N₁
 
-isForgingFree : GlobalState → Type₁
-isForgingFree N = isForgingFreeD N × isForgingFreeB N
-
--- Main lemma for proving the Common Prefix property
-
--- TODO: Use Yves' RTC property in branch "proofs" in the Peras repo.
-
-open import Relation.Binary.Definitions using (Reflexive; RightTrans)
-open import Relation.Binary using (_⇒_; _⇔_)
-open Star
-
-T⇒Star[T] : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → T ⇒ Star T
-T⇒Star[T] = _◅ ε
-
--- TODO: Perhaps move to stdlib.
-Star⇒≡⊎∃ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} {i k} → Star T i k → i ≡ k ⊎ (∃[ j ] Star T i j × T j k)
-Star⇒≡⊎∃ ε = inj₁ refl
-Star⇒≡⊎∃ {i = i} (iTj ◅ jT⋆k) with Star⇒≡⊎∃ jT⋆k
-... | inj₁ j≡k                 = inj₂ (i , ε , subst _ j≡k iTj)
-... | inj₂ (k′ , jT⋆k′ , k′Tk) = inj₂ (k′ , iTj ◅ jT⋆k′ , k′Tk)
-
-{-
-≡⊎∃⇒Star : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} {i k} → i ≡ k ⊎ (∃[ j ] Star T i j × T j k) → Star T i k
-≡⊎∃⇒Star (inj₁ i≡k) = subst _ i≡k ε
-≡⊎∃⇒Star (inj₂ (j , iT⋆j , jTk)) = {!!}
--}
-
-data Starᵈ {ℓ ℓ′} {I : Set ℓ} (T : Rel I ℓ′) : Rel I (ℓ ⊔ₗ ℓ′) where
-  ⟨_⟩ᵈ : T ⇒ Starᵈ T
-  εᵈ   : Reflexive  (Starᵈ T)
-  _◅ᵈ_ : Transitive (Starᵈ T)
-
-Star⇒Starᵈ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Star T ⇒ Starᵈ T
-Star⇒Starᵈ ε            = εᵈ
-Star⇒Starᵈ (iTj ◅ jT⋆k) = ⟨ iTj ⟩ᵈ ◅ᵈ Star⇒Starᵈ jT⋆k
-
-Starᵈ⇒Star : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Starᵈ T ⇒ Star T
-Starᵈ⇒Star ⟨ iTj ⟩ᵈ       = iTj ◅ ε
-Starᵈ⇒Star εᵈ             = ε
-Starᵈ⇒Star (iT⋆j ◅ᵈ jT⋆k) = Starᵈ⇒Star iT⋆j ◅◅ Starᵈ⇒Star jT⋆k
-
-Starᵈ⇔Star : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Starᵈ T ⇔ Star T
-Starᵈ⇔Star = Starᵈ⇒Star , Star⇒Starᵈ
-
-data Starʳ {ℓ ℓ′} {I : Set ℓ} (T : Rel I ℓ′) : Rel I (ℓ ⊔ₗ ℓ′) where
-  εʳ   : Reflexive  (Starʳ T)
-  _◅ʳ_ : RightTrans (Starʳ T) T
-
-infixr 5 _◅◅ʳ_
-
-_◅◅ʳ_ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Transitive (Starʳ T)
-xs ◅◅ʳ εʳ        = xs
-xs ◅◅ʳ (ys ◅ʳ y) = (xs ◅◅ʳ ys) ◅ʳ y
-
-Starʳ⇒Starᵈ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Starʳ T ⇒ Starᵈ T
-Starʳ⇒Starᵈ εʳ            = εᵈ
-Starʳ⇒Starᵈ (iT⋆j ◅ʳ jTk) = Starʳ⇒Starᵈ iT⋆j ◅ᵈ ⟨ jTk ⟩ᵈ
-
-Starᵈ⇒Starʳ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Starᵈ T ⇒ Starʳ T
-Starᵈ⇒Starʳ ⟨ iTk ⟩ᵈ       = εʳ ◅ʳ iTk
-Starᵈ⇒Starʳ εᵈ             = εʳ
-Starᵈ⇒Starʳ (iT⋆j ◅ᵈ jT⋆k) = Starᵈ⇒Starʳ iT⋆j ◅◅ʳ Starᵈ⇒Starʳ jT⋆k
-
-Starᵈ⇔Starʳ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Starᵈ T ⇔ Starʳ T
-Starᵈ⇔Starʳ = Starᵈ⇒Starʳ , Starʳ⇒Starᵈ
-
-open import Function.Base using (λ-; _$-)
-
-{-
---test2 : ∀ {a b} {A : Set a} {R : A → A → Set b} → ({x y : A} → R x y) → ((x y : A) → R x y)
---test2 = λ- {!!}
---test2 f = λ- (λ- f)
-
-test3 : ∀ {a b c} {A : Set a} {B : A → Set b} {C : {x : A} → B x → Set c} →
-      (f : ∀ {x} (y : B x) → C y) (g : (x : A) → B x) (x : A) → f (g x) ≡ (f ∘ g) x
-test3 f g x = refl
-
-test3' : ∀ {a b} {A : Set a} {R : A → A → Set b} → (f : {x y : A} → R x y) → λ- (λ- f) ≡ (λ- ∘ λ-) f
-test3' = {!!}
-
---test3' : {!!}
---test3' f = test3 λ- λ- f
--}
-
-test1 : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → ∀ x y → Star T x y → Starᵈ T x y
-test1 = λ- (λ- (proj₂ Starᵈ⇔Star))
-
-test2 : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → ∀ x y → Starᵈ T x y → Starʳ T x y
-test2 = λ- (λ- (proj₁ Starᵈ⇔Starʳ))
-
-
-infixr 9 _∘⇒_
---_∘⇒_ : ∀ {ℓ ℓ′} {A : Type ℓ′} {R S T : Rel A ℓ} → R ⇒ S → S ⇒ T → R ⇒ T
---_∘⇒_ : ∀ {ℓ ℓ′ ℓ″ ℓ'''} {A : Type ℓ} {R : Rel A ℓ′} {S : Rel A ℓ″} {T : Rel A ℓ'''} → R ⇒ S → S ⇒ T → R ⇒ T
---_∘⇒_ : ∀ {ℓ ℓ′} {A : Type ℓ} {R : Rel A ℓ′} {S : Rel A ℓ′} {T : Rel A ℓ′} → R ⇒ S → S ⇒ T → R ⇒ T
-_∘⇒_ : ∀ {ℓ ℓ′  ℓ″ ℓ‴} {A : Type ℓ} {R : Rel A ℓ′} {S : Rel A ℓ″} {T : Rel A ℓ‴} → R ⇒ S → S ⇒ T → R ⇒ T
-(p1 ∘⇒ p2) {x} {y} = p2 {x} {y} ∘ p1 {x} {y}
-
-Star⇒Starʳ : ∀ {ℓ ℓ′} {I : Type ℓ} {T : Rel I ℓ′} → Star T ⇒ Starʳ T
-Star⇒Starʳ {x = x} {y = y} = proj₁ Starᵈ⇔Starʳ {x} {y} ∘ proj₂ Starᵈ⇔Star {x} {y}
-
-Starʳ⇒Star : ∀ {ℓ ℓ′} {I : Type ℓ} {T : Rel I ℓ′} → Starʳ T ⇒ Star T
-Starʳ⇒Star {x = x} {y = y} = proj₁ Starᵈ⇔Star {x} {y} ∘ proj₂ Starᵈ⇔Starʳ {x} {y}
---Starʳ⇒Star {x = x} {y = y} = (proj₂ Starᵈ⇔Starʳ {x} {y} ∘⇒ proj₁ Starᵈ⇔Star) {x} {y}
-
-Star⇔Starʳ : ∀ {ℓ ℓ′} {I : Set ℓ} {T : Rel I ℓ′} → Star T ⇔ Starʳ T
-Star⇔Starʳ = Star⇒Starʳ , Starʳ⇒Star
-
-infix 2 _↝⋆ʳ_
-_↝⋆ʳ_ = Starʳ _↝_
-
-module LA = L.All
+isForgingFree : GlobalState → Type
+isForgingFree N = isForgingFree↓ N × isForgingFree↑ N
 
 -- the standard library version is strangely for f : A → A → A
 foldr-preservesʳ' : ∀ {A B : Set} {P : B → Set} {f : A → B → B} →
@@ -268,166 +169,134 @@ foldr-preservesʳ' : ∀ {A B : Set} {P : B → Set} {f : A → B → B} →
 foldr-preservesʳ' pres Pe []       = Pe
 foldr-preservesʳ' pres Pe (_ ∷ xs) = pres _ (foldr-preservesʳ' pres Pe xs)
 
-blockHistoryPreservation-broadcastMsgᶜ : ∀ (msg : Message) (ϕ : DelayMap) (N : GlobalState) →
-  blockHistory N ⊆ˢ blockHistory (broadcastMsgᶜ msg ϕ N)
-blockHistoryPreservation-broadcastMsgᶜ msg ϕ N p = there p
+historyPreservation-broadcastMsgᶜ : ∀ (msg : Message) (ϕ : DelayMap) (N : GlobalState) →
+  N .history ⊆ˢ broadcastMsgᶜ msg ϕ N .history
+historyPreservation-broadcastMsgᶜ msg ϕ N p = there p
 
-blockHistoryPreservation-broadcastMsgsᶜ : ∀ (mϕs : List (Message × DelayMap)) (N : GlobalState) →
-  blockHistory N ⊆ˢ blockHistory (broadcastMsgsᶜ mϕs N)
-blockHistoryPreservation-broadcastMsgsᶜ mϕs N {x = x} p = foldr-preservesʳ'
-  {P = λ N → x ∈ blockHistory N}
-  (λ x {N} → blockHistoryPreservation-broadcastMsgᶜ (proj₁ x) (proj₂ x) N)
+historyPreservation-broadcastMsgsᶜ : ∀ (mϕs : List (Message × DelayMap)) (N : GlobalState) →
+  N .history ⊆ˢ broadcastMsgsᶜ mϕs N .history
+historyPreservation-broadcastMsgsᶜ mϕs N {x = x} p = foldr-preservesʳ'
+  {P = λ N → x ∈ N .history}
+  (λ x {N} → historyPreservation-broadcastMsgᶜ (proj₁ x) (proj₂ x) N)
   p
   mϕs
 
-blockHistoryPreservation-executeMsgsDelivery : ∀ (p : Party) (N : GlobalState) →
-  blockHistory N ⊆ˢ blockHistory (executeMsgsDelivery p N)
-blockHistoryPreservation-executeMsgsDelivery p N q with states N ⁉ p
-... | nothing = q
-... | just l with honestyOf p
-... |   honest  = q
-... |   corrupt = blockHistoryPreservation-broadcastMsgsᶜ
-  (proj₁ (processMsgsᶜ _ _ _ _ _))
-  _
-  q 
+private opaque
 
-blockHistoryPreservation-deliverMsgs : ∀ (N : GlobalState) →
-  blockHistory N ⊆ˢ blockHistory (L.foldr executeMsgsDelivery N (N .execOrder))
-blockHistoryPreservation-deliverMsgs N p = foldr-preservesʳ'
-  {P = λ N → _ ∈ blockHistory N}
-  (λ x {N} → blockHistoryPreservation-executeMsgsDelivery x N)
-  p
-  (N .execOrder)
+  unfolding honestMsgsDelivery honestBlockMaking
 
-blockHistoryPreservation-executeBlockMaking : (p : Party)(N : GlobalState) →
-  blockHistory N ⊆ˢ blockHistory (executeBlockMaking p N)
-blockHistoryPreservation-executeBlockMaking p N q with states N ⁉ p
-... | nothing = q
-... | just l with honestyOf p
-... |   corrupt = blockHistoryPreservation-broadcastMsgsᶜ
-  (proj₁ (makeBlockᶜ _ _ _ _))
-  _
-  q
-... |   honest with Params.winnerᵈ ps {p} {N .clock}
-... |     ⁇ (yes p) = there q
-... |     ⁇ (no p) = q
+  historyPreservation-↓ : ∀ {p : Party} {N₁ N₂ : GlobalState} →
+    _ ⊢ N₁ —[ p ]↓→ N₂ → N₁ .history ⊆ˢ N₂ .history
+  historyPreservation-↓ (unknownParty↓ _)   = id
+  historyPreservation-↓ (honestParty↓ _ _)  = id
+  historyPreservation-↓ (corruptParty↓ _ _) = historyPreservation-broadcastMsgsᶜ (proj₁ (processMsgsᶜ _ _ _ _ _)) _
 
-blockHistoryPreservation-makeBlock : ∀ (N : GlobalState) →
-  blockHistory N ⊆ˢ blockHistory (L.foldr executeBlockMaking N (N .execOrder))
-blockHistoryPreservation-makeBlock N p = foldr-preservesʳ'
-  {P = λ N → _ ∈ blockHistory N}
-  (λ x {N} → blockHistoryPreservation-executeBlockMaking x N)
-  p
-  (N .execOrder)
+  historyPreservation-↓∗ : ∀ {N₁ N₂ : GlobalState} {ps : List Party} →
+    _ ⊢ N₁ —[ ps ]↓→∗ N₂ → N₁ .history ⊆ˢ N₂ .history
+  historyPreservation-↓∗ [] = L.SubS.⊆-refl
+  historyPreservation-↓∗ (pπ ∷ psπ) = L.SubS.⊆-trans (historyPreservation-↓ pπ) (historyPreservation-↓∗ psπ)
 
-blockHistoryPreservation : ∀ {N₁ N₂} → N₁ ↝ N₂ → blockHistory N₁ ⊆ˢ blockHistory N₂
-blockHistoryPreservation {N₁ = N} (deliverMsgs p) q =
-  blockHistoryPreservation-deliverMsgs N q
-blockHistoryPreservation {N₁ = N} (makeBlock p) q =
-  blockHistoryPreservation-makeBlock N q
-blockHistoryPreservation (advanceRound p)   q = q
-blockHistoryPreservation (permuteParties p) q = q
-blockHistoryPreservation (permuteMsgs p)    q = q
+  historyPreservation-↑ : ∀ {p : Party} {N₁ N₂ : GlobalState} →
+    _ ⊢ N₁ —[ p ]↑→ N₂ → N₁ .history ⊆ˢ N₂ .history
+  historyPreservation-↑ (unknownParty↑ _) = id
+  historyPreservation-↑ {p} {N₁} (honestParty↑ _ _) prf
+    with Params.winnerᵈ params {p} {N₁ .clock}
+  ... | ⁇ (yes _) = there prf
+  ... | ⁇ (no _)  = prf
+  historyPreservation-↑ (corruptParty↑ _ _) prf = historyPreservation-broadcastMsgsᶜ (proj₁ (makeBlockᶜ _ _ _ _)) _ prf
 
-blockHistoryPreservation⋆ : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → blockHistory N₁ ⊆ˢ blockHistory N₂
-blockHistoryPreservation⋆ ε q = q
-blockHistoryPreservation⋆ (p ◅ ps) q = blockHistoryPreservation⋆ ps (blockHistoryPreservation p q)
+  historyPreservation-↑∗ : ∀ {N₁ N₂ : GlobalState} {ps : List Party} →
+    _ ⊢ N₁ —[ ps ]↑→∗ N₂ → N₁ .history ⊆ˢ N₂ .history
+  historyPreservation-↑∗ [] = L.SubS.⊆-refl
+  historyPreservation-↑∗ (pπ ∷ psπ) = L.SubS.⊆-trans (historyPreservation-↑ pπ) (historyPreservation-↑∗ psπ)
 
--- TODO: Check if already in stdlib, otherwise maybe add.
-cartesianProduct-⊆ˢ-Mono : ∀ {A : Set} {xs ys : List A} → xs ⊆ˢ ys → L.cartesianProduct xs xs ⊆ˢ L.cartesianProduct ys ys
-cartesianProduct-⊆ˢ-Mono {xs = xs} {ys = ys} xs⊆ˢys {x₁ , x₂} [x₁,x₂]∈xs×xs = L.Mem.∈-cartesianProduct⁺ (proj₁ prf) (proj₂ prf)
-  where
-    prf : x₁ ∈ ys × x₂ ∈ ys
-    prf = let (x₁∈xs , x₂∈xs) = L.Mem.∈-cartesianProduct⁻ xs xs [x₁,x₂]∈xs×xs in xs⊆ˢys x₁∈xs , xs⊆ˢys x₂∈xs
+  historyPreservation-↝ : ∀ {N₁ N₂ : GlobalState} → N₁ ↝ N₂ → N₁ .history ⊆ˢ N₂ .history
+  historyPreservation-↝ (deliverMsgs _ p)  = historyPreservation-↓∗ p
+  historyPreservation-↝ (makeBlock _ p)    = historyPreservation-↑∗ p
+  historyPreservation-↝ (advanceRound _)   = id
+  historyPreservation-↝ (permuteParties _) = id
+  historyPreservation-↝ (permuteMsgs _)    = id
 
-isCollisionFreePrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isCollisionFree N₂ → isCollisionFree N₁
-isCollisionFreePrev N₁↝⋆N₂ cfN₂ =  LA.anti-mono (cartesianProduct-⊆ˢ-Mono (L.SubS.∷⁺ʳ genesisBlock (blockHistoryPreservation⋆ N₁↝⋆N₂))) cfN₂ 
+  historyPreservation-↝⋆ : ∀ {N₁ N₂ : GlobalState} → N₁ ↝⋆ N₂ → N₁ .history ⊆ˢ N₂ .history
+  historyPreservation-↝⋆ RTC.ε        = L.SubS.⊆-refl
+  historyPreservation-↝⋆ (π RTC.◅ π⋆) = L.SubS.⊆-trans (historyPreservation-↝ π) (historyPreservation-↝⋆ π⋆)
 
-isForgingFreeDPrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isForgingFreeD N₂ → isForgingFreeD N₁
-isForgingFreeDPrev = {!!}
+  blockHistoryPreservation-↝⋆ : ∀ {N₁ N₂ : GlobalState} → N₁ ↝⋆ N₂ → blockHistory N₁ ⊆ˢ blockHistory N₂
+  blockHistoryPreservation-↝⋆ = L.SubS.map⁺ _ ∘ historyPreservation-↝⋆
 
-isForgingFreeBPrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isForgingFreeB N₂ → isForgingFreeB N₁
-isForgingFreeBPrev = {!!}
+  honestBlockHistoryPreservation-↝⋆ : ∀ {N N′ : GlobalState} {ps : List Party} →
+      N₀ ↝⋆ N
+    → _ ⊢ N —[ ps ]↓→∗ N′
+    → isForgingFree (record N′ { progress = msgsDelivered })
+    → N .progress ≡ ready
+    → honestBlockHistory N ≡ˢ honestBlockHistory N′
+  honestBlockHistoryPreservation-↝⋆ {N} {N′} {ps} N₀↝⋆N N↝[ps]⋆N′ ff NReady = honestBlockHistoryPreservationʳ-↝⋆ {N} {N′} ps prfN₂ (⊢—[]→∗⇒⊢—[]→∗ʳ N↝[ps]⋆N′)
+    where
+      N₂ : GlobalState
+      N₂ = record N′ { progress = msgsDelivered }
 
-isForgingFreePrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isForgingFree N₂ → isForgingFree N₁
-isForgingFreePrev N₁↝⋆N₂ (ffDN₂ , ffBN₂) = isForgingFreeDPrev N₁↝⋆N₂ ffDN₂ , isForgingFreeBPrev N₁↝⋆N₂ ffBN₂
+      prfN₂ : N′ ↷↓ N₂
+      prfN₂ = progress↓ (↷↓-refl {N₂})
 
-historyMsgsDeliveryPreservation : ∀ {N p} → N .history ⊆ˢ executeMsgsDelivery p N .history
-historyMsgsDeliveryPreservation = {!!}
+      honestBlockHistoryPreservationʳ-↝⋆ : ∀ {N N′ : GlobalState} (ps : List Party) →
+          N′ ↷↓ N₂
+        → _ ⊢ N —[ ps ]↓→∗ʳ N′
+        → honestBlockHistory N ≡ˢ honestBlockHistory N′
+      honestBlockHistoryPreservationʳ-↝⋆ {N} {.N} .[] prfN₂ [] = ≡ˢ-refl
+      honestBlockHistoryPreservationʳ-↝⋆ {N} {N′} _ prfN₂ (_∷ʳ_ {is = ps} {i = p} {s′ = N″} ts⋆ ts) = step ts
+        where
+          ih : honestBlockHistory N ≡ˢ honestBlockHistory N″
+          ih = honestBlockHistoryPreservationʳ-↝⋆ _ (delivery↓ ts prfN₂) ts⋆
 
-historyMsgsDeliveryPreservation⋆ : ∀ {N ps} → N .history ⊆ˢ L.foldr executeMsgsDelivery N ps .history
-historyMsgsDeliveryPreservation⋆ {N} {[]}     = L.SubS.⊆-refl
-historyMsgsDeliveryPreservation⋆ {N} {p ∷ ps} = L.SubS.⊆-trans (historyMsgsDeliveryPreservation⋆ {N} {ps}) (historyMsgsDeliveryPreservation {L.foldr executeMsgsDelivery N ps} {p})
+          step : _ ⊢ N″ —[ p ]↓→ N′ → honestBlockHistory N ≡ˢ honestBlockHistory N′
+          step (unknownParty↓ _) = ih
+          -- Honest parties do not broadcast any (in particular, honest) blocks in the delivery phase.
+          step (honestParty↓ _ _) = ih
+          -- Corrupt parties do not broadcast new _honest_ blocks in the delivery phase (by the forging-free property).
+          step (corruptParty↓ _ _) = ≡ˢ-trans ih (honestBlockHistoryPreservationᶜ {mds} sub)
+            where
+              mds : List (Message × DelayMap)
+              mds =
+                processMsgsᶜ
+                  (map msg (immediateMsgs p N″))
+                  (N″ .clock)
+                  (N″ .history)
+                  (removeImmediateMsgs p N″ .messages)
+                  (N″ .advState)
+                  .proj₁
 
-honestBlockHistoryMsgsDeliveryPreservation : ∀ {N} →
-    N₀ ↝⋆ N
-  → isForgingFree (record (L.foldr executeMsgsDelivery N (N .execOrder)) { progress = msgsDelivered })
-  → N .progress ≡ ready
-  → honestBlockHistory N ≡ honestBlockHistory (L.foldr executeMsgsDelivery N (N .execOrder))
-honestBlockHistoryMsgsDeliveryPreservation = {!!}
+              sub : map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N″
+              sub = ff .proj₁ (delivery↓ ts prfN₂)
 
-honestPosMsgsDeliveryPreservation : ∀ {N b} →
-    N₀ ↝⋆ N
-  → isForgingFree N
-  → isCollisionFree (L.foldr executeMsgsDelivery N (N .execOrder))
-  → b ∈ honestBlockHistory N
-  → N .progress ≡ ready
-  → blockPos b N ≡ blockPos b (L.foldr executeMsgsDelivery N (N .execOrder))
-honestPosMsgsDeliveryPreservation = {!!}
+              honestBlockHistoryPreservationᶜ : ∀ {mds : List (Message × DelayMap)} →
+                  map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N″
+                → honestBlockHistory N″ ≡ˢ honestBlockHistory (broadcastMsgsᶜ mds (removeImmediateMsgs p N″))
+              honestBlockHistoryPreservationᶜ {[]} _ = ≡ˢ-refl
+              honestBlockHistoryPreservationᶜ {(newBlock b , _) ∷ mds} prf
+                with ih ← honestBlockHistoryPreservationᶜ {mds} | ¿ isHonestBlock b ¿
+              ... | no _   = ih prf
+              ... | yes bh = goal
+                where
+                  π₁ : honestBlocks (b ∷ map (projBlock ∘ proj₁) mds) ≡ b ∷ honestBlocks (map (projBlock ∘ proj₁) mds)
+                  π₁ rewrite bh = refl
 
--- TODO: More involved than needed, simplify using superBlocksAltDef.
-superBlocksInHonestBlockHistory :  ∀ {N} → superBlocks N ⊆ˢ honestBlockHistory N
-superBlocksInHonestBlockHistory {N} {b} b∈sbsN =
-  let
-    (b∈hbh , bIsHonest , _) = L.Mem.∈-filter⁻ ¿ isSuperBlock ¿¹ {xs = blockHistory N} (L.Mem.∈-deduplicate⁻ _≟_ (filter ¿ isSuperBlock ¿¹ (blockHistory N)) b∈sbsN)
-  in
-    L.Mem.∈-filter⁺ ¿ isHonestBlock ¿¹ b∈hbh bIsHonest
+                  π₂ : b ∷ map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N″
+                  π₂ = L.SubS.⊆-trans (L.SubS.⊆-reflexive π₁) prf
 
-superBlocksMsgsDeliveryPreservation : ∀ {N} →
-    N₀ ↝⋆ N
-  → isForgingFree (record (L.foldr executeMsgsDelivery N (N .execOrder)) { progress = msgsDelivered })
-  → N .progress ≡ ready
-  → superBlocks N ≡ superBlocks (L.foldr executeMsgsDelivery N (N .execOrder))
-superBlocksMsgsDeliveryPreservation {N} N₀↝⋆N ffN′ NReady
-  rewrite
-    superBlocksAltDef N
-  | superBlocksAltDef (L.foldr executeMsgsDelivery N (N .execOrder))
-  | honestBlockHistoryMsgsDeliveryPreservation N₀↝⋆N ffN′ NReady
-    = refl
+                  π₃ : map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N″
+                  π₃ = ∷-⊆ʰ {map (projBlock ∘ proj₁) mds} {blockHistory N″} {b} bh π₂
 
-superBlockPositions : ∀ {N : GlobalState} →
-    N₀ ↝⋆ N
-  → isCollisionFree N
-  → isForgingFree N
-  → LA.All
-      (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
-      (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
-{-      
-superBlockPositions N₀↝⋆N cfp ffp with Star⇒≡⊎∃ N₀↝⋆N
-... | inj₁ N₀≡N rewrite sym N₀≡N = LA.All.[]
-... | inj₂ (N′ , N₀↝⋆N′ , N′↝N) with superBlockPositions N₀↝⋆N′ {!!} {!!}
-... |   x = {!!}
-{- with N′↝N
-... |   deliverMsgs progress≡ready = {!!}
-... |   makeBlock x = {!!}
-... |   advanceRound x = {!!}
-... |   permuteParties x = {!!}
-... |   permuteMsgs x = {!!}
--}
--}
-superBlockPositions = superBlockPositionsʳ ∘ Star⇒Starʳ
-  where
-    superBlockPositionsʳ : ∀ {N : GlobalState} →
-        N₀ ↝⋆ʳ N
-      → isCollisionFree N
-      → isForgingFree N
-      → LA.All
-          (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
-          (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
-    superBlockPositionsʳ εʳ cfp ffp = LA.All.[]
-    superBlockPositionsʳ (N₀↝⋆ʳN′ ◅ʳ N′↝N) cfp ffp with N′↝N | superBlockPositionsʳ N₀↝⋆ʳN′ (isCollisionFreePrev (N′↝N ◅ ε) cfp)  (isForgingFreePrev (N′↝N ◅ ε) ffp)
-    ... | deliverMsgs    N′Ready         | ih = {!!}
-    ... | makeBlock      N′MsgsDelivered | ih = {!!}
-    ... | advanceRound   _ | ih = ih
-    ... | permuteParties _ | ih = ih
-    ... | permuteMsgs    _ | ih = ih
+                  π₄ : honestBlockHistory N″ ≡ˢ honestBlockHistory (broadcastMsgsᶜ mds (removeImmediateMsgs p N″))
+                  π₄ = ih π₃
+
+                  goal : honestBlockHistory N″ ≡ˢ b ∷ honestBlockHistory (broadcastMsgsᶜ mds (removeImmediateMsgs p N″))
+                  goal = ⊆ˢ×⊇ˢ⇒≡ˢ ⊆ˢπ ⊇ˢπ
+                    where
+                      ⊆ˢπ : honestBlockHistory N″ ⊆ˢ b ∷ honestBlockHistory (broadcastMsgsᶜ mds (removeImmediateMsgs p N″))
+                      ⊆ˢπ {b′} b′∈lhs with b ≟ b′
+                      ... | yes eq rewrite eq = x∈x∷xs _
+                      ... | no ¬eq = L.SubS.xs⊆x∷xs _ b (to π₄ b′∈lhs)
+                        where open Function.Bundles.Equivalence
+
+                      ⊇ˢπ : b ∷ honestBlockHistory (broadcastMsgsᶜ mds (removeImmediateMsgs p N″)) ⊆ˢ honestBlockHistory N″
+                      ⊇ˢπ = L.SubS.∈-∷⁺ʳ (prf {b} (x∈x∷xs _)) (≡ˢ⇒⊆ˢ×⊇ˢ π₄ .proj₂)
