@@ -40,3 +40,4 @@ ifᵈ_then_else_ : ∀ {X : Type ℓ} (P : Type ℓ′)
 ifᵈ P then t else f with ¿ P ¿
 ... | yes p = t {p}
 ... | no ¬p = f {¬p}
+

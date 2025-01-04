@@ -82,7 +82,7 @@ open import Function.Related.Propositional using (K-refl; SK-sym; K-trans; ≡�
 open import Function.Bundles using (mk⇔)
 
 infix 4 _≡ˢ_
-_≡ˢ_ : ∀ {a} {A : Set a} → List A → List A → Set _
+_≡ˢ_ : ∀ {A : Set} → List A → List A → Set
 _≡ˢ_ = _∼[ BS.set ]_
 
 ≡ˢ-refl = K-refl
@@ -91,18 +91,80 @@ _≡ˢ_ = _∼[ BS.set ]_
 
 ≡ˢ-trans = K-trans
 
-≡⇒≡ˢ : ∀ {a} {A : Set a} {xs ys : List A} → xs ≡ ys → xs ≡ˢ ys
+≡⇒≡ˢ : ∀ {A : Set} {xs ys : List A} → xs ≡ ys → xs ≡ˢ ys
 ≡⇒≡ˢ refl = ≡⇒ {k = BS.set} refl
 
-⊆ˢ×⊇ˢ⇒≡ˢ : ∀ {a} {A : Set a} {xs ys : List A} → xs ⊆ˢ ys → ys ⊆ˢ xs → xs ≡ˢ ys
+⊆ˢ×⊇ˢ⇒≡ˢ : ∀ {A : Set} {xs ys : List A} → xs ⊆ˢ ys → ys ⊆ˢ xs → xs ≡ˢ ys
 ⊆ˢ×⊇ˢ⇒≡ˢ xs⊆ˢys ys⊆ˢxs = mk⇔ xs⊆ˢys ys⊆ˢxs
 
-≡ˢ⇒⊆ˢ×⊇ˢ : ∀ {a} {A : Set a} {xs ys : List A} → xs ≡ˢ ys → xs ⊆ˢ ys × ys ⊆ˢ xs
+≡ˢ⇒⊆ˢ×⊇ˢ : ∀ {A : Set} {xs ys : List A} → xs ≡ˢ ys → xs ⊆ˢ ys × ys ⊆ˢ xs
 ≡ˢ⇒⊆ˢ×⊇ˢ p = to p , from p
   where open Function.Bundles.Equivalence
 
+open import Relation.Unary using (Decidable) renaming (_⊆_ to _⋐_)
+import Relation.Binary.Definitions as B
+
+filter-cong : ∀ {ℓ} {A : Set} {P : Pred A ℓ} {P? : Decidable P} {xs ys : List A} → xs ≡ˢ ys → L.filter P? xs ≡ˢ L.filter P? ys
+filter-cong {P = P} {P? = P?} xs≡ˢys with ≡ˢ⇒⊆ˢ×⊇ˢ xs≡ˢys
+... | xs⊆ˢys , ys⊆ˢxs = ⊆ˢ×⊇ˢ⇒≡ˢ (L.SubS.filter⁺′ P? P? id xs⊆ˢys) (L.SubS.filter⁺′ P? P? id ys⊆ˢxs)
+
+-- TODO: Add to L.SubS.
+deduplicate⁺′ : ∀ {A : Set} ⦃ _ : DecEq A ⦄ {xs ys : List A} → xs ⊆ˢ ys → L.deduplicate _≟_ xs ⊆ˢ L.deduplicate _≟_ ys
+deduplicate⁺′ {xs = xs} xs⊆ys v∈ddxs with L.Mem.∈-deduplicate⁻ _≟_ xs v∈ddxs
+... | v∈xs = L.Mem.∈-deduplicate⁺ _≟_ (xs⊆ys v∈xs)
+
+deduplicate-cong : ∀ {A : Set} ⦃ _ : DecEq A ⦄ {xs ys : List A} → xs ≡ˢ ys → L.deduplicate _≟_ xs ≡ˢ L.deduplicate _≟_ ys
+deduplicate-cong xs≡ˢys with ≡ˢ⇒⊆ˢ×⊇ˢ xs≡ˢys
+... | xs⊆ˢys , ys⊆ˢxs = ⊆ˢ×⊇ˢ⇒≡ˢ (deduplicate⁺′ xs⊆ˢys) (deduplicate⁺′ ys⊆ˢxs)
+
 ∷-⊆ʰ : ∀ {bs bs′ : List Block} {b : Block} → isHonestBlock b → b ∷ bs ⊆ʰ bs′ → bs ⊆ʰ bs′
 ∷-⊆ʰ {bs} {_} {b} bh p rewrite bh = L.SubS.⊆-trans (L.SubS.xs⊆x∷xs (honestBlocks bs) b) p
+
+{--- TODO: Continue later perhaps...
+-- NOTE: We cannot generalize `R` and `P` to be of any level since `Prelude.DecEq` requires `A` to be `Set` only.
+-- We could fix this by using `Class.DecEq` but `Prelude.AssocList` uses `Prelude.DecEq` instead.
+module Test {k} {A : Set} {xs ys : List A} ⦃ _ : DecEq A ⦄ where
+  import Relation.Binary.Definitions as B
+  open import Relation.Unary using (Decidable)
+  import Function.Related.Propositional as Related
+  import Function.Bundles as FB
+
+  filter↔ : ∀ {P Q : Pred A 0ℓ} (xs : List A) (Q? : Decidable Q) → L.Any.Any P xs FB.↔ L.Any.Any P (L.filter Q? xs)
+
+  filter-cong : ∀ {P : Pred A 0ℓ} (P? : Decidable P) → xs ∼[ k ] ys → L.filter P? xs ∼[ k ] L.filter P? ys
+  filter-cong = {!!}
+
+  deduplicate⁺∘deduplicate⁻ : ∀ {R : Rel A 0ℓ} {P : Pred A 0ℓ} (xs : List A) (R? : B.Decidable R) (resp : P B.Respects (flip R)) (p : L.Any.Any P (L.deduplicate R? xs)) → L.Any.deduplicate⁺ R? resp (L.Any.deduplicate⁻ R? p) ≡ p
+  deduplicate⁺∘deduplicate⁻ (x ∷ xs) R? resp (here px) = refl
+  deduplicate⁺∘deduplicate⁻ {R = R} {P = P} (x′ ∷ xs) R? resp (there p) = {!!}
+    where
+      _ : ∀ {x y} → R y x → P x → P y
+      _ = resp
+      lem0 : ∀ xs → L.Any.Any P (filter (λ x → ¬? (R? x′ x)) (L.deduplicate R? xs)) → L.Any.Any P (L.deduplicate R? xs)
+      lem0 [] = id
+      lem0 (x ∷ xs) prf with not (does (R? x′ x))
+      ... | false = {!!}
+      ... | true = {!!} -- use filter ∘ filter ≡ filter
+      ih : L.Any.deduplicate⁺ R? resp (L.Any.deduplicate⁻ R? (lem0 xs p)) ≡ lem0 xs p
+      ih = deduplicate⁺∘deduplicate⁻ xs R? resp (lem0 xs p)
+
+  deduplicate⁻∘deduplicate⁺ : ∀ {R : Rel A 0ℓ} {P : Pred A 0ℓ} (xs : List A) (R? : B.Decidable R) (resp : P B.Respects (flip R)) (p : L.Any.Any P xs) → L.Any.deduplicate⁻ R? (L.Any.deduplicate⁺ R? resp p) ≡ p
+  deduplicate⁻∘deduplicate⁺ = {!!}
+
+  deduplicate↔ : ∀ {R : Rel A 0ℓ} {P : Pred A 0ℓ} (xs : List A) (R? : B.Decidable R) → P B.Respects (flip R) → L.Any.Any P xs FB.↔ L.Any.Any P (L.deduplicate R? xs)
+  deduplicate↔ xs R? pres = FB.mk↔ₛ′ (L.Any.deduplicate⁺ R? pres) (L.Any.deduplicate⁻ R?) (deduplicate⁺∘deduplicate⁻ xs R? pres) (deduplicate⁻∘deduplicate⁺ xs R? pres)
+
+  deduplicate-cong : xs ∼[ k ] ys → L.deduplicate _≟_ xs ∼[ k ] L.deduplicate _≟_ ys
+  deduplicate-cong xs≈ys {x} = begin
+    x ∈ L.deduplicate _≟_ xs ↔⟨ (SK-sym $ deduplicate↔ xs _≟_ resp ) ⟩
+    x ∈ xs                   ∼⟨ L.Any.Any-cong (↔⇒ ∘ \_ → K-refl) xs≈ys ⟩
+    x ∈ ys                   ↔⟨ deduplicate↔ ys _≟_ resp ⟩
+    x ∈ L.deduplicate _≟_ ys ∎
+    where
+      open Related.EquationalReasoning; open Related using (↔⇒)
+      resp : (_≡_ x) B.Respects (flip _≡_)
+      resp p refl = sym p
+----}
 
 instance
   Default-T : Default T
