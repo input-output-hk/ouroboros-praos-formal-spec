@@ -14,11 +14,10 @@ open import Relation.Nullary.Negation using (contradiction)
 ∷-⊆ : ∀ {A : Set} {xs ys : List A} {x} → x ∷ xs ⊆ ys → xs ⊆ ys
 ∷-⊆ {_} {xs} {_} {x} p = ⊆-trans (xs⊆x∷xs xs x) p
 
-cartesianProduct-⊆-Mono : ∀ {A : Set} {xs ys : List A} → xs ⊆ ys → cartesianProduct xs xs ⊆ cartesianProduct ys ys
-cartesianProduct-⊆-Mono {xs = xs} {ys = ys} xs⊆ys {x₁ , x₂} [x₁,x₂]∈xs×xs = ∈-cartesianProduct⁺ (proj₁ prf) (proj₂ prf)
-  where
-    prf : x₁ ∈ ys × x₂ ∈ ys
-    prf = let (x₁∈xs , x₂∈xs) = ∈-cartesianProduct⁻ xs xs [x₁,x₂]∈xs×xs in xs⊆ys x₁∈xs , xs⊆ys x₂∈xs
+cartesianProduct-⊆-Mono : ∀ {A B : Set} {xs xs′ : List A} {ys ys′ : List B} → xs ⊆ xs′ → ys ⊆ ys′ → cartesianProduct xs ys ⊆ cartesianProduct xs′ ys′
+cartesianProduct-⊆-Mono {_} {_} {xs} {xs′} {ys} {ys′} xs⊆xs′ ys⊆ys′ {x , y} [x,y]∈xs×ys
+  with ∈-cartesianProduct⁻ xs ys [x,y]∈xs×ys
+... | x∈xs , y∈ys = ∈-cartesianProduct⁺ (xs⊆xs′ x∈xs) (ys⊆ys′ y∈ys)
 
 ⊆[]⇒≡[] : ∀ {A : Set} {xs : List A} → xs ⊆ [] → xs ≡ []
 ⊆[]⇒≡[] {xs = []} ⊆[] = refl

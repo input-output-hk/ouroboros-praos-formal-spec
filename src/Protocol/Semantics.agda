@@ -117,8 +117,22 @@ deduplicate-cong : ∀ {A : Set} ⦃ _ : DecEq A ⦄ {xs ys : List A} → xs ≡
 deduplicate-cong xs≡ˢys with ≡ˢ⇒⊆ˢ×⊇ˢ xs≡ˢys
 ... | xs⊆ˢys , ys⊆ˢxs = ⊆ˢ×⊇ˢ⇒≡ˢ (deduplicate⁺′ xs⊆ˢys) (deduplicate⁺′ ys⊆ˢxs)
 
+deduplicate-id : ∀ {A : Set} ⦃ _ : DecEq A ⦄ (xs : List A) → L.deduplicate _≟_ xs ≡ˢ xs
+deduplicate-id xs = ⊆ˢ×⊇ˢ⇒≡ˢ (L.Mem.∈-deduplicate⁻ _≟_ xs) (L.Mem.∈-deduplicate⁺ _≟_)
+
 ∷-⊆ʰ : ∀ {bs bs′ : List Block} {b : Block} → isHonestBlock b → b ∷ bs ⊆ʰ bs′ → bs ⊆ʰ bs′
 ∷-⊆ʰ {bs} {_} {b} bh p rewrite bh = L.SubS.⊆-trans (L.SubS.xs⊆x∷xs (honestBlocks bs) b) p
+
+cartesianProduct-cong : ∀ {A : Set} {xs xs′ ys ys′ : List A} → xs ≡ˢ xs′ → ys ≡ˢ ys′ → L.cartesianProduct xs ys ≡ˢ L.cartesianProduct xs′ ys′
+cartesianProduct-cong xs≡ˢxs′ ys≡ˢys′ =
+  ⊆ˢ×⊇ˢ⇒≡ˢ
+    (cartesianProduct-⊆-Mono (≡ˢ⇒⊆ˢ×⊇ˢ xs≡ˢxs′ .proj₁) (≡ˢ⇒⊆ˢ×⊇ˢ ys≡ˢys′ .proj₁))
+    (cartesianProduct-⊆-Mono (≡ˢ⇒⊆ˢ×⊇ˢ xs≡ˢxs′ .proj₂) (≡ˢ⇒⊆ˢ×⊇ˢ ys≡ˢys′ .proj₂))
+  where open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (cartesianProduct-⊆-Mono)
+
+All-≡ˢ : ∀ {ℓ} {A : Set} {P : Pred A ℓ} {xs ys : List A} → xs ≡ˢ ys → L.All.All P xs → L.All.All P ys
+All-≡ˢ eq = L.All.anti-mono (≡ˢ⇒⊆ˢ×⊇ˢ eq .proj₂)
+
 
 {--- TODO: Continue later perhaps...
 -- NOTE: We cannot generalize `R` and `P` to be of any level since `Prelude.DecEq` requires `A` to be `Set` only.

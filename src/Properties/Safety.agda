@@ -41,12 +41,13 @@ module Properties.Safety
 
 open import Function.Bundles
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (cartesianProduct-⊆-Mono)
+open import Data.List.Relation.Unary.All.Properties.Ext using (cartesianProduct⁻)
 open import Data.List.Membership.Propositional.Properties.Ext using (x∈x∷xs)
 open import Data.List.Properties.Ext using (filter-∘-comm; filter-∘-×)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
-open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ)
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Function.Related.Propositional as Related
-open import Prelude.STS.Properties.Ext using (⊢—[]→∗⇒⊢—[]→∗ʳ)
+open import Prelude.STS.Properties.Ext using (—[]→∗⇒—[]→∗ʳ)
 open import Protocol.BaseTypes using (slot₀)
 open import Protocol.Semantics {T} {AdversarialState} {honestyOf} {txSelection} {processMsgsᶜ} {makeBlockᶜ}
 
@@ -239,7 +240,10 @@ private opaque
   blockHistoryPreservation-↝⋆ = L.SubS.map⁺ _ ∘ historyPreservation-↝⋆
 
   isCollisionFreePrev : ∀ {N₁ N₂ : GlobalState} → N₁ ↝⋆ N₂ → isCollisionFree N₂ → isCollisionFree N₁
-  isCollisionFreePrev N₁↝⋆N₂ cfN₂ =  L.All.anti-mono (cartesianProduct-⊆-Mono (L.SubS.∷⁺ʳ genesisBlock (blockHistoryPreservation-↝⋆ N₁↝⋆N₂))) cfN₂
+  isCollisionFreePrev {N₁} {N₂} N₁↝⋆N₂ cfN₂ = L.All.anti-mono (cartesianProduct-⊆-Mono subs subs) cfN₂
+    where
+      subs : genesisBlock ∷ blockHistory N₁ ⊆ˢ genesisBlock ∷ blockHistory N₂
+      subs = L.SubS.∷⁺ʳ genesisBlock (blockHistoryPreservation-↝⋆ N₁↝⋆N₂)
 
   honestBlockHistoryPreservation-↓∗ : ∀ {N N′ : GlobalState} {ps : List Party} →
       N₀ ↝⋆ N
@@ -247,7 +251,7 @@ private opaque
     → isForgingFree (record N′ { progress = msgsDelivered })
     → N .progress ≡ ready
     → honestBlockHistory N ≡ˢ honestBlockHistory N′
-  honestBlockHistoryPreservation-↓∗ {N} {N′} {ps} N₀↝⋆N N↝[ps]⋆N′ ff NReady = honestBlockHistoryPreservationʳ-↓∗ {N} {N′} ps prfN₂ (⊢—[]→∗⇒⊢—[]→∗ʳ N↝[ps]⋆N′)
+  honestBlockHistoryPreservation-↓∗ {N} {N′} {ps} N₀↝⋆N N↝[ps]⋆N′ ff NReady = honestBlockHistoryPreservationʳ-↓∗ {N} {N′} ps prfN₂ (—[]→∗⇒—[]→∗ʳ N↝[ps]⋆N′)
     where
       N₂ : GlobalState
       N₂ = record N′ { progress = msgsDelivered }
@@ -344,11 +348,11 @@ superBlocksPreservation-↓∗ : ∀ {N N′ : GlobalState} →
   → superBlocks N ≡ˢ superBlocks N′
 superBlocksPreservation-↓∗ {N} {N′} N₀↝⋆N N↝[ps]⋆N′ ffN′ NReady {b} = begin
   b ∈ superBlocks N
-    ∼⟨ ≡⇒≡ˢ $ superBlocksAltDef N ⟩
+    ≡⟨ cong (b ∈_) (superBlocksAltDef N) ⟩
   b ∈ (L.deduplicate _≟_ $ filter ¿ isSuperSlot ∘ slot ¿¹ (honestBlockHistory N))
     ∼⟨ deduplicate-cong $ filter-cong $ honestBlockHistoryPreservation-↓∗ N₀↝⋆N  N↝[ps]⋆N′ ffN′ NReady ⟩
   b ∈ (L.deduplicate _≟_ $ filter ¿ isSuperSlot ∘ slot ¿¹ (honestBlockHistory N′))
-    ∼⟨ ≡ˢ-sym $ ≡⇒≡ˢ $ superBlocksAltDef N′ ⟩
+    ≡⟨ cong (b ∈_) (sym $ superBlocksAltDef N′) ⟩
   b ∈ superBlocks N′ ∎
   where open Related.EquationalReasoning
 
@@ -371,11 +375,55 @@ superBlockPositions = superBlockPositionsʳ ∘ Star⇒Starʳ
           (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
           (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
     superBlockPositionsʳ εʳ cfp ffp = L.All.All.[]
-    superBlockPositionsʳ (N₀↝⋆ʳN′ ◅ʳ N′↝N) cfp ffp
+    superBlockPositionsʳ {N} (_◅ʳ_ {j = N′} N₀↝⋆ʳN′ N′↝N) cfp ffp
       with
         ih ← superBlockPositionsʳ N₀↝⋆ʳN′ (isCollisionFreePrev (N′↝N ◅ ε) cfp) (isForgingFreePrev (N′↝N ◅ ε) ffp)
       | N′↝N
-    ... | deliverMsgs    ts N′Ready         = {!!}
+    ... | deliverMsgs {N′} {N″} N′Ready N′—[eoN′]↓→∗N″ = goal
+      where
+        ffN′ : isForgingFree N′
+        ffN′ = isForgingFreePrev (N′↝N ◅ ε) ffp
+
+        cfpN′ : isCollisionFree N′
+        cfpN′ = isCollisionFreePrev (N′↝N ◅ ε) cfp
+
+        N₀↝⋆N′ : N₀ ↝⋆ N′
+        N₀↝⋆N′ = Starʳ⇒Star N₀↝⋆ʳN′
+
+        hbhPres : honestBlockHistory N′ ≡ˢ honestBlockHistory N
+        hbhPres = honestBlockHistoryPreservation-↓∗ N₀↝⋆N′ N′—[eoN′]↓→∗N″ ffp N′Ready
+
+        goal′ :
+          L.All.All
+            (λ where (sb , b) → blockPos sb N′ ≢ blockPos b N′ ⊎ sb ≡ b)
+            (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
+        goal′ = All-≡ˢ (cartesianProduct-cong sbsPres hbhPres) ih
+          where
+            sbsPres : superBlocks N′ ≡ˢ superBlocks N
+            sbsPres = superBlocksPreservation-↓∗ N₀↝⋆N′ N′—[eoN′]↓→∗N″ ffp N′Ready
+
+        goal :
+          L.All.All
+            (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
+            (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
+        goal = L.All.cartesianProduct⁺ (≡.setoid _) (≡.setoid _) _ _ pres′
+          where
+            open import Relation.Binary.PropositionalEquality.Properties as ≡
+            pres : ∀ {sb b} → sb ∈ superBlocks N → b ∈ honestBlockHistory N → blockPos sb N′ ≢ blockPos b N′ ⊎ sb ≡ b
+            pres = cartesianProduct⁻ goal′
+
+            blockPosPres : ∀ {b} → b ∈ honestBlockHistory N → blockPos b N′ ≡ blockPos b N
+            blockPosPres {b} b∈hbhN = honestPosPreservation-↓∗ N₀↝⋆N′ N′—[eoN′]↓→∗N″ ffN′ cfp b∈hbhN′ N′Ready
+              where
+                b∈hbhN′ : b ∈ honestBlockHistory N′
+                b∈hbhN′ = ≡ˢ⇒⊆ˢ×⊇ˢ hbhPres .proj₂ b∈hbhN
+
+            pres′ : ∀ {sb b} → sb ∈ superBlocks N → b ∈ honestBlockHistory N → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b
+            pres′ {sb} {b} sb∈sbsN b∈hbhN with pres {sb} {b} sb∈sbsN b∈hbhN
+            ... | inj₂ sb≡b = inj₂ sb≡b
+            ... | inj₁ possb≢posb with blockPosPres (superBlocksInHonestBlockHistory {N} sb∈sbsN) | blockPosPres b∈hbhN
+            ... |  eqsb | eqb = inj₁ (subst₂ _≢_ eqsb eqb possb≢posb)
+
     ... | makeBlock      ts N′MsgsDelivered = {!!}
     ... | advanceRound   _                  = ih
     ... | permuteParties _                  = ih
