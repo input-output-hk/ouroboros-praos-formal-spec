@@ -37,7 +37,9 @@ module Protocol.Semantics
     → List (Message × DelayMap) × AdversarialState}  
   where
 
+open import Data.List.Relation.Binary.Subset.Propositional.Properties using (xs⊆x∷xs)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
+open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (cartesianProduct-⊆-Mono)
 
 isHonest : Party → Type
 isHonest p = honestyOf p ≡ honest
@@ -74,111 +76,8 @@ infix 4 _⊆ʰ_
 _⊆ʰ_ : List Block → List Block → Type
 _⊆ʰ_ = _⊆ˢ_ on honestBlocks
 
--- Set equality from BagAndSetEquality.
--- TODO: Perhaps use set theory library?
-
-open import Data.List.Relation.Binary.BagAndSetEquality as BS hiding (set; Kind)
-open import Function.Related.Propositional using (K-refl; SK-sym; K-trans; ≡⇒)
-open import Function.Bundles using (mk⇔)
-
-infix 4 _≡ˢ_
-_≡ˢ_ : ∀ {A : Set} → List A → List A → Set
-_≡ˢ_ = _∼[ BS.set ]_
-
-≡ˢ-refl = K-refl
-
-≡ˢ-sym = SK-sym
-
-≡ˢ-trans = K-trans
-
-≡⇒≡ˢ : ∀ {A : Set} {xs ys : List A} → xs ≡ ys → xs ≡ˢ ys
-≡⇒≡ˢ refl = ≡⇒ {k = BS.set} refl
-
-⊆ˢ×⊇ˢ⇒≡ˢ : ∀ {A : Set} {xs ys : List A} → xs ⊆ˢ ys → ys ⊆ˢ xs → xs ≡ˢ ys
-⊆ˢ×⊇ˢ⇒≡ˢ xs⊆ˢys ys⊆ˢxs = mk⇔ xs⊆ˢys ys⊆ˢxs
-
-≡ˢ⇒⊆ˢ×⊇ˢ : ∀ {A : Set} {xs ys : List A} → xs ≡ˢ ys → xs ⊆ˢ ys × ys ⊆ˢ xs
-≡ˢ⇒⊆ˢ×⊇ˢ p = to p , from p
-  where open Function.Bundles.Equivalence
-
-open import Relation.Unary using (Decidable) renaming (_⊆_ to _⋐_)
-import Relation.Binary.Definitions as B
-
-filter-cong : ∀ {ℓ} {A : Set} {P : Pred A ℓ} {P? : Decidable P} {xs ys : List A} → xs ≡ˢ ys → L.filter P? xs ≡ˢ L.filter P? ys
-filter-cong {P = P} {P? = P?} xs≡ˢys with ≡ˢ⇒⊆ˢ×⊇ˢ xs≡ˢys
-... | xs⊆ˢys , ys⊆ˢxs = ⊆ˢ×⊇ˢ⇒≡ˢ (L.SubS.filter⁺′ P? P? id xs⊆ˢys) (L.SubS.filter⁺′ P? P? id ys⊆ˢxs)
-
--- TODO: Add to L.SubS.
-deduplicate⁺′ : ∀ {A : Set} ⦃ _ : DecEq A ⦄ {xs ys : List A} → xs ⊆ˢ ys → L.deduplicate _≟_ xs ⊆ˢ L.deduplicate _≟_ ys
-deduplicate⁺′ {xs = xs} xs⊆ys v∈ddxs with L.Mem.∈-deduplicate⁻ _≟_ xs v∈ddxs
-... | v∈xs = L.Mem.∈-deduplicate⁺ _≟_ (xs⊆ys v∈xs)
-
-deduplicate-cong : ∀ {A : Set} ⦃ _ : DecEq A ⦄ {xs ys : List A} → xs ≡ˢ ys → L.deduplicate _≟_ xs ≡ˢ L.deduplicate _≟_ ys
-deduplicate-cong xs≡ˢys with ≡ˢ⇒⊆ˢ×⊇ˢ xs≡ˢys
-... | xs⊆ˢys , ys⊆ˢxs = ⊆ˢ×⊇ˢ⇒≡ˢ (deduplicate⁺′ xs⊆ˢys) (deduplicate⁺′ ys⊆ˢxs)
-
-deduplicate-id : ∀ {A : Set} ⦃ _ : DecEq A ⦄ (xs : List A) → L.deduplicate _≟_ xs ≡ˢ xs
-deduplicate-id xs = ⊆ˢ×⊇ˢ⇒≡ˢ (L.Mem.∈-deduplicate⁻ _≟_ xs) (L.Mem.∈-deduplicate⁺ _≟_)
-
 ∷-⊆ʰ : ∀ {bs bs′ : List Block} {b : Block} → isHonestBlock b → b ∷ bs ⊆ʰ bs′ → bs ⊆ʰ bs′
 ∷-⊆ʰ {bs} {_} {b} bh p rewrite bh = L.SubS.⊆-trans (L.SubS.xs⊆x∷xs (honestBlocks bs) b) p
-
-cartesianProduct-cong : ∀ {A : Set} {xs xs′ ys ys′ : List A} → xs ≡ˢ xs′ → ys ≡ˢ ys′ → L.cartesianProduct xs ys ≡ˢ L.cartesianProduct xs′ ys′
-cartesianProduct-cong xs≡ˢxs′ ys≡ˢys′ =
-  ⊆ˢ×⊇ˢ⇒≡ˢ
-    (cartesianProduct-⊆-Mono (≡ˢ⇒⊆ˢ×⊇ˢ xs≡ˢxs′ .proj₁) (≡ˢ⇒⊆ˢ×⊇ˢ ys≡ˢys′ .proj₁))
-    (cartesianProduct-⊆-Mono (≡ˢ⇒⊆ˢ×⊇ˢ xs≡ˢxs′ .proj₂) (≡ˢ⇒⊆ˢ×⊇ˢ ys≡ˢys′ .proj₂))
-  where open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (cartesianProduct-⊆-Mono)
-
-All-≡ˢ : ∀ {ℓ} {A : Set} {P : Pred A ℓ} {xs ys : List A} → xs ≡ˢ ys → L.All.All P xs → L.All.All P ys
-All-≡ˢ eq = L.All.anti-mono (≡ˢ⇒⊆ˢ×⊇ˢ eq .proj₂)
-
-
-{--- TODO: Continue later perhaps...
--- NOTE: We cannot generalize `R` and `P` to be of any level since `Prelude.DecEq` requires `A` to be `Set` only.
--- We could fix this by using `Class.DecEq` but `Prelude.AssocList` uses `Prelude.DecEq` instead.
-module Test {k} {A : Set} {xs ys : List A} ⦃ _ : DecEq A ⦄ where
-  import Relation.Binary.Definitions as B
-  open import Relation.Unary using (Decidable)
-  import Function.Related.Propositional as Related
-  import Function.Bundles as FB
-
-  filter↔ : ∀ {P Q : Pred A 0ℓ} (xs : List A) (Q? : Decidable Q) → L.Any.Any P xs FB.↔ L.Any.Any P (L.filter Q? xs)
-
-  filter-cong : ∀ {P : Pred A 0ℓ} (P? : Decidable P) → xs ∼[ k ] ys → L.filter P? xs ∼[ k ] L.filter P? ys
-  filter-cong = {!!}
-
-  deduplicate⁺∘deduplicate⁻ : ∀ {R : Rel A 0ℓ} {P : Pred A 0ℓ} (xs : List A) (R? : B.Decidable R) (resp : P B.Respects (flip R)) (p : L.Any.Any P (L.deduplicate R? xs)) → L.Any.deduplicate⁺ R? resp (L.Any.deduplicate⁻ R? p) ≡ p
-  deduplicate⁺∘deduplicate⁻ (x ∷ xs) R? resp (here px) = refl
-  deduplicate⁺∘deduplicate⁻ {R = R} {P = P} (x′ ∷ xs) R? resp (there p) = {!!}
-    where
-      _ : ∀ {x y} → R y x → P x → P y
-      _ = resp
-      lem0 : ∀ xs → L.Any.Any P (filter (λ x → ¬? (R? x′ x)) (L.deduplicate R? xs)) → L.Any.Any P (L.deduplicate R? xs)
-      lem0 [] = id
-      lem0 (x ∷ xs) prf with not (does (R? x′ x))
-      ... | false = {!!}
-      ... | true = {!!} -- use filter ∘ filter ≡ filter
-      ih : L.Any.deduplicate⁺ R? resp (L.Any.deduplicate⁻ R? (lem0 xs p)) ≡ lem0 xs p
-      ih = deduplicate⁺∘deduplicate⁻ xs R? resp (lem0 xs p)
-
-  deduplicate⁻∘deduplicate⁺ : ∀ {R : Rel A 0ℓ} {P : Pred A 0ℓ} (xs : List A) (R? : B.Decidable R) (resp : P B.Respects (flip R)) (p : L.Any.Any P xs) → L.Any.deduplicate⁻ R? (L.Any.deduplicate⁺ R? resp p) ≡ p
-  deduplicate⁻∘deduplicate⁺ = {!!}
-
-  deduplicate↔ : ∀ {R : Rel A 0ℓ} {P : Pred A 0ℓ} (xs : List A) (R? : B.Decidable R) → P B.Respects (flip R) → L.Any.Any P xs FB.↔ L.Any.Any P (L.deduplicate R? xs)
-  deduplicate↔ xs R? pres = FB.mk↔ₛ′ (L.Any.deduplicate⁺ R? pres) (L.Any.deduplicate⁻ R?) (deduplicate⁺∘deduplicate⁻ xs R? pres) (deduplicate⁻∘deduplicate⁺ xs R? pres)
-
-  deduplicate-cong : xs ∼[ k ] ys → L.deduplicate _≟_ xs ∼[ k ] L.deduplicate _≟_ ys
-  deduplicate-cong xs≈ys {x} = begin
-    x ∈ L.deduplicate _≟_ xs ↔⟨ (SK-sym $ deduplicate↔ xs _≟_ resp ) ⟩
-    x ∈ xs                   ∼⟨ L.Any.Any-cong (↔⇒ ∘ \_ → K-refl) xs≈ys ⟩
-    x ∈ ys                   ↔⟨ deduplicate↔ ys _≟_ resp ⟩
-    x ∈ L.deduplicate _≟_ ys ∎
-    where
-      open Related.EquationalReasoning; open Related using (↔⇒)
-      resp : (_≡_ x) B.Respects (flip _≡_)
-      resp p refl = sym p
-----}
 
 instance
   Default-T : Default T
@@ -216,10 +115,10 @@ makeBlockʰ sl txs p ls =
         hashPrev  = hash (tip bestChain)
         b         = mkBlock hashPrev sl txs p
       in
-         [ newBlock b ] , addBlock ls b
+        [ newBlock b ] , addBlock ls b
       )
     else
-       [] , ls
+      [] , ls
     
 -- Global state
 
@@ -239,6 +138,17 @@ record GlobalState : Type where
   blockHistory : List Block
   blockHistory = map projBlock history
 
+  honestParties : List Party
+  honestParties = L.filter ¿ isHonest ¿¹ execOrder
+
+  blocks : Party → List Block
+  blocks p = case states ⁉ p of λ where
+    nothing   → []
+    (just ls) → allBlocks (ls .tree)
+
+  honestTree : T
+  honestTree = buildTree (L.concatMap blocks honestParties)
+
 open GlobalState
 
 honestBlockHistory : GlobalState → List Block
@@ -247,14 +157,28 @@ honestBlockHistory = L.filter ¿ isHonestBlock ¿¹ ∘ blockHistory
 blockPos : Block → GlobalState → ℕ
 blockPos b N = length (chainFromBlock b (blockHistory N))
 
-isCollisionFree : GlobalState → Type
-isCollisionFree N =
+isBlockListCollisionFree : List Block → Type
+isBlockListCollisionFree bs =
   All
     (λ where (b , b′) → hash b ≡ hash b′ → b ≡ b′)
-    (L.cartesianProduct gsBlockHistory gsBlockHistory)
+    (L.cartesianProduct bs bs)
   where
     open L.All using (All)
+
+isBlockListCollisionFree-∷ : ∀ {bs : List Block} {b : Block} →
+  isBlockListCollisionFree (b ∷ bs) → isBlockListCollisionFree bs
+isBlockListCollisionFree-∷ {bs} {b} = L.All.anti-mono (cartesianProduct-⊆-Mono (xs⊆x∷xs bs b) (xs⊆x∷xs bs b))
+
+isBlockListCollisionFree-⊆ : ∀ {bs bs′ : List Block} → bs ⊆ˢ bs′ → isBlockListCollisionFree bs′ → isBlockListCollisionFree bs
+isBlockListCollisionFree-⊆ bs⊆ˢbs′ cfbs = L.All.anti-mono (cartesianProduct-⊆-Mono bs⊆ˢbs′ bs⊆ˢbs′) cfbs
+
+isCollisionFree : GlobalState → Type
+isCollisionFree N = isBlockListCollisionFree gsBlockHistory
+  where
     gsBlockHistory = genesisBlock ∷ blockHistory N
+
+progressCollisionFreePreservation : ∀ {N : GlobalState} {s : Progress} → isCollisionFree N → isCollisionFree (record N {progress = s})
+progressCollisionFreePreservation = id
 
 updateLocalState : Party → LocalState → GlobalState → GlobalState
 updateLocalState p ls N = record N { states = set p ls (N .states) }
@@ -384,7 +308,7 @@ opaque
           (N .messages)
           (N .advState)
     in
-      broadcastMsgsᶜ newMsgs record N { advState = newAs }
+      record (broadcastMsgsᶜ newMsgs N) { advState = newAs }
 
 -- The block making phase for a specific party.
 data _↝[_]↑_ : GlobalState → Party → GlobalState → Type where

@@ -20,15 +20,7 @@ open import Prelude.LiteralSequences public
 open import Prelude.Irrelevance using (cofirst?) public
 open import Prelude.InferenceRules public
 open import Prelude.STS public
-open import Prelude.STS.Ext public
-
-cong₄ : ∀ {a} {A B C D E : Set a} (f : A → B → C → D → E) {x₁ x₂ x₃ x₄ y₁ y₂ y₃ y₄}
-  → x₁ ≡ y₁
-  → x₂ ≡ y₂
-  → x₃ ≡ y₃
-  → x₄ ≡ y₄
-  → f x₁ x₂ x₃ x₄ ≡ f y₁ y₂ y₃ y₄
-cong₄ f refl refl refl refl = refl
+open import Prelude.STS.Ext renaming (map to STS-map) public
 
 -- NOTE: The following is copied from Class.Decidable in agda-stdlib-classes.
 ¿_¿ᵇ : (P : Type ℓ) → ⦃ P ⁇ ⦄ → Bool
@@ -40,4 +32,3 @@ ifᵈ_then_else_ : ∀ {X : Type ℓ} (P : Type ℓ′)
 ifᵈ P then t else f with ¿ P ¿
 ... | yes p = t {p}
 ... | no ¬p = f {¬p}
-
