@@ -8,7 +8,7 @@ Slot : Type
 Slot = ℕ
 
 slot₀ : Slot
-slot₀ = 0 -- NOTE: The Coq formalization says "1" instead, check it.
+slot₀ = 1
 
 -- Party honesty
 

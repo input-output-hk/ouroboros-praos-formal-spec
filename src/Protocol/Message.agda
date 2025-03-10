@@ -10,3 +10,6 @@ open import Protocol.Prelude
 
 data Message : Type where
   newBlock : Block → Message
+
+projBlock : Message → Block
+projBlock (newBlock b) = b
