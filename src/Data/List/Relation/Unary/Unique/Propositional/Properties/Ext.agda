@@ -15,7 +15,7 @@ open import Data.List.Relation.Binary.Disjoint.Propositional using (Disjoint)
 import Data.List.Relation.Unary.Unique.Setoid.Properties.Ext as Setoid
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∷↭∷ʳ)
-open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (Unique-resp-↭)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext
 
 private
   variable

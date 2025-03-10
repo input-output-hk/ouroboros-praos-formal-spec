@@ -18,6 +18,9 @@ open import Protocol.BaseTypes using (Slot)
 open import Protocol.Block
 open import Protocol.Chain
 
+∣_∣ : List Block → ℕ
+∣_∣ = length
+
 record TreeType (T : Type) : Type₁ where
   field
     tree₀      : T
@@ -37,7 +40,7 @@ record TreeType (T : Type) : Type₁ where
     optimal : ∀ (c : Chain) (t : T) (sl : Slot) →
         c ✓
       → c ⊆ˢ filter (λ b → slot b ≤? sl) (allBlocks t)
-      → length c ≤ length (bestChain sl t)
+      → ∣ c ∣ ≤ ∣ bestChain sl t ∣
 
     selfContained : ∀ (t : T) (sl : Slot) →
       bestChain sl t ⊆ˢ filter (λ b → slot b ≤? sl) (allBlocks t)

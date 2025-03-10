@@ -7,6 +7,7 @@ module Protocol.Block
 open import Protocol.Prelude
 open import Protocol.BaseTypes using (Slot)
 open Params ⦃ ... ⦄
+open import Data.Nat.Properties using (≤-trans; n≤1+n)
 
 record Block : Type where
   constructor mkBlock
@@ -23,6 +24,9 @@ open Block public
 
 _>ˢ_ : Rel Block _
 _>ˢ_ = _>_ on slot
+
+>ˢ-trans : Transitive _>ˢ_
+>ˢ-trans {_} {b′} {_} b>ˢb′ b′>ˢb″ = ≤-trans (≤-trans b′>ˢb″ (n≤1+n (b′ .slot))) b>ˢb′
 
 open import Function.Nary.NonDependent using (congₙ)
 

@@ -136,3 +136,15 @@ chainFromBlock′ (suc n) b bs =
 chainFromBlock : Block → List Block → Chain
 chainFromBlock b bs = chainFromBlock′ (length bs) b bs
 --------}
+
+cfbStartsWithBlock : ∀ {b : Block} {bs : List Block} → chainFromBlock b bs ≢ [] → ∃[ bs′ ] chainFromBlock b bs ≡ b ∷ bs′
+cfbStartsWithBlock {b} {bs} cfbbs≢[]
+  with b == genesisBlock
+... | true = [] , refl
+... | false with b .prev == hash genesisBlock
+... |   true = [ genesisBlock ] , refl
+... |   false with L.findᵇ ((b .prev ==_) ∘ hash) bs in eqf
+... |     nothing = contradiction refl cfbbs≢[]
+... |     just b′ with chainFromBlock b′ (L.filterᵇ (not ∘ (_== b′)) bs) in eqcfb
+... |       [] = contradiction refl cfbbs≢[]
+... |       b′′ ∷ bs′′ = b′′ ∷ bs′′ , refl

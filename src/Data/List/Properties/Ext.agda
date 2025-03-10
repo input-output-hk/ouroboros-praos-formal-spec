@@ -1,13 +1,13 @@
 module Data.List.Properties.Ext where
 
 open import Data.Product using (_×_; _,_; ∃; ∃-syntax)
-open import Data.Nat using (suc)
+open import Data.Nat using (suc; _+_)
 open import Data.Bool using (Bool; true; false)
 open import Relation.Binary.PropositionalEquality using (refl; _≢_)
 open import Data.List using (List; []; [_]; _∷_; _∷ʳ_; _++_; filter; length; updateAt; _[_]%=_; lookup; findᵇ)
-open import Data.List.Properties using (∷ʳ-injective)
+open import Data.List.Properties using (∷ʳ-injective; filter-++; filter-accept; filter-reject; ++-identityʳ)
 open import Relation.Unary using (Pred; Decidable)
-open import Relation.Nullary.Negation using (contradiction; contraposition)
+open import Relation.Nullary.Negation using (¬_; contradiction; contraposition)
 open import Relation.Nullary.Decidable.Core using (does; yes; no; _×-dec_)
 open import Level using (Level)
 open import Function.Base using (_∘_; _$_; _∋_)
@@ -97,3 +97,11 @@ Px-findᵇ⁻ {P = P} {xs = x′ ∷ xs′} eqf | no x≢x′ with P x′
 ≢[]⇒∷ : xs ≢ [] → ∃[ y ] ∃[ ys ] xs ≡ y ∷ ys
 ≢[]⇒∷ {xs = []}     p = contradiction refl p
 ≢[]⇒∷ {xs = x ∷ xs} p = x , xs , refl
+
+module _ (P? : Decidable P) where
+
+ filter-rejectʳ : ∀ {x xs} → ¬ P x → filter P? (xs ∷ʳ x) ≡ filter P? xs
+ filter-rejectʳ {x} {xs} ¬Px rewrite filter-++ P? xs [ x ] | filter-reject P? {x} {[]} ¬Px = ++-identityʳ _
+
+ filter-acceptʳ : ∀ {x xs} → P x → filter P? (xs ∷ʳ x) ≡ filter P? xs ∷ʳ x
+ filter-acceptʳ {x} {xs} ¬Px rewrite filter-++ P? xs [ x ] | filter-accept P? {x} {[]} ¬Px = refl

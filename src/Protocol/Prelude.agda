@@ -12,7 +12,7 @@ open import Prelude.Init public
 open import Prelude.DecEq public
 open import Prelude.Decidable public
 open import Prelude.Irrelevance public
-open Nat using (_≤?_) public
+open Nat using (_≤?_; _<?_) public
 open import Prelude.AssocList public
 open import Prelude.Default using (Default) public
 open Default ⦃ ... ⦄ public
@@ -32,3 +32,7 @@ ifᵈ_then_else_ : ∀ {X : Type ℓ} (P : Type ℓ′)
 ifᵈ P then t else f with ¿ P ¿
 ... | yes p = t {p}
 ... | no ¬p = f {¬p}
+
+dec-de-morgan₂ : ∀ {P Q : Type} → ⦃ P ⁇ ⦄ → ¬ P ⊎ ¬ Q → ¬ (P × Q)
+dec-de-morgan₂ (inj₁ ¬p) (p , _) = ¬p p
+dec-de-morgan₂ (inj₂ ¬q) (_ , q) = ¬q q

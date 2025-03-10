@@ -155,7 +155,7 @@ honestBlockHistory : GlobalState → List Block
 honestBlockHistory = L.filter ¿ isHonestBlock ¿¹ ∘ blockHistory
 
 blockPos : Block → GlobalState → ℕ
-blockPos b N = length (chainFromBlock b (blockHistory N))
+blockPos b N = ∣ chainFromBlock b (blockHistory N) ∣
 
 isBlockListCollisionFree : List Block → Type
 isBlockListCollisionFree bs =
@@ -346,7 +346,7 @@ _⊢_—[_]↑→∗ʳ_ : STS ↑Tag GlobalState (List Party)
 _⊢_—[_]↑→∗ʳ_ = _⊢_—[_]→∗ʳ_
 
 -- The global state reachability relation.
-data _↝_ : GlobalState → GlobalState → Type where
+data _↝_ : Rel GlobalState 0ℓ where
 
   deliverMsgs : ∀ {N N′ : GlobalState} →
     ∙ N .progress ≡ ready
@@ -375,10 +375,28 @@ data _↝_ : GlobalState → GlobalState → Type where
     ────────────────────────────────────
     N ↝ record N { messages = envelopes }
 
-infix 2 _↝⋆_
+infix 3 _↝⋆_
 
-_↝⋆_ : GlobalState → GlobalState → Type
+_↝⋆_ : Rel GlobalState 0ℓ
 _↝⋆_ = RTC.Star _↝_
 
-infix 2 _↝⋆ʳ_
+infix 3 _↝⋆ʳ_
 _↝⋆ʳ_ = Starʳ _↝_
+
+_⟨_⟩ : Rel GlobalState 0ℓ → Slot → Rel GlobalState 0ℓ
+_⇾_ ⟨ sl ⟩ = λ N N′ → N ⇾ N′ × sl + N .clock ≡ N′ .clock
+
+_↝⋆⟨_⟩_ : GlobalState → Slot → GlobalState → Type
+N ↝⋆⟨ sl ⟩ N′ = (_↝⋆_ ⟨ sl ⟩) N N′
+
+_↝⋆ʳ⟨_⟩_ : GlobalState → Slot → GlobalState → Type
+N ↝⋆ʳ⟨ sl ⟩ N′ = (_↝⋆ʳ_ ⟨ sl ⟩) N N′
+
+_⁺ : Rel GlobalState 0ℓ → Rel GlobalState 0ℓ
+_⇾_ ⁺ = λ N N′ → N ⇾ N′ × N .clock < N′ .clock
+
+infix 3 _↝⁺_
+_↝⁺_ = _↝⋆_ ⁺
+
+infix 3 _↝⁺ʳ_
+_↝⁺ʳ_ =  _↝⋆ʳ_ ⁺
