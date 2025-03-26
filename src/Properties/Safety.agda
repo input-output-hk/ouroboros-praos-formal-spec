@@ -1,45 +1,27 @@
-open import Protocol.Prelude
-open import Protocol.BaseTypes using (Slot; slot₀; Honesty)
+{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
+
+open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
-open import Protocol.Block
-open import Protocol.Chain using (Chain; genesisBlock; tip; chainFromBlock; _✓; ✓⇒≢[]; ✓⇒gbIsHead; ✓-∷; cfbStartsWithBlock; DecreasingSlots)
-open import Protocol.Crypto using (Hashable)
-open import Protocol.Message
-open import Protocol.Network
-open import Protocol.TreeType
-open Params ⦃ ... ⦄
-open Honesty
-open Hashable ⦃ ... ⦄
-open Envelope
-open import Relation.Binary.PropositionalEquality.Properties
 
 module Properties.Safety
-  ⦃ params : Params ⦄
-  ⦃ _ : Block ⦄
-  ⦃ _ : Hashable Block ⦄
-  ⦃ _ : Default Block ⦄
-  {T : Type} ⦃ TreeType-T : TreeType T ⦄
-  {AdversarialState : Type}
-  {honestyOf : Party → Honesty}
-  {txSelection : Slot → Party → Txs}
-  {processMsgsᶜ :
-      List Message
-    → Slot
-    → List Message
-    → List Envelope
-    → AdversarialState
-    → List (Message × DelayMap) × AdversarialState}
-  {makeBlockᶜ :
-      Slot
-    → List Message
-    → List Envelope
-    → AdversarialState
-    → List (Message × DelayMap) × AdversarialState}
-  {adversarialState₀ : AdversarialState}
-  {parties₀ : List Party} ⦃ parties₀Uniqueness : Unique parties₀ ⦄
-  ⦃ genesisBlockSlot : genesisBlock .slot ≡ 0 ⦄
+  ⦃ params : _ ⦄ (open Params params)
+  ⦃ assumptions : Assumptions ⦃ params ⦄ ⦄ (open Assumptions assumptions)
   where
 
+open import Protocol.Prelude
+open import Protocol.BaseTypes using (slot₀)
+open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
+open import Protocol.Block ⦃ params ⦄
+open import Protocol.Chain ⦃ params ⦄
+open import Protocol.Message ⦃ params ⦄
+open import Protocol.Network ⦃ params ⦄; open Envelope
+open import Protocol.TreeType ⦃ params ⦄
+open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.ForgingFree ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.CollisionFree ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.SuperBlocks ⦃ params ⦄ ⦃ assumptions ⦄
+open import Prelude.STS using (fold)
+open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗)
 open import Function.Bundles
 open import Function.Related.Propositional as Related
 open import Relation.Binary.PropositionalEquality using (≢-sym)
@@ -59,25 +41,7 @@ open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ-refl; �
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Relation.Binary.PropositionalEquality.Properties.Ext using (≡×≢⇒≢; =/=⇔≢; ==⇔≡)
-open import Prelude.STS.Ext using (fold)
-open import Prelude.STS.Properties.Ext using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗)
-open import Protocol.BaseTypes using (slot₀)
-open import Protocol.Semantics {T} {AdversarialState} {honestyOf} {txSelection} {processMsgsᶜ} {makeBlockᶜ}
-
-open GlobalState
-open LocalState
-
-N₀ : GlobalState
-N₀ =
-  record
-    { clock     = slot₀
-    ; messages  = []
-    ; states    = map (_, it .def) parties₀
-    ; history   = []
-    ; advState  = adversarialState₀
-    ; execOrder = parties₀
-    ; progress  = ready
-    }
+open import Relation.Binary.Core using (_Preserves_⟶_)
 
 -- the standard library version is strangely for f : A → A → A
 foldr-preservesʳ' : ∀ {A B : Set} {P : B → Set} {f : A → B → B} →
@@ -87,14 +51,22 @@ foldr-preservesʳ' pres Pe (_ ∷ xs) = pres _ (foldr-preservesʳ' pres Pe xs)
 
 honestLocalTreeInHonestGlobalTree : ∀ {N : GlobalState} {p : Party} {ls : LocalState} →
     N₀ ↝⋆ N
-  → isHonest p
+  → Honest p
   → N .states ⁉ p ≡ just ls
   → allBlocks (ls .tree) ⊆ˢ allBlocks (honestTree N)
 honestLocalTreeInHonestGlobalTree = {!!}
 
+honestLocalTreeEvolution-↓ :  ∀ {N N′ : GlobalState} {p : Party} {ls ls′ : LocalState} →
+    Honest p
+  → N .states ⁉ p ≡ just ls
+  → _ ⊢ N —[ p ]↓→ N′
+  → N′ .states ⁉ p ≡ just ls′
+  → allBlocks (ls′ .tree) ≡ˢ allBlocks (ls .tree) ++ blocksDeliveredIn p 𝟘 N -- TODO: same as immediateMsgs p N ???
+honestLocalTreeEvolution-↓ = {!!}
+
 honestGlobalTreeInHonestLocalTree : ∀ {N N′ : GlobalState} {p : Party} {ls : LocalState} →
     N₀ ↝⋆ N
-  → isHonest p
+  → Honest p
   → N .progress ≡ ready
   → N′ .progress ≡ msgsDelivered
   → N ↝⋆⟨ 0 ⟩ N′
@@ -112,7 +84,7 @@ cfbInBlockListIsSubset : ∀ {b : Block} {bs : List Block} {c : Chain} →
     gbs : List Block
     gbs = genesisBlock ∷ bs
   in
-    isBlockListCollisionFree gbs
+    BlockListCollisionFree gbs
   → (b ∷ c) ✓
   → c ⊆ˢ gbs
   → chainFromBlock b bs ≡ b ∷ c
@@ -129,13 +101,42 @@ allPartiesHaveLocalState : ∀ {N : GlobalState} →
   → L.All.All (M.Is-just ∘ (N .states ⁉_)) (N .execOrder)
 allPartiesHaveLocalState = {!!}
 
-private opaque
+hasState⇔∈parties₀ : ∀ {N : GlobalState} {p : Party} →
+    N₀ ↝⋆ N
+  → M.Is-just (N .states ⁉ p) ⇔ p ∈ parties₀
+hasState⇔∈parties₀ = {!!}
+
+hasState⇒∈execOrder : ∀ {N : GlobalState} {p : Party} →
+    N₀ ↝⋆ N
+  → M.Is-just (N .states ⁉ p)
+  → p ∈ N .execOrder
+hasState⇒∈execOrder = {!!}
+
+messages⊆history : ∀ {N : GlobalState} →
+    N₀ ↝⋆ N
+  → map msg (N .messages) ⊆ˢ N .history
+messages⊆history = {!!}
+
+opaque
 
   unfolding honestMsgsDelivery honestBlockMaking
 
   localStatePreservation-↑∗ : ∀ {N N′ : GlobalState} {ps : List Party} {p : Party} →
     p ∉ ps → _ ⊢ N —[ ps ]↑→∗ N′ → N′ .states ⁉ p ≡ N .states ⁉ p
   localStatePreservation-↑∗ = {!!}
+
+  localStatePreservation-↓∗ : ∀ {N N′ N″ : GlobalState} {p : Party} →
+      N₀ ↝⋆ N
+    → _ ⊢ N —[ N .execOrder ]↓→∗ N′
+    → _ ⊢ N —[ p ]↓→ N″
+    → N′ .states ⁉ p ≡ N″ .states ⁉ p
+  localStatePreservation-↓∗ = {!!}
+
+  localStatePrev-↓ :  ∀ {N N′ : GlobalState} {p : Party} →
+      M.Is-just (N′ .states ⁉ p)
+    → _ ⊢ N —[ p ]↓→ N′
+    → M.Is-just (N .states ⁉ p)
+  localStatePrev-↓ = {!!}
 
   clockPreservation-broadcastMsgʰ : ∀ (msg : Message) (N : GlobalState) →
     broadcastMsgʰ msg N .clock ≡ N .clock
@@ -183,6 +184,17 @@ private opaque
   clockPreservation-↑∗ : ∀ {N N′ : GlobalState} {ps : List Party} →
     _ ⊢ N —[ ps ]↑→∗ N′ → N′ .clock ≡ N .clock
   clockPreservation-↑∗ = fold (λ _ N N′ → N′ .clock ≡ N .clock) (λ ts π → trans π (clockPreservation-↑ ts)) refl
+
+  clockMonotonicity : clock Preserves _↝⋆_ ⟶ _≤_
+  clockMonotonicity {N} {.N} RTC.ε = Nat.≤-refl
+  clockMonotonicity {N} {N′} (RTC._◅_ {j = N″} ts↝ ts↝⋆) = Nat.≤-trans (clockMonotonicity′ ts↝) (clockMonotonicity ts↝⋆)
+    where
+      clockMonotonicity′ : N ↝ N″ → N .clock ≤ N″ .clock
+      clockMonotonicity′ (deliverMsgs    _ ts) = Nat.≤-reflexive $ sym $ clockPreservation-↓∗ ts
+      clockMonotonicity′ (makeBlock      _ ts) = Nat.≤-reflexive $ sym $ clockPreservation-↑∗ ts
+      clockMonotonicity′ (advanceRound   _   ) = Nat.<⇒≤ $ Nat.n<1+n _
+      clockMonotonicity′ (permuteParties _   ) = Nat.≤-refl
+      clockMonotonicity′ (permuteMsgs    _   ) = Nat.≤-refl
 
   execOrderPreservation-broadcastMsgᶜ : ∀ (msg : Message) (ϕ : DelayMap) (N : GlobalState) →
     N .execOrder ↭ broadcastMsgᶜ msg ϕ N .execOrder
@@ -253,138 +265,14 @@ execOrderPreservation-↭ = RTC.fold (_↭_ on execOrder) (λ N↝N″ eoN″↭
 execOrderUniqueness : ∀ {N : GlobalState} → N₀ ↝⋆ N → Unique (N .execOrder)
 execOrderUniqueness N₀↝⋆N = Unique-resp-↭ (execOrderPreservation-↭ N₀↝⋆N) parties₀Uniqueness
 
-isSuperSlot : Slot → Type
-isSuperSlot sl = length (filter (λ p → ¿ winner p sl × isHonest p ¿) parties₀) ≡ 1
-
-isSuperBlock : Block → Type
-isSuperBlock b = isHonest (b .pid) × isSuperSlot (b .slot)
-
-superBlocks : GlobalState → List Block
-superBlocks N = L.deduplicate _≟_ $ filter ¿ isSuperBlock ¿¹ (blockHistory N)
-
-∈-superBlocks⁻ : ∀ {N : GlobalState} {b : Block} → b ∈ superBlocks N → b ∈ blockHistory N × isSuperBlock b
-∈-superBlocks⁻ = L.Mem.∈-filter⁻ _ ∘ L.Mem.∈-deduplicate⁻ _ _
-
-∈-superBlocks⁺ : ∀ {N : GlobalState} {b : Block} → b ∈ blockHistory N → isSuperBlock b → b ∈ superBlocks N
-∈-superBlocks⁺ = L.Mem.∈-deduplicate⁺ _ ∘₂ L.Mem.∈-filter⁺ _
-
-superBlocksAltDef : ∀ N → superBlocks N ≡ (L.deduplicate _≟_ $ filter ¿ isSuperSlot ∘ slot ¿¹ (honestBlockHistory N))
-superBlocksAltDef N
-  rewrite filter-∘-comm ¿ isSuperSlot ∘ slot ¿¹ ¿ isHonest ∘ pid ¿¹ (blockHistory N)
-    | sym $ filter-∘-× ¿ isHonest ∘ pid ¿¹ ¿ isSuperSlot ∘ slot ¿¹ (blockHistory N)
-    = refl
-
 superBlocks⊆honestBlockHistory : ∀ (N : GlobalState) → superBlocks N ⊆ˢ honestBlockHistory N
 superBlocks⊆honestBlockHistory N rewrite superBlocksAltDef N = begin
-  (L.deduplicate _≟_ $ filter ¿ isSuperSlot ∘ slot ¿¹ (honestBlockHistory N))
+  (L.deduplicate _≟_ $ filter ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N))
     ⊆⟨ L.Mem.∈-deduplicate⁻ _≟_ _ ⟩
-  filter ¿ isSuperSlot ∘ slot ¿¹ (honestBlockHistory N)
+  filter ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N)
     ⊆⟨ L.SubS.filter-⊆ _ _ ⟩
   honestBlockHistory N ∎
   where open L.SubS.⊆-Reasoning _
-
-module _ where
-
-  private variable
-    N₁ N₂ : GlobalState
-
-  -- The messages delivery phase sub-step relation.
-  data _↷↓_ : GlobalState → GlobalState → Type where
-
-    refine↓ :
-      ∙ N₁ ↝⋆ N₂
-      ────────────────────────────────────
-      N₁ ↷↓ N₂
-
-    progress↓ :
-      ∙ record N₁ { progress = msgsDelivered } ↷↓ N₂
-      ────────────────────────────────────
-      N₁ ↷↓ N₂
-
-    delivery↓ : ∀ {N′ : GlobalState} {p : Party} →
-      ∙ _ ⊢ N₁ —[ p ]↓→ N′
-      ∙ N′ ↷↓ N₂
-      ────────────────────────────────────
-      N₁ ↷↓ N₂
-
-  ↷↓-refl : ∀ {N} → N ↷↓ N
-  ↷↓-refl = refine↓ ε
-    where open Star
-
-  -- The block making phase sub-step relation.
-  data _↷↑_ : GlobalState → GlobalState → Type where
-
-    refine↑ :
-      ∙ N₁ ↝⋆ N₂
-      ────────────────────────────────────
-      N₁ ↷↑ N₂
-
-    progress↑ :
-      ∙ record N₁ { progress = blockMade } ↷↑ N₂
-      ────────────────────────────────────
-      N₁ ↷↑ N₂
-
-    blockMaking↑ : ∀ {N′ : GlobalState} {p : Party} →
-      ∙ _ ⊢ N₁ —[ p ]↑→ N′
-      ∙ N′ ↷↑ N₂
-      ────────────────────────────────────
-      N₁ ↷↑ N₂
-
-  ↷↑-refl : ∀ {N} → N ↷↑ N
-  ↷↑-refl = refine↑ ε
-    where open Star
-
--- The condition `∀ {N₁} → N₁ ↷↓ N₂ → ∀ {p} → ...` forces the forging-free property to hold at each
--- previous "sub-step" within the delivery/minting phase. A sub-step is either starting a
--- new round, changing the progress to `msgsDelivered`/‵blockMade` or executing the messages
--- delivery/block minting for a party `p`.
---
--- Thus, an honest block can be broadcast by a corrupt party _only_ if such block was already in the
--- history at the beginning of the delivery/minting phase.
-isForgingFree↓ : GlobalState → Type
-isForgingFree↓ N₂ = ∀ {N₁ : GlobalState} → N₁ ↷↓ N₂ → ∀ {p : Party} →
-  let
-    (msgs , N₁′) = fetchNewMsgs p N₁
-    mds = processMsgsᶜ
-      msgs
-      (N₁′ .clock)
-      (N₁′ .history)
-      (N₁′ .messages)
-      (N₁′ .advState)
-      .proj₁
-    nbs = map (projBlock ∘ proj₁) mds
-  in
-    nbs ⊆ʰ blockHistory N₁′
-
-isForgingFree↓Prev : ∀ {N₁ N₂ : GlobalState} → isForgingFree↓ N₂ → N₁ ↝⋆ N₂ → isForgingFree↓ N₁
-isForgingFree↓Prev ff↓ ts↝⋆ ts↷↓ = ff↓ (isForgingFree↓Prev′ ts↷↓ ts↝⋆)
-  where
-    isForgingFree↓Prev′ : ∀ {N₁ N₂ N′ : GlobalState} → N₁ ↷↓ N′ → N′ ↝⋆ N₂ → N₁ ↷↓ N₂
-    isForgingFree↓Prev′ (refine↓ x)     ts↝⋆ = refine↓ (x ◅◅ ts↝⋆)
-    isForgingFree↓Prev′ (progress↓ x)   ts↝⋆ = progress↓ (isForgingFree↓Prev′ x ts↝⋆)
-    isForgingFree↓Prev′ (delivery↓ x y) ts↝⋆ = delivery↓ x (isForgingFree↓Prev′ y ts↝⋆)
-
-isForgingFree↑ : GlobalState → Type
-isForgingFree↑ N₂ = ∀ {N₁ : GlobalState} → N₁ ↷↑ N₂ →
-  let
-    mds = makeBlockᶜ (N₁ .clock) (N₁ .history) (N₁ .messages) (N₁ .advState) .proj₁
-    nbs = map (projBlock ∘ proj₁) mds
-  in
-    nbs ⊆ʰ blockHistory N₁
-
-isForgingFree↑Prev : ∀ {N₁ N₂ : GlobalState} → isForgingFree↑ N₂ → N₁ ↝⋆ N₂ → isForgingFree↑ N₁
-isForgingFree↑Prev ff↑ ts↝⋆ ts↷↑ = ff↑ (isForgingFree↑Prev′ ts↷↑ ts↝⋆)
-  where
-    isForgingFree↑Prev′ : ∀ {N₁ N₂ N′ : GlobalState} → N₁ ↷↑ N′ → N′ ↝⋆ N₂ → N₁ ↷↑ N₂
-    isForgingFree↑Prev′ (refine↑ x)        ts↝⋆ = refine↑ (x ◅◅ ts↝⋆)
-    isForgingFree↑Prev′ (progress↑ x)      ts↝⋆ = progress↑ (isForgingFree↑Prev′ x ts↝⋆)
-    isForgingFree↑Prev′ (blockMaking↑ x y) ts↝⋆ = blockMaking↑ x (isForgingFree↑Prev′ y ts↝⋆)
-
-isForgingFree : GlobalState → Type
-isForgingFree N = isForgingFree↓ N × isForgingFree↑ N
-
-isForgingFreePrev : ∀ {N₁ N₂} → N₁ ↝⋆ N₂ → isForgingFree N₂ → isForgingFree N₁
-isForgingFreePrev N₁↝⋆N₂ (ffN₂↓ , ffN₂↑) = isForgingFree↓Prev ffN₂↓ N₁↝⋆N₂ , isForgingFree↑Prev ffN₂↑ N₁↝⋆N₂
 
 historyPreservation-broadcastMsgᶜ : ∀ (msg : Message) (ϕ : DelayMap) (N : GlobalState) →
   N .history ⊆ˢ broadcastMsgᶜ msg ϕ N .history
@@ -402,7 +290,7 @@ blockHistoryPreservation-broadcastMsgsᶜ : ∀ (mϕs : List (Message × DelayMa
   blockHistory N ⊆ˢ blockHistory (broadcastMsgsᶜ mϕs N)
 blockHistoryPreservation-broadcastMsgsᶜ mϕs N = L.SubS.map⁺ _ (historyPreservation-broadcastMsgsᶜ mϕs N)
 
-private opaque
+opaque
 
   unfolding honestMsgsDelivery honestBlockMaking
 
@@ -458,20 +346,20 @@ private opaque
     _ ⊢ N₁ —[ ps ]↓→∗ N₂ → blockHistory N₁ ⊆ˢ blockHistory N₂
   blockHistoryPreservation-↓∗ = L.SubS.map⁺ _ ∘ historyPreservation-↓∗
 
-  isCollisionFreePrev-↓ : ∀ {p : Party} {N₁ N₂ : GlobalState} → _ ⊢ N₁ —[ p ]↓→ N₂ → isCollisionFree N₂ → isCollisionFree N₁
-  isCollisionFreePrev-↓ {p} {N₁} {N₂} ts cfN₂ = isBlockListCollisionFree-⊆ subs cfN₂
+  CollisionFreePrev-↓ : ∀ {p : Party} {N₁ N₂ : GlobalState} → _ ⊢ N₁ —[ p ]↓→ N₂ → CollisionFree N₂ → CollisionFree N₁
+  CollisionFreePrev-↓ {p} {N₁} {N₂} ts cfN₂ = BlockListCollisionFree-⊆ subs cfN₂
     where
       subs : genesisBlock ∷ blockHistory N₁ ⊆ˢ genesisBlock ∷ blockHistory N₂
       subs = L.SubS.∷⁺ʳ genesisBlock (blockHistoryPreservation-↓ ts)
 
-  isCollisionFreePrev-↑ : ∀ {p : Party} {N₁ N₂ : GlobalState} → _ ⊢ N₁ —[ p ]↑→ N₂ → isCollisionFree N₂ → isCollisionFree N₁
-  isCollisionFreePrev-↑ {p} {N₁} {N₂} ts cfN₂ = isBlockListCollisionFree-⊆ subs cfN₂
+  CollisionFreePrev-↑ : ∀ {p : Party} {N₁ N₂ : GlobalState} → _ ⊢ N₁ —[ p ]↑→ N₂ → CollisionFree N₂ → CollisionFree N₁
+  CollisionFreePrev-↑ {p} {N₁} {N₂} ts cfN₂ = BlockListCollisionFree-⊆ subs cfN₂
     where
       subs : genesisBlock ∷ blockHistory N₁ ⊆ˢ genesisBlock ∷ blockHistory N₂
       subs = L.SubS.∷⁺ʳ genesisBlock (blockHistoryPreservation-↑ ts)
 
-  isCollisionFreePrev : ∀ {N₁ N₂ : GlobalState} → N₁ ↝⋆ N₂ → isCollisionFree N₂ → isCollisionFree N₁
-  isCollisionFreePrev {N₁} {N₂} N₁↝⋆N₂ cfN₂ = isBlockListCollisionFree-⊆ subs cfN₂
+  CollisionFreePrev : ∀ {N₁ N₂ : GlobalState} → N₁ ↝⋆ N₂ → CollisionFree N₂ → CollisionFree N₁
+  CollisionFreePrev {N₁} {N₂} N₁↝⋆N₂ cfN₂ = BlockListCollisionFree-⊆ subs cfN₂
     where
       subs : genesisBlock ∷ blockHistory N₁ ⊆ˢ genesisBlock ∷ blockHistory N₂
       subs = L.SubS.∷⁺ʳ genesisBlock (blockHistoryPreservation-↝⋆ N₁↝⋆N₂)
@@ -481,7 +369,7 @@ private opaque
     → honestBlockHistory N ≡ˢ honestBlockHistory (broadcastMsgsᶜ mds N)
   honestBlockHistoryPreservation-broadcastMsgsᶜ {_} {[]} _ = ≡ˢ-refl
   honestBlockHistoryPreservation-broadcastMsgsᶜ {N} {(newBlock b , _) ∷ mds} prf
-    with ih ← honestBlockHistoryPreservation-broadcastMsgsᶜ {N} {mds} | ¿ isHonestBlock b ¿
+    with ih ← honestBlockHistoryPreservation-broadcastMsgsᶜ {N} {mds} | ¿ HonestBlock b ¿
   ... | no _   = ih prf
   ... | yes bh = goal
     where
@@ -512,7 +400,7 @@ private opaque
   honestBlockHistoryPreservation-↓∗ : ∀ {N N′ : GlobalState} {ps : List Party} →
       N₀ ↝⋆ N
     → _ ⊢ N —[ ps ]↓→∗ N′
-    → isForgingFree (record N′ { progress = msgsDelivered })
+    → ForgingFree (record N′ { progress = msgsDelivered })
     → N .progress ≡ ready
     → honestBlockHistory N ≡ˢ honestBlockHistory N′
   honestBlockHistoryPreservation-↓∗ {N} {N′} {ps} N₀↝⋆N N—[ps]↓→∗N′ ff NReady = honestBlockHistoryPreservationʳ-↓∗ {N} {N′} ps prfN₂ (—[]→∗⇒—[]→∗ʳ N—[ps]↓→∗N′)
@@ -557,35 +445,35 @@ private opaque
       N₀ ↝⋆ N
     → N .progress ≡ ready
     → N ↝⋆⟨ 0 ⟩ N′
-    → isForgingFree N′
+    → ForgingFree N′
     → N′ .progress ≡ msgsDelivered
     → honestBlockHistory N ≡ˢ honestBlockHistory N′
   honestBlockHistoryPreservation-↝⋆⟨0⟩ = {!!}
 
 noPrematureHonestBlocksAtReady : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
-  → isForgingFree N
+  → ForgingFree N
   → N .progress ≡ ready
   → L.All.All (λ b → b .slot < N .clock) (honestBlockHistory N)
 noPrematureHonestBlocksAtReady = {!!}
 
 noPrematureHonestBlocksAt↓ : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
-  → isForgingFree N
+  → ForgingFree N
   → N .progress ≡ msgsDelivered
   → L.All.All (λ b → b .slot < N .clock) (honestBlockHistory N)
 noPrematureHonestBlocksAt↓ = {!!}
 
 noPrematureHonestBlocks : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
-  → isForgingFree N
+  → ForgingFree N
   → L.All.All (λ b → b .slot ≤ N .clock) (honestBlockHistory N)
 noPrematureHonestBlocks = {!!}
 
 honestBlocksBelowSlotPreservation : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
   → N ↝⋆ N′
-  → isForgingFree N′
+  → ForgingFree N′
   → filter (λ b → b .slot <? N .clock) (honestBlockHistory N)
     ≡ˢ
     filter (λ b → b .slot <? N .clock) (honestBlockHistory N′)
@@ -594,18 +482,18 @@ honestBlocksBelowSlotPreservation = {!!}
 honestBlockCfb✓∗ : ∀ {N₁ N₂ N′ : GlobalState} {ps : List Party} →
     N₀ ↝⋆ N₁
   → N₁ ↝⋆ N₂
-  → isForgingFree N₂
+  → ForgingFree N₂
   → _ ⊢ N₁ —[ ps ]↑→∗ N′
   → N′ ↷↑ N₂
   → Unique ps
-  → isCollisionFree N′
+  → CollisionFree N′
   → L.All.All (λ b → chainFromBlock b (blockHistory N′) ✓) (honestBlockHistory N′)
 honestBlockCfb✓∗ = {!!}
 
 cfbInHonestTree : ∀ {N : GlobalState} {b : Block} →
     N₀ ↝⋆ N
-  → isForgingFree N
-  → isCollisionFree N
+  → ForgingFree N
+  → CollisionFree N
   → b ∈ honestBlockHistory N
   → chainFromBlock b (blockHistory N) ⊆ˢ allBlocks (honestTree N)
 cfbInHonestTree = {!!}
@@ -616,7 +504,7 @@ module _ where
   private
 
     ancestorPreservation : ∀ {bs bs′ : List Block} {b b′ : Block} →
-        isBlockListCollisionFree bs′
+        BlockListCollisionFree bs′
       → bs ⊆ˢ bs′
       → L.findᵇ ((b .prev ==_) ∘ hash) bs ≡ just b′
       → L.findᵇ ((b .prev ==_) ∘ hash) bs′ ≡ just b′
@@ -625,13 +513,13 @@ module _ where
         b′∈bs′ : b′ ∈ bs′
         b′∈bs′ = bs⊆ˢbs′ $ ∈-findᵇ⁻ eqf
 
-        prevb≡hb′ : b .prev == hash b′ ≡ true
+        prevb≡hb′ : (b .prev == hash b′) ≡ true
         prevb≡hb′ = Px-findᵇ⁻ {P = ((b .prev ==_) ∘ hash)} {xs = bs} eqf
 
-        prevb≡b″ : ∀ {b″} → b′ ≡ b″ → b .prev == hash b″ ≡ true
+        prevb≡b″ : ∀ {b″} → b′ ≡ b″ → (b .prev == hash b″) ≡ true
         prevb≡b″ b′≡b″ = subst _ b′≡b″ prevb≡hb′
 
-        goal : ∀ {bs′} → isBlockListCollisionFree bs′ → b′ ∈ bs′ → L.findᵇ ((b .prev ==_) ∘ hash) bs′ ≡ just b′
+        goal : ∀ {bs′} → BlockListCollisionFree bs′ → b′ ∈ bs′ → L.findᵇ ((b .prev ==_) ∘ hash) bs′ ≡ just b′
         goal {b″ ∷ bs″} cfbs′ b′∈bs′ with b′ ≟ b″
         ... | yes b′≡b″ rewrite prevb≡b″ b′≡b″ = cong just (sym b′≡b″)
         ... | no b′≢b″ = goal′
@@ -642,16 +530,16 @@ module _ where
             hb′≢hb″ : hash b′ ≢ hash b″
             hb′≢hb″ = contraposition (cartesianProduct⁻ cfbs′ (L.Mem.∈-++⁺ʳ [ b″ ] b′∈bs″) (x∈x∷xs bs″)) b′≢b″
 
-            prevb≢hb″ : b .prev == hash b″ ≡ false
+            prevb≢hb″ : (b .prev == hash b″) ≡ false
             prevb≢hb″ = Equivalence.from =/=⇔≢ $ ≡×≢⇒≢ (Equivalence.to ==⇔≡ prevb≡hb′) hb′≢hb″
 
             goal′ : L.findᵇ ((b .prev ==_) ∘ hash) (b″ ∷ bs″) ≡ just b′
-            goal′ rewrite prevb≢hb″ = goal {bs″} (isBlockListCollisionFree-∷ {bs = bs″} cfbs′) b′∈bs″
+            goal′ rewrite prevb≢hb″ = goal {bs″} (BlockListCollisionFree-∷ {bs = bs″} cfbs′) b′∈bs″
 
   {-# TERMINATING #-}
   -- TODO: Prove termination using `WellFounded` (if needed).
   subsetCfbPreservation : ∀ {bs bs′ : List Block} {b : Block} →
-      isBlockListCollisionFree bs′
+      BlockListCollisionFree bs′
     → bs ⊆ˢ bs′
     → chainFromBlock b bs ≢ []
     → chainFromBlock b bs ≡ chainFromBlock b bs′
@@ -671,14 +559,14 @@ module _ where
                     {L.filterᵇ (not ∘ (_== b′)) bs}
                     {L.filterᵇ (not ∘ (_== b′)) bs′}
                     {b′}
-                    (isBlockListCollisionFree-⊆ (L.SubS.filter-⊆ _ bs′) cfbs′)
+                    (BlockListCollisionFree-⊆ (L.SubS.filter-⊆ _ bs′) cfbs′)
                     (filterᵇ-mono bs⊆ˢbs′)
                     (subst (_≢ []) (sym eqcfb) ∷≢[])
                 | eqcfb
                   = refl
 
 subsetCfb✓Preservation : ∀ {bs bs′ : List Block} {b : Block} →
-    isBlockListCollisionFree bs′
+    BlockListCollisionFree bs′
   → bs ⊆ˢ bs′
   → chainFromBlock b bs ✓
   → chainFromBlock b bs′ ✓
@@ -696,8 +584,8 @@ private opaque
 
   honestBlockCfb✓ : ∀ {N : GlobalState} {b : Block} →
       N₀ ↝⋆ N
-    → isForgingFree N
-    → isCollisionFree N
+    → ForgingFree N
+    → CollisionFree N
     → b ∈ honestBlockHistory N
     → chainFromBlock b (blockHistory N) ✓
   honestBlockCfb✓ = honestBlockCfb✓ʳ ∘ Star⇒Starʳ
@@ -705,8 +593,8 @@ private opaque
       open RTC; open Starʳ
       honestBlockCfb✓ʳ : ∀ {N : GlobalState} {b : Block} →
           N₀ ↝⋆ʳ N
-        → isForgingFree N
-        → isCollisionFree N
+        → ForgingFree N
+        → CollisionFree N
         → b ∈ honestBlockHistory N
         → chainFromBlock b (blockHistory N) ✓
       honestBlockCfb✓ʳ εʳ ffN cfN b∈hbhN = contradiction b∈hbhN L.Any.¬Any[]
@@ -715,11 +603,11 @@ private opaque
           N₀↝⋆N′ : N₀ ↝⋆ N′
           N₀↝⋆N′ = Starʳ⇒Star N₀↝⋆ʳN′
 
-          ffN′ : isForgingFree N′
-          ffN′ = isForgingFreePrev (N′↝N ◅ ε) ffN
+          ffN′ : ForgingFree N′
+          ffN′ = ForgingFreePrev (N′↝N ◅ ε) ffN
 
-          cfN′ : isCollisionFree N′
-          cfN′ = isCollisionFreePrev (N′↝N ◅ ε) cfN
+          cfN′ : CollisionFree N′
+          cfN′ = CollisionFreePrev (N′↝N ◅ ε) cfN
 
           goal : N′ ↝ N → chainFromBlock b (blockHistory N) ✓
           goal N′↝N
@@ -735,18 +623,18 @@ private opaque
               ih : chainFromBlock b (blockHistory N′) ✓
               ih = honestBlockCfb✓ʳ N₀↝⋆ʳN′ ffN′ cfN′ b∈hbhN′
 
-              deliverMsgsGoal : ∀ {N″ ps} → isCollisionFree N″ → _ ⊢ N′ —[ ps ]↓→∗ʳ N″ → chainFromBlock b (blockHistory N″) ✓
+              deliverMsgsGoal : ∀ {N″ ps} → CollisionFree N″ → _ ⊢ N′ —[ ps ]↓→∗ʳ N″ → chainFromBlock b (blockHistory N″) ✓
               deliverMsgsGoal _ [] = ih
               deliverMsgsGoal {N″} cfN″ (_∷ʳ_ {s′ = N‴} N′—[ps]↓→∗ʳN‴ N‴↝[p]↓N″) = subst _✓ cfbhN‴≡cfbhN″ ih′
                 where
-                  cfN‴ : isCollisionFree N‴
-                  cfN‴ = isCollisionFreePrev-↓ N‴↝[p]↓N″ cfN″
+                  cfN‴ : CollisionFree N‴
+                  cfN‴ = CollisionFreePrev-↓ N‴↝[p]↓N″ cfN″
 
                   ih′ : chainFromBlock b (blockHistory N‴) ✓
                   ih′ = deliverMsgsGoal cfN‴ N′—[ps]↓→∗ʳN‴
 
-                  cfbhN″ : isBlockListCollisionFree (blockHistory N″)
-                  cfbhN″ = isBlockListCollisionFree-∷ {blockHistory N″} {genesisBlock} cfN″
+                  cfbhN″ : BlockListCollisionFree (blockHistory N″)
+                  cfbhN″ = BlockListCollisionFree-∷ {blockHistory N″} {genesisBlock} cfN″
 
                   bhN‴⊆bhN″ : blockHistory N‴ ⊆ˢ blockHistory N″
                   bhN‴⊆bhN″ = blockHistoryPreservation-↓ N‴↝[p]↓N″
@@ -770,7 +658,7 @@ private opaque
 
               makeBlockGoal : ∀ {N″} ps →
                   N″ ↷↑ N
-                → isCollisionFree N″
+                → CollisionFree N″
                 → b ∈ honestBlockHistory N″
                 → Unique ps
                 → _ ⊢ N′ —[ ps ]↑→∗ʳ N″
@@ -779,8 +667,8 @@ private opaque
               makeBlockGoal {N″} [] prfN cfN″ b∈hbhN″ _ (_∷ʳ_ {eq = eq} _ _) = contradiction eq []≢∷ʳ
               makeBlockGoal {N″} (p ∷ ps) prfN cfN″ b∈hbhN″ p∷psUniq (_∷ʳ_ {is = ps′} {i = p′} {s′ = N‴} {eq = eq} ts⋆ ts) = step ts
                 where
-                  cfN‴ : isCollisionFree N‴
-                  cfN‴ = isCollisionFreePrev-↑ ts cfN″
+                  cfN‴ : CollisionFree N‴
+                  cfN‴ = CollisionFreePrev-↑ ts cfN″
 
                   p∉ps : p ∉ ps
                   p∉ps = Unique[x∷xs]⇒x∉xs p∷psUniq
@@ -822,8 +710,8 @@ private opaque
                       bhπ : blockHistory N‴ ⊆ˢ nb ∷ blockHistory N‴
                       bhπ  = L.SubS.xs⊆x∷xs _ _
 
-                      cfπ : isBlockListCollisionFree (nb ∷ blockHistory N‴)
-                      cfπ = isBlockListCollisionFree-∷ {nb ∷ blockHistory N‴} {genesisBlock} cfN″
+                      cfπ : BlockListCollisionFree (nb ∷ blockHistory N‴)
+                      cfπ = BlockListCollisionFree-∷ {nb ∷ blockHistory N‴} {genesisBlock} cfN″
 
                       step-honestParty↑ : chainFromBlock b (nb ∷ blockHistory N‴) ✓
                       step-honestParty↑ with ∈-∷⁻ b∈nb∷hbhN‴
@@ -908,8 +796,8 @@ private opaque
                       bhπ : blockHistory N‴ ⊆ˢ blockHistory (broadcastMsgsᶜ mds N‴)
                       bhπ  = blockHistoryPreservation-broadcastMsgsᶜ mds N‴
 
-                      cfπ : isBlockListCollisionFree (blockHistory (broadcastMsgsᶜ mds N‴))
-                      cfπ = isBlockListCollisionFree-∷ {blockHistory (broadcastMsgsᶜ mds N‴)} {genesisBlock} cfN″
+                      cfπ : BlockListCollisionFree (blockHistory (broadcastMsgsᶜ mds N‴))
+                      cfπ = BlockListCollisionFree-∷ {blockHistory (broadcastMsgsᶜ mds N‴)} {genesisBlock} cfN″
 
                       cfb✓π : chainFromBlock b (blockHistory N‴) ✓
                       cfb✓π = ih′ b∈hbhN‴
@@ -924,15 +812,15 @@ private opaque
 honestCfbPreservation-↓∗ : ∀ {N N′ : GlobalState} {b : Block} →
     N₀ ↝⋆ N
   → _ ⊢ N —[ N .execOrder ]↓→∗ N′
-  → isForgingFree N
-  → isCollisionFree N′
+  → ForgingFree N
+  → CollisionFree N′
   → b ∈ honestBlockHistory N
   → N .progress ≡ ready
   → chainFromBlock b (blockHistory N) ≡ chainFromBlock b (blockHistory N′)
 honestCfbPreservation-↓∗ {N} {N′} {b} N₀↝⋆N N—[eoN′]↓→∗N′ ffN cfN′ b∈hbhN NReady = subsetCfbPreservation cfbhN′ bhN⊆bhN′ cfbN≢[]
   where
-    cfbhN′ : isBlockListCollisionFree (blockHistory N′)
-    cfbhN′ = isBlockListCollisionFree-∷ {blockHistory N′} {genesisBlock} cfN′
+    cfbhN′ : BlockListCollisionFree (blockHistory N′)
+    cfbhN′ = BlockListCollisionFree-∷ {blockHistory N′} {genesisBlock} cfN′
 
     bhN⊆bhN′ : blockHistory N ⊆ˢ blockHistory N′
     bhN⊆bhN′ = blockHistoryPreservation-↓∗ N—[eoN′]↓→∗N′
@@ -944,8 +832,8 @@ honestCfbPreservation-↓∗ {N} {N′} {b} N₀↝⋆N N—[eoN′]↓→∗N�
         N↝⋆N′↓ = deliverMsgs NReady N—[eoN′]↓→∗N′ ◅ ε
           where open RTC
 
-        cfN : isCollisionFree N
-        cfN = isCollisionFreePrev N↝⋆N′↓ cfN′
+        cfN : CollisionFree N
+        cfN = CollisionFreePrev N↝⋆N′↓ cfN′
 
         cfbbN✓ : chainFromBlock b (blockHistory N) ✓
         cfbbN✓ = honestBlockCfb✓ N₀↝⋆N ffN cfN b∈hbhN
@@ -953,8 +841,8 @@ honestCfbPreservation-↓∗ {N} {N′} {b} N₀↝⋆N N—[eoN′]↓→∗N�
 honestPosPreservation-↓∗ : ∀ {N N′ : GlobalState} {b : Block} →
     N₀ ↝⋆ N
   → _ ⊢ N —[ N .execOrder ]↓→∗ N′
-  → isForgingFree N
-  → isCollisionFree N′
+  → ForgingFree N
+  → CollisionFree N′
   → b ∈ honestBlockHistory N
   → N .progress ≡ ready
   → blockPos b N ≡ blockPos b N′
@@ -964,22 +852,22 @@ honestPosPreservation-↓∗ N₀↝⋆N N—[eoN′]↓→∗N′ ffN cfN′ b�
 superBlocksInHonestBlockHistory :  ∀ {N} → superBlocks N ⊆ˢ honestBlockHistory N
 superBlocksInHonestBlockHistory {N} {b} b∈sbsN =
   let
-    (b∈hbh , bIsHonest , _) = L.Mem.∈-filter⁻ ¿ isSuperBlock ¿¹ {xs = blockHistory N} (L.Mem.∈-deduplicate⁻ _≟_ (filter ¿ isSuperBlock ¿¹ (blockHistory N)) b∈sbsN)
+    (b∈hbh , bIsHonest , _) = L.Mem.∈-filter⁻ ¿ SuperBlock ¿¹ {xs = blockHistory N} (L.Mem.∈-deduplicate⁻ _≟_ (filter ¿ SuperBlock ¿¹ (blockHistory N)) b∈sbsN)
   in
-    L.Mem.∈-filter⁺ ¿ isHonestBlock ¿¹ b∈hbh bIsHonest
+    L.Mem.∈-filter⁺ ¿ HonestBlock ¿¹ b∈hbh bIsHonest
 
 superBlocksPreservation-↓∗ : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
   → _ ⊢ N —[ N .execOrder ]↓→∗ N′
-  → isForgingFree record N′ { progress = msgsDelivered }
+  → ForgingFree record N′ { progress = msgsDelivered }
   → N .progress ≡ ready
   → superBlocks N ≡ˢ superBlocks N′
 superBlocksPreservation-↓∗ {N} {N′} N₀↝⋆N N—[ps]↓→∗N′ ffN′ NReady {b} = begin
   b ∈ superBlocks N
     ≡⟨ cong (b ∈_) (superBlocksAltDef N) ⟩
-  b ∈ (L.deduplicate _≟_ $ filter ¿ isSuperSlot ∘ slot ¿¹ (honestBlockHistory N))
+  b ∈ (L.deduplicate _≟_ $ filter ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N))
     ∼⟨ deduplicate-cong $ filter-cong $ honestBlockHistoryPreservation-↓∗ N₀↝⋆N  N—[ps]↓→∗N′ ffN′ NReady ⟩
-  b ∈ (L.deduplicate _≟_ $ filter ¿ isSuperSlot ∘ slot ¿¹ (honestBlockHistory N′))
+  b ∈ (L.deduplicate _≟_ $ filter ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N′))
     ≡⟨ cong (b ∈_) (sym $ superBlocksAltDef N′) ⟩
   b ∈ superBlocks N′ ∎
   where open Related.EquationalReasoning
@@ -991,8 +879,8 @@ private opaque
   -- The following lemma is a central step towards proving the common prefix property.
   superBlockPositions : ∀ {N : GlobalState} →
       N₀ ↝⋆ N
-    → isCollisionFree N
-    → isForgingFree N
+    → CollisionFree N
+    → ForgingFree N
     → L.All.All
         (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
         (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
@@ -1001,23 +889,23 @@ private opaque
       open RTC; open Starʳ
       superBlockPositionsʳ : ∀ {N : GlobalState} →
           N₀ ↝⋆ʳ N
-        → isCollisionFree N
-        → isForgingFree N
+        → CollisionFree N
+        → ForgingFree N
         → L.All.All
             (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
             (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
       superBlockPositionsʳ εʳ cfp ffp = L.All.All.[]
       superBlockPositionsʳ {N} (_◅ʳ_ {j = N′} N₀↝⋆ʳN′ N′↝N) cfN ffN
         with
-          ih ← superBlockPositionsʳ N₀↝⋆ʳN′ (isCollisionFreePrev (N′↝N ◅ ε) cfN) (isForgingFreePrev (N′↝N ◅ ε) ffN)
+          ih ← superBlockPositionsʳ N₀↝⋆ʳN′ (CollisionFreePrev (N′↝N ◅ ε) cfN) (ForgingFreePrev (N′↝N ◅ ε) ffN)
         | N′↝N
       ... | deliverMsgs {N′} {N″} N′Ready N′—[eoN′]↓→∗N″ = goal
         where
-          ffN′ : isForgingFree N′
-          ffN′ = isForgingFreePrev (N′↝N ◅ ε) ffN
+          ffN′ : ForgingFree N′
+          ffN′ = ForgingFreePrev (N′↝N ◅ ε) ffN
 
-          cfpN′ : isCollisionFree N′
-          cfpN′ = isCollisionFreePrev (N′↝N ◅ ε) cfN
+          cfpN′ : CollisionFree N′
+          cfpN′ = CollisionFreePrev (N′↝N ◅ ε) cfN
 
           N₀↝⋆N′ : N₀ ↝⋆ N′
           N₀↝⋆N′ = Starʳ⇒Star N₀↝⋆ʳN′
@@ -1059,11 +947,11 @@ private opaque
 
       ... | makeBlock {N′} {N″} N′MsgsDelivered N′—[eoN′]↑→∗N″ = goal
         where
-          ffN′ : isForgingFree N′
-          ffN′ = isForgingFreePrev (N′↝N ◅ ε) ffN
+          ffN′ : ForgingFree N′
+          ffN′ = ForgingFreePrev (N′↝N ◅ ε) ffN
 
-          cfN′ : isCollisionFree N′
-          cfN′ = isCollisionFreePrev (N′↝N ◅ ε) cfN
+          cfN′ : CollisionFree N′
+          cfN′ = CollisionFreePrev (N′↝N ◅ ε) cfN
 
           N₀↝⋆N′ : N₀ ↝⋆ N′
           N₀↝⋆N′ = Starʳ⇒Star N₀↝⋆ʳN′
@@ -1128,11 +1016,11 @@ private opaque
                       Nᴿₜ≡N′ₜ : Nᴿ .clock ≡ N′ .clock
                       Nᴿₜ≡N′ₜ = Nᴿ↝⋆⟨0⟩N′ .proj₂
 
-                      ffNᴿ : isForgingFree Nᴿ
-                      ffNᴿ = isForgingFreePrev Nᴿ↝⋆N′ ffN′
+                      ffNᴿ : ForgingFree Nᴿ
+                      ffNᴿ = ForgingFreePrev Nᴿ↝⋆N′ ffN′
 
-                      cfNᴿ : isCollisionFree Nᴿ
-                      cfNᴿ = isCollisionFreePrev Nᴿ↝⋆N′ cfN′
+                      cfNᴿ : CollisionFree Nᴿ
+                      cfNᴿ = CollisionFreePrev Nᴿ↝⋆N′ cfN′
 
                       cfbhNᴿ≢[] : chainFromBlock sb (blockHistory Nᴿ) ≢ []
                       cfbhNᴿ≢[] = subst (_≢ []) (✓⇒gbIsHead cfbhNᴿ✓ .proj₂) (≢-sym []≢∷ʳ)
@@ -1143,8 +1031,8 @@ private opaque
                       cfbhNᴿ≡cfbhN′ : chainFromBlock sb (blockHistory Nᴿ) ≡ chainFromBlock sb (blockHistory N′)
                       cfbhNᴿ≡cfbhN′ = subsetCfbPreservation cfbhN′ bhNᴿ⊆bhN′ cfbhNᴿ≢[]
                         where
-                          cfbhN′ : isBlockListCollisionFree (blockHistory N′)
-                          cfbhN′ = isBlockListCollisionFree-∷ {blockHistory N′} {genesisBlock} cfN′
+                          cfbhN′ : BlockListCollisionFree (blockHistory N′)
+                          cfbhN′ = BlockListCollisionFree-∷ {blockHistory N′} {genesisBlock} cfN′
 
                           bhNᴿ⊆bhN′ : blockHistory Nᴿ ⊆ˢ blockHistory N′
                           bhNᴿ⊆bhN′ = blockHistoryPreservation-↝⋆ Nᴿ↝⋆N′
@@ -1152,8 +1040,8 @@ private opaque
                       cfbhNᴿ≡cfbhN : chainFromBlock sb (blockHistory Nᴿ) ≡ chainFromBlock sb (blockHistory N)
                       cfbhNᴿ≡cfbhN = subsetCfbPreservation cfbhN bhNᴿ⊆bhN cfbhNᴿ≢[]
                         where
-                          cfbhN : isBlockListCollisionFree (blockHistory N)
-                          cfbhN = isBlockListCollisionFree-∷ {blockHistory N} {genesisBlock} cfN
+                          cfbhN : BlockListCollisionFree (blockHistory N)
+                          cfbhN = BlockListCollisionFree-∷ {blockHistory N} {genesisBlock} cfN
 
                           bhNᴿ⊆bhN : blockHistory Nᴿ ⊆ˢ blockHistory N
                           bhNᴿ⊆bhN = blockHistoryPreservation-↝⋆ Nᴿ↝⋆N
@@ -1169,7 +1057,7 @@ private opaque
 
                       makeBlockGoal-sbₜ<Nₜ : ∀ {N*} ps →
                           N* ↷↑ N
-                        → isCollisionFree N*
+                        → CollisionFree N*
                         → b ∈ honestBlockHistory N*
                         → Unique ps
                         → _ ⊢ N′ —[ ps ]↑→∗ʳ N*
@@ -1178,7 +1066,7 @@ private opaque
                         where
                           makeBlockGoal-sbₜ<Nₜ′ : ∀ {N*} ps →
                               N* ↷↑ N
-                            → isCollisionFree N*
+                            → CollisionFree N*
                             → b ∈ honestBlockHistory N*
                             → Unique ps
                             → _ ⊢ N′ —[ ps ]↑→∗ʳ N*
@@ -1187,8 +1075,8 @@ private opaque
                           makeBlockGoal-sbₜ<Nₜ′ {N*} [] _ _ _ _ (_∷ʳ_ {eq = eq} _ _) = contradiction eq []≢∷ʳ
                           makeBlockGoal-sbₜ<Nₜ′ {N*} (p ∷ ps) prfN cfN* b∈hbhN* p∷psUniq (_∷ʳ_ {is = ps′} {i = p′} {s′ = N‴} {eq = eq} ts⋆ ts) = step ts
                             where
-                              cfN‴ : isCollisionFree N‴
-                              cfN‴ = isCollisionFreePrev-↑ ts cfN*
+                              cfN‴ : CollisionFree N‴
+                              cfN‴ = CollisionFreePrev-↑ ts cfN*
 
                               ps′∷ʳp′Uniq : Unique (ps′ L.∷ʳ p′)
                               ps′∷ʳp′Uniq = subst Unique eq p∷psUniq
@@ -1226,8 +1114,8 @@ private opaque
                                   bhπ : blockHistory N‴ ⊆ˢ nb ∷ blockHistory N‴
                                   bhπ  = L.SubS.xs⊆x∷xs _ _
 
-                                  cfπ : isBlockListCollisionFree (nb ∷ blockHistory N‴)
-                                  cfπ = isBlockListCollisionFree-∷ {nb ∷ blockHistory N‴} {genesisBlock} cfN*
+                                  cfπ : BlockListCollisionFree (nb ∷ blockHistory N‴)
+                                  cfπ = BlockListCollisionFree-∷ {nb ∷ blockHistory N‴} {genesisBlock} cfN*
 
                                   cfb≢[] : b ∈ honestBlockHistory N‴ → chainFromBlock b (blockHistory N‴) ≢ []
                                   cfb≢[] b∈hbhN‴ = subst (_≢ []) (✓⇒gbIsHead cfbhN‴✓ .proj₂) (≢-sym []≢∷ʳ)
@@ -1371,8 +1259,8 @@ private opaque
                                   bhπ : blockHistory N‴ ⊆ˢ blockHistory (broadcastMsgsᶜ mds N‴)
                                   bhπ  = blockHistoryPreservation-broadcastMsgsᶜ mds N‴
 
-                                  cfπ : isBlockListCollisionFree (blockHistory (broadcastMsgsᶜ mds N‴))
-                                  cfπ = isBlockListCollisionFree-∷ {blockHistory (broadcastMsgsᶜ mds N‴)} {genesisBlock} cfN*
+                                  cfπ : BlockListCollisionFree (blockHistory (broadcastMsgsᶜ mds N‴))
+                                  cfπ = BlockListCollisionFree-∷ {blockHistory (broadcastMsgsᶜ mds N‴)} {genesisBlock} cfN*
 
                                   cfb≢[] : chainFromBlock b (blockHistory N‴) ≢ []
                                   cfb≢[] = subst (_≢ []) (✓⇒gbIsHead cfbhN‴✓ .proj₂) (≢-sym []≢∷ʳ)
@@ -1391,23 +1279,23 @@ private opaque
                   uniqEoN′ : Unique (N′ .execOrder)
                   uniqEoN′ = execOrderUniqueness N₀↝⋆N′
 
-                  sbIsHonest : isHonest (sb .pid)
+                  sbIsHonest : Honest (sb .pid)
                   sbIsHonest = ∈-superBlocks⁻ {N} sb∈sbsN .proj₂ .proj₁
 
-                  sbHasSuperSlot : isSuperSlot (sb .slot)
+                  sbHasSuperSlot : SuperSlot (sb .slot)
                   sbHasSuperSlot = ∈-superBlocks⁻ {N} sb∈sbsN .proj₂ .proj₂
 
                   goal-sbₜ≡Nₜ : blockPos sb N ≢ blockPos b N ⊎ sb ≡ b
                   goal-sbₜ≡Nₜ = makeBlockGoal-sbₜ≡Nₜ (N′ .execOrder) (allPartiesHaveLocalState N₀↝⋆N′) eoSb N″↷↑N″[bM] cfN (L.SubS.filter-⊆ _ _ sb∈hbhN) b∈hbhN uniqEoN′ (—[]→∗⇒—[]→∗ʳ N′—[eoN′]↑→∗N″)
                     where
-                      eoSb : length (filter (λ p → ¿ winner p (sb .slot) × isHonest p ¿) (N′ .execOrder)) ≡ 1
+                      eoSb : length (filter (λ p → ¿ winner p (sb .slot) × Honest p ¿) (N′ .execOrder)) ≡ 1
                       eoSb = trans (sym $ length-cong (filter-↭ _ (execOrderPreservation-↭ N₀↝⋆N′))) sbHasSuperSlot
 
                       makeBlockGoal-sbₜ≡Nₜ : ∀ {N*} ps →
                           L.All.All (M.Is-just ∘ (N′ .states ⁉_)) ps
-                        → length (filter (λ p → ¿ winner p (sb .slot) × isHonest p ¿) ps) ≡ 1
+                        → length (filter (λ p → ¿ winner p (sb .slot) × Honest p ¿) ps) ≡ 1
                         → N* ↷↑ N
-                        → isCollisionFree N*
+                        → CollisionFree N*
                         → sb ∈ blockHistory N*
                         → b ∈ honestBlockHistory N*
                         → Unique ps
@@ -1416,8 +1304,8 @@ private opaque
                       makeBlockGoal-sbₜ≡Nₜ {N*} [] _ p∷psSb _ _ _ _ _ = contradiction p∷psSb 0≢1+n
                       makeBlockGoal-sbₜ≡Nₜ {N*} (p ∷ ps) p∷psLss p∷psSb prfN cfN* sb∈bhN* b∈hbhN* p∷psUniq (_∷ʳ_ {is = ps′} {i = p′} {s′ = N‴} {eq = eq} ts⋆ ts) = step ts
                         where
-                          cfN‴ : isCollisionFree N‴
-                          cfN‴ = isCollisionFreePrev-↑ ts cfN*
+                          cfN‴ : CollisionFree N‴
+                          cfN‴ = CollisionFreePrev-↑ ts cfN*
 
                           ps′∷ʳp′Uniq : Unique (ps′ L.∷ʳ p′)
                           ps′∷ʳp′Uniq = subst Unique eq p∷psUniq
@@ -1428,8 +1316,8 @@ private opaque
                           p′∉ps′ : p′ ∉ ps′
                           p′∉ps′ = Unique[xs∷ʳx]⇒x∉xs ps′∷ʳp′Uniq
 
-                          ps′∷ʳp′Sb : length (filter (λ p → ¿ winner p (sb .slot) × isHonest p ¿) (ps′ L.∷ʳ p′)) ≡ 1
-                          ps′∷ʳp′Sb = subst (λ ◆ → length (filter (λ p → ¿ winner p (sb .slot) × isHonest p ¿) ◆) ≡ 1) eq p∷psSb
+                          ps′∷ʳp′Sb : length (filter (λ p → ¿ winner p (sb .slot) × Honest p ¿) (ps′ L.∷ʳ p′)) ≡ 1
+                          ps′∷ʳp′Sb = subst (λ ◆ → length (filter (λ p → ¿ winner p (sb .slot) × Honest p ¿) ◆) ≡ 1) eq p∷psSb
 
                           ps′∷ʳp′Lss : L.All.All (M.Is-just ∘ (N′ .states ⁉_)) (ps′ L.∷ʳ p′)
                           ps′∷ʳp′Lss = subst (L.All.All (M.Is-just ∘ (N′ .states ⁉_))) eq p∷psLss
@@ -1447,7 +1335,7 @@ private opaque
                           sbₜ≡N′ₜ rewrite sbₜ≡N‴ₜ | N‴ₜ≡N′ₜ = refl
 
                           ih* :
-                              length (filter (λ p → ¿ winner p (sb .slot) × isHonest p ¿) ps′) ≡ 1
+                              length (filter (λ p → ¿ winner p (sb .slot) × Honest p ¿) ps′) ≡ 1
                             → sb ∈ blockHistory N‴
                             → b ∈ honestBlockHistory N‴
                             → blockPos sb N‴ ≢ blockPos b N‴ ⊎ sb ≡ b
@@ -1463,28 +1351,28 @@ private opaque
                           step (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
                           ... | ⁇ (no ¬isWinner) = ih* ps′Sb sb∈bhN* b∈hbhN*
                             where
-                              ¬honestWinner : ¬ (winner p′ (sb .slot) × isHonest p′)
+                              ¬honestWinner : ¬ (winner p′ (sb .slot) × Honest p′)
                               ¬honestWinner rewrite sbₜ≡N‴ₜ = dec-de-morgan₂ (inj₁ ¬isWinner)
 
-                              ps′Sb : length (filter (λ p → ¿ winner p (sb .slot) × isHonest p ¿) ps′) ≡ 1
-                              ps′Sb rewrite sym $ filter-rejectʳ (λ p → ¿ winner p (sb .slot) × isHonest p ¿) {xs = ps′} ¬honestWinner = ps′∷ʳp′Sb
+                              ps′Sb : length (filter (λ p → ¿ winner p (sb .slot) × Honest p ¿) ps′) ≡ 1
+                              ps′Sb rewrite sym $ filter-rejectʳ (λ p → ¿ winner p (sb .slot) × Honest p ¿) {xs = ps′} ¬honestWinner = ps′∷ʳp′Sb
                           ... | ⁇ (yes isWinner) = step-honestWinner↑
                             where
-                              honestWinner : winner p′ (N′ .clock) × isHonest p′
+                              honestWinner : winner p′ (N′ .clock) × Honest p′
                               honestWinner rewrite N‴ₜ≡N′ₜ = isWinner , hp′π
 
-                              ps′Sb : length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ps′) ≡ 0
+                              ps′Sb : length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps′) ≡ 0
                               ps′Sb = Nat.suc-injective ps′Sb′
                                 where
-                                  ps′Sb′ : suc (length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ps′)) ≡ 1
+                                  ps′Sb′ : suc (length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps′)) ≡ 1
                                   ps′Sb′ = begin
-                                    suc (length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ps′))
+                                    suc (length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps′))
                                       ≡⟨ +-comm _ 1 ⟨
-                                    length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ps′) + 1
-                                      ≡⟨ L.length-++ (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ps′) {[ p′ ]} ⟨
-                                    length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ps′ L.∷ʳ p′)
-                                      ≡⟨ cong length $ filter-acceptʳ (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) {xs = ps′} honestWinner ⟨
-                                    length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) (ps′ L.∷ʳ p′))
+                                    length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps′) + 1
+                                      ≡⟨ L.length-++ (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps′) {[ p′ ]} ⟨
+                                    length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps′ L.∷ʳ p′)
+                                      ≡⟨ cong length $ filter-acceptʳ (λ p → ¿ winner p (N′ .clock) × Honest p ¿) {xs = ps′} honestWinner ⟨
+                                    length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) (ps′ L.∷ʳ p′))
                                       ≡⟨ subst _ sbₜ≡N′ₜ ps′∷ʳp′Sb ⟩
                                     1 ∎
                                     where open ≡-Reasoning
@@ -1515,7 +1403,7 @@ private opaque
                                       L.All.All (M.Is-just ∘ (N′ .states ⁉_)) ps′
                                     → Unique ps′
                                     → N** ↷↑ N
-                                    → length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ps′) ≡ 0
+                                    → length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps′) ≡ 0
                                     → _ ⊢ N′ —[ ps′ ]↑→∗ʳ N**
                                     → honestBlockHistory N′ ≡ˢ honestBlockHistory N**
                                   hbhN′≡hbhN‴† {N**} _ _ _ _ _ [] = ≡ˢ-refl
@@ -1536,14 +1424,14 @@ private opaque
                                       ps″Lss : L.All.All (M.Is-just ∘ (N′ .states ⁉_)) ps″
                                       ps″Lss = L.All.∷ʳ⁻ ps″∷ʳp″Lss .proj₁
 
-                                      ps″∷ʳp″Sb : length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) (ps″ L.∷ʳ p″)) ≡ 0
-                                      ps″∷ʳp″Sb = subst (λ ◆ → length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ◆) ≡ 0) eq p∷psSb
+                                      ps″∷ʳp″Sb : length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) (ps″ L.∷ʳ p″)) ≡ 0
+                                      ps″∷ʳp″Sb = subst (λ ◆ → length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ◆) ≡ 0) eq p∷psSb
 
                                       N⁗ₜ≡N′ₜ : N⁗ .clock ≡ N′ .clock
                                       N⁗ₜ≡N′ₜ = clockPreservation-↑∗ (—[]→∗ʳ⇒—[]→∗ ts⋆′)
 
                                       ih** :
-                                          length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ps″) ≡ 0
+                                          length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps″) ≡ 0
                                         → honestBlockHistory N′ ≡ˢ honestBlockHistory N⁗
                                       ih** ps″Sb = hbhN′≡hbhN‴† ps″ ps″Lss ps″Uniq (blockMaking↑ ts′ prfN**) ps″Sb ts⋆′
 
@@ -1558,26 +1446,26 @@ private opaque
                                       step† (honestParty↑ {ls = ls} lsπ hp″π) with Params.winnerᵈ params {p″} {N⁗ .clock}
                                       ... | ⁇ (no ¬isWinner) = ih** ps″Sb
                                         where
-                                          ¬p″HonestWinner : ¬ (winner p″ (N′ .clock) × isHonest p″)
+                                          ¬p″HonestWinner : ¬ (winner p″ (N′ .clock) × Honest p″)
                                           ¬p″HonestWinner rewrite N⁗ₜ≡N′ₜ = dec-de-morgan₂ (inj₁ ¬isWinner)
 
-                                          ps″Sb : length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ps″) ≡ 0
-                                          ps″Sb rewrite sym $ filter-rejectʳ (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) {xs = ps″} ¬p″HonestWinner = ps″∷ʳp″Sb
+                                          ps″Sb : length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps″) ≡ 0
+                                          ps″Sb rewrite sym $ filter-rejectʳ (λ p → ¿ winner p (N′ .clock) × Honest p ¿) {xs = ps″} ¬p″HonestWinner = ps″∷ʳp″Sb
                                       ... | ⁇ (yes isWinner) = contradiction ps″∷ʳp″Sb (Nat.n>0⇒n≢0 ps″∷ʳp″Sb>0)
                                         where
-                                          p″HonestWinner : winner p″ (N′ .clock) × isHonest p″
+                                          p″HonestWinner : winner p″ (N′ .clock) × Honest p″
                                           p″HonestWinner rewrite N⁗ₜ≡N′ₜ = isWinner , hp″π
 
-                                          ps″∷ʳp″Sb>0 : length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) (ps″ L.∷ʳ p″)) > 0
+                                          ps″∷ʳp″Sb>0 : length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) (ps″ L.∷ʳ p″)) > 0
                                           ps″∷ʳp″Sb>0 = begin-strict
                                             0 <⟨ Nat.0<1+n {_} ⟩
-                                            suc (length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ps″))
+                                            suc (length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps″))
                                               ≡⟨ +-comm _ 1 ⟨
-                                            length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ps″) + 1
-                                              ≡⟨ L.length-++ (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ps″) {[ p″ ]} ⟨
-                                            length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ps″ L.∷ʳ p″)
-                                              ≡⟨ cong length $ filter-acceptʳ (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) {xs = ps″} p″HonestWinner ⟨
-                                            length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) (ps″ L.∷ʳ p″)) ∎
+                                            length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps″) + 1
+                                              ≡⟨ L.length-++ (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps″) {[ p″ ]} ⟨
+                                            length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps″ L.∷ʳ p″)
+                                              ≡⟨ cong length $ filter-acceptʳ (λ p → ¿ winner p (N′ .clock) × Honest p ¿) {xs = ps″} p″HonestWinner ⟨
+                                            length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) (ps″ L.∷ʳ p″)) ∎
                                             where
                                               import Data.Nat.Properties as ℕₚ
                                               open ℕₚ.≤-Reasoning
@@ -1596,11 +1484,11 @@ private opaque
                                           sub : L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N⁗
                                           sub = ffN .proj₂ (blockMaking↑ ts′ prfN**)
 
-                                          ¬p″HonestWinner : ¬ (winner p″ (N′ .clock) × isHonest p″)
+                                          ¬p″HonestWinner : ¬ (winner p″ (N′ .clock) × Honest p″)
                                           ¬p″HonestWinner = dec-de-morgan₂ (inj₂ (corrupt⇒¬honest cp″π))
 
-                                          ps″Sb : length (filter (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) ps″) ≡ 0
-                                          ps″Sb rewrite sym $ filter-rejectʳ (λ p → ¿ winner p (N′ .clock) × isHonest p ¿) {xs = ps″} ¬p″HonestWinner = ps″∷ʳp″Sb
+                                          ps″Sb : length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps″) ≡ 0
+                                          ps″Sb rewrite sym $ filter-rejectʳ (λ p → ¿ winner p (N′ .clock) × Honest p ¿) {xs = ps″} ¬p″HonestWinner = ps″∷ʳp″Sb
 
                                           eqhs : honestBlockHistory N⁗ ≡ˢ honestBlockHistory (broadcastMsgsᶜ mds N⁗)
                                           eqhs = honestBlockHistoryPreservation-broadcastMsgsᶜ {N⁗} {mds} sub
@@ -1610,7 +1498,7 @@ private opaque
                               ... | inj₂ sb∈bhN‴ = contradiction sbₜ≡N′ₜ (Nat.<⇒≢ sbₜ<N′ₜ)
                                 where
                                   sb∈hbhN‴ : sb ∈ honestBlockHistory N‴
-                                  sb∈hbhN‴ = L.Mem.∈-filter⁺ ¿ isHonestBlock ¿¹ sb∈bhN‴ sbIsHonest
+                                  sb∈hbhN‴ = L.Mem.∈-filter⁺ ¿ HonestBlock ¿¹ sb∈bhN‴ sbIsHonest
 
                                   sbₜ<N′ₜ : sb .slot < N′ .clock
                                   sbₜ<N′ₜ = L.All.lookup (All-resp-≡ˢ hbhN′≡hbhN‴ (noPrematureHonestBlocksAt↓ N₀↝⋆N′ ffN′ N′MsgsDelivered)) sb∈hbhN‴
@@ -1631,17 +1519,17 @@ private opaque
                                       Nᴿ↝⋆N′ : Nᴿ ↝⋆ N′
                                       Nᴿ↝⋆N′ = Nᴿ↝⋆⟨0⟩N′ .proj₁
 
-                                      ffNᴿ : isForgingFree Nᴿ
-                                      ffNᴿ = isForgingFreePrev Nᴿ↝⋆N′ ffN′
+                                      ffNᴿ : ForgingFree Nᴿ
+                                      ffNᴿ = ForgingFreePrev Nᴿ↝⋆N′ ffN′
 
-                                      cfNᴿ : isCollisionFree Nᴿ
-                                      cfNᴿ = isCollisionFreePrev Nᴿ↝⋆N′ cfN′
+                                      cfNᴿ : CollisionFree Nᴿ
+                                      cfNᴿ = CollisionFreePrev Nᴿ↝⋆N′ cfN′
 
                                       bhNᴿ⊆nb∷bhN‴ : blockHistory Nᴿ ⊆ˢ nb ∷ blockHistory N‴
                                       bhNᴿ⊆nb∷bhN‴ = L.SubS.⊆-trans (blockHistoryPreservation-↝⋆ Nᴿ↝⋆N′) (L.SubS.⊆-trans (blockHistoryPreservation-↑∗ (—[]→∗ʳ⇒—[]→∗ ts⋆)) (L.SubS.xs⊆x∷xs _ _))
 
-                                      cfπ : isBlockListCollisionFree (nb ∷ blockHistory N‴)
-                                      cfπ = isBlockListCollisionFree-∷ {nb ∷ blockHistory N‴} {genesisBlock} cfN*
+                                      cfπ : BlockListCollisionFree (nb ∷ blockHistory N‴)
+                                      cfπ = BlockListCollisionFree-∷ {nb ∷ blockHistory N‴} {genesisBlock} cfN*
 
                                       cfbhNᴿ≢[] : chainFromBlock b (blockHistory Nᴿ) ≢ []
                                       cfbhNᴿ≢[] = ✓⇒≢[] cfbhNᴿ✓
@@ -1783,7 +1671,7 @@ private opaque
                                       L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N‴
                                     → honestBlockHistory (broadcastMsgsᶜ mds N‴) ≡ˢ honestBlockHistory N‴
                                   hbhᶜN‴≡hbhN‴† {[]} _ = ≡ˢ-refl
-                                  hbhᶜN‴≡hbhN‴† {(m , _) ∷ mds} sub with ¿ isHonestBlock (projBlock m) ¿
+                                  hbhᶜN‴≡hbhN‴† {(m , _) ∷ mds} sub with ¿ HonestBlock (projBlock m) ¿
                                   ... | yes hbm = ⊆×⊇⇒≡ˢ ⊆π ⊇π
                                     where
                                       ⊆π : projBlock m ∷ honestBlockHistory (broadcastMsgsᶜ mds N‴) ⊆ˢ honestBlockHistory N‴
@@ -1795,14 +1683,14 @@ private opaque
                                       ⊇π = ∷-⊆⁺ (≡ˢ⇒⊆×⊇ (hbhᶜN‴≡hbhN‴† {mds} (∷-⊆ sub)) .proj₂)
                                   ... | no _ = hbhᶜN‴≡hbhN‴† {mds} sub
 
-                              ¬p′HonestWinner : ¬ (winner p′ (sb .slot) × isHonest p′)
+                              ¬p′HonestWinner : ¬ (winner p′ (sb .slot) × Honest p′)
                               ¬p′HonestWinner = dec-de-morgan₂ (inj₂ (corrupt⇒¬honest cp′π))
 
-                              ps′Sb : length (filter (λ p → ¿ winner p (sb .slot) × isHonest p ¿) ps′) ≡ 1
-                              ps′Sb rewrite sym $ filter-rejectʳ (λ p → ¿ winner p (sb .slot) × isHonest p ¿) {xs = ps′} ¬p′HonestWinner = ps′∷ʳp′Sb
+                              ps′Sb : length (filter (λ p → ¿ winner p (sb .slot) × Honest p ¿) ps′) ≡ 1
+                              ps′Sb rewrite sym $ filter-rejectʳ (λ p → ¿ winner p (sb .slot) × Honest p ¿) {xs = ps′} ¬p′HonestWinner = ps′∷ʳp′Sb
 
                               sb∈hbhN* : sb ∈ honestBlockHistory (broadcastMsgsᶜ mds N‴)
-                              sb∈hbhN* = L.Mem.∈-filter⁺ ¿ isHonestBlock ¿¹ sb∈bhN* sbIsHonest
+                              sb∈hbhN* = L.Mem.∈-filter⁺ ¿ HonestBlock ¿¹ sb∈bhN* sbIsHonest
 
                               sb∈hbhN‴ : sb ∈ honestBlockHistory N‴
                               sb∈hbhN‴ = ≡ˢ⇒⊆×⊇ hbhᶜN‴≡hbhN‴ .proj₁ sb∈hbhN*
@@ -1816,8 +1704,8 @@ private opaque
                               bhπ : blockHistory N‴ ⊆ˢ blockHistory (broadcastMsgsᶜ mds N‴)
                               bhπ  = blockHistoryPreservation-broadcastMsgsᶜ mds N‴
 
-                              cfπ : isBlockListCollisionFree (blockHistory (broadcastMsgsᶜ mds N‴))
-                              cfπ = isBlockListCollisionFree-∷ {blockHistory (broadcastMsgsᶜ mds N‴)} {genesisBlock} cfN*
+                              cfπ : BlockListCollisionFree (blockHistory (broadcastMsgsᶜ mds N‴))
+                              cfπ = BlockListCollisionFree-∷ {blockHistory (broadcastMsgsᶜ mds N‴)} {genesisBlock} cfN*
 
                               cfbhN‴≢[] : ∀ {b′} → b′ ∈ honestBlockHistory N‴ → chainFromBlock b′ (blockHistory N‴) ≢ []
                               cfbhN‴≢[] {b′} b′∈hbhN‴ = ✓⇒≢[] cfbhN‴✓

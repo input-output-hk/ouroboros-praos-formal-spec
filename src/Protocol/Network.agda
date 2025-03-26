@@ -1,14 +1,11 @@
 open import Protocol.Params using (Params)
-open import Protocol.Block using (Block)
 
 module Protocol.Network
-  ⦃ _ : Params ⦄
-  ⦃ _ : Block ⦄
+  ⦃ params : _ ⦄ (open Params params)
   where
 
 open import Protocol.Prelude
-open import Protocol.Message
-open Params ⦃ ... ⦄
+open import Protocol.Message ⦃ params ⦄
 
 Delay : Type
 Delay = Fin 3
@@ -25,8 +22,11 @@ record Envelope : Type where
     rcv : Party
     cd  : Delay
 
-  isImmediate : Party → Type
-  isImmediate p = (cd ≡ 𝟘) × (rcv ≡ p)
+  DeliveredIn : Party → Delay → Type
+  DeliveredIn p d = (cd ≡ d) × (rcv ≡ p)
+
+  Immediate : Pred Party 0ℓ
+  Immediate = flip DeliveredIn 𝟘
 
 open Envelope ⦃ ... ⦄
 

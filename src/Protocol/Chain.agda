@@ -1,19 +1,21 @@
+{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
+
 open import Protocol.Prelude using (Default)
 open import Protocol.Params using (Params)
-open import Protocol.Block using (Block)
 open import Protocol.Crypto using (Hashable)
+open import Protocol.Block using (Block)
 
 module Protocol.Chain
-  ⦃ _ : Params ⦄
-  ⦃ _ : Block ⦄
+  ⦃ params : _ ⦄ (open Params params)
   ⦃ _ : Hashable Block ⦄
   ⦃ _ : Default Block ⦄
   where
 
 open import Protocol.Prelude
 open import Protocol.BaseTypes using (Slot)
-open import Protocol.Block
+open import Protocol.Block ⦃ params ⦄ hiding (Block)
 open Hashable ⦃ ... ⦄
+open import Data.List.Relation.Binary.Prefix.Heterogeneous using (Prefix)
 
 genesisBlock : Block
 genesisBlock = it .def
@@ -32,7 +34,13 @@ prune : Slot → Chain → Chain
 prune sl c = filter ((_≤? sl) ∘ slot) c
 
 _⪯_ : Rel Chain _
-c₁ ⪯ c₂ = ∃[ c₃ ] c₁ ++ c₃ ≡ c₂
+_⪯_ = Prefix (λ _ _ → ⊤)
+
+prune-⪯-trans : ∀ {c₁ c₂ c₃ : Chain} {sl : Slot} →
+    prune sl c₁ ⪯ c₂
+  → prune sl c₂ ⪯ c₃
+  → prune sl c₁ ⪯ c₃
+prune-⪯-trans = {!!}
 
 _⟵_ : Rel Block _
 b ⟵ b′ = prev b ≡ hash b′

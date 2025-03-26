@@ -22,7 +22,7 @@ open import Data.List.Relation.Binary.Subset.Propositional.Properties using (fil
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (cartesianProduct-⊆-Mono; deduplicate⁺′)
 open import Data.List.Relation.Binary.BagAndSetEquality as BS hiding (set; Kind)
 open import Data.List.Membership.Propositional.Properties using (∈-deduplicate⁻; ∈-deduplicate⁺)
-open import Prelude.DecEq using (DecEq; _≟_)
+open import Class.DecEq using (DecEq; _≟_)
 
 private variable
   A : Set

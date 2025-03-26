@@ -1,93 +1,30 @@
-open import Protocol.Prelude
-open import Protocol.BaseTypes using (Slot; Honesty)
+open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
-open import Protocol.Block
-open import Protocol.Chain
-open import Protocol.Crypto using (Hashable)
-open import Protocol.Message
-open import Protocol.Network
-open import Protocol.TreeType
-open Params ⦃ ... ⦄
+
+module Protocol.Semantics
+  ⦃ params : _ ⦄ (open Params params)
+  ⦃ assumptions : Assumptions ⦃ params ⦄ ⦄ (open Assumptions assumptions)
+  where
+
+open import Protocol.Prelude
+open import Protocol.BaseTypes using (Slot; slot₀; Honesty)
+open import Protocol.Crypto ⦃ params ⦄ using (Hashable)
+open import Protocol.Block ⦃ params ⦄
+open import Protocol.Chain ⦃ params ⦄
+open import Protocol.Message ⦃ params ⦄
+open import Protocol.Network ⦃ params ⦄
+open import Protocol.TreeType ⦃ params ⦄
 open Hashable ⦃ ... ⦄
 open Honesty
 open Envelope
 
-module Protocol.Semantics
-  ⦃ _ : Params ⦄
-  ⦃ _ : Block ⦄
-  ⦃ _ : Hashable Block ⦄
-  ⦃ _ : Default Block ⦄
-  {T : Type} ⦃ TreeType-T : TreeType T ⦄
-  {AdversarialState : Type}
-  {honestyOf : Party → Honesty}
-  {txSelection : Slot → Party → Txs}
-  -- Corrupt behavior
-  {processMsgsᶜ :
-      List Message
-    → Slot
-    → List Message
-    → List Envelope
-    → AdversarialState
-    → List (Message × DelayMap) × AdversarialState}
-  {makeBlockᶜ :
-      Slot
-    → List Message
-    → List Envelope
-    → AdversarialState
-    → List (Message × DelayMap) × AdversarialState}  
-  where
-
-open import Data.List.Relation.Binary.Subset.Propositional.Properties using (xs⊆x∷xs)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
-open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (cartesianProduct-⊆-Mono)
-
-isHonest : Party → Type
-isHonest p = honestyOf p ≡ honest
-
-isCorrupt : Party → Type
-isCorrupt p = honestyOf p ≡ corrupt
-
-honest⇒¬corrupt : ∀ {p} → isHonest p → ¬ isCorrupt p
-honest⇒¬corrupt {p} eq eq′ = contradiction (trans (sym eq) eq′) λ()
-
-¬corrupt⇒honest : ∀ {p} → ¬ isCorrupt p → isHonest p
-¬corrupt⇒honest {p} eq′ with honestyOf p
-... | honest = refl
-... | corrupt = contradiction refl eq′
-
-corrupt⇒¬honest : ∀ {p} → isCorrupt p → ¬ isHonest p
-corrupt⇒¬honest eq eq′ = contradiction (trans (sym eq) eq′) λ()
-
-¬honest⇒corrupt : ∀ {p} → ¬ isHonest p → isCorrupt p
-¬honest⇒corrupt {p} eq′ with honestyOf p
-... | honest = contradiction refl eq′
-... | corrupt = refl
-
-isHonestBlock : Block → Type
-isHonestBlock = isHonest ∘ pid
-
-isCorruptBlock : Block → Type
-isCorruptBlock = isCorrupt ∘ pid
-
-honestBlocks : List Block → List Block
-honestBlocks = L.filter ¿ isHonestBlock ¿¹
-
-infix 4 _⊆ʰ_
-_⊆ʰ_ : List Block → List Block → Type
-_⊆ʰ_ = _⊆ˢ_ on honestBlocks
-
-∷-⊆ʰ : ∀ {bs bs′ : List Block} {b : Block} → isHonestBlock b → b ∷ bs ⊆ʰ bs′ → bs ⊆ʰ bs′
-∷-⊆ʰ {bs} {_} {b} bh p rewrite bh = L.SubS.⊆-trans (L.SubS.xs⊆x∷xs (honestBlocks bs) b) p
-
-instance
-  Default-T : Default T
-  Default-T .def = tree₀
 
 -- Party's local state
 
 record LocalState : Type where
   field
-    tree : T
+    tree : Tree
 
   addBlock : Block → LocalState
   addBlock b = record { tree = extendTree tree b }
@@ -96,7 +33,7 @@ instance
   Default-LocalState : Default LocalState
   Default-LocalState .def = record { tree = it .def }
 
-open LocalState
+open LocalState public
 
 -- Honest behavior
 
@@ -139,46 +76,23 @@ record GlobalState : Type where
   blockHistory = map projBlock history
 
   honestParties : List Party
-  honestParties = L.filter ¿ isHonest ¿¹ execOrder
+  honestParties = L.filter ¿ Honest ¿¹ execOrder
 
   blocks : Party → List Block
   blocks p = case states ⁉ p of λ where
     nothing   → []
     (just ls) → allBlocks (ls .tree)
 
-  honestTree : T
+  honestTree : Tree
   honestTree = buildTree (L.concatMap blocks honestParties)
 
-open GlobalState
+open GlobalState public
 
 honestBlockHistory : GlobalState → List Block
-honestBlockHistory = L.filter ¿ isHonestBlock ¿¹ ∘ blockHistory
+honestBlockHistory = L.filter ¿ HonestBlock ¿¹ ∘ blockHistory
 
 blockPos : Block → GlobalState → ℕ
 blockPos b N = ∣ chainFromBlock b (blockHistory N) ∣
-
-isBlockListCollisionFree : List Block → Type
-isBlockListCollisionFree bs =
-  All
-    (λ where (b , b′) → hash b ≡ hash b′ → b ≡ b′)
-    (L.cartesianProduct bs bs)
-  where
-    open L.All using (All)
-
-isBlockListCollisionFree-∷ : ∀ {bs : List Block} {b : Block} →
-  isBlockListCollisionFree (b ∷ bs) → isBlockListCollisionFree bs
-isBlockListCollisionFree-∷ {bs} {b} = L.All.anti-mono (cartesianProduct-⊆-Mono (xs⊆x∷xs bs b) (xs⊆x∷xs bs b))
-
-isBlockListCollisionFree-⊆ : ∀ {bs bs′ : List Block} → bs ⊆ˢ bs′ → isBlockListCollisionFree bs′ → isBlockListCollisionFree bs
-isBlockListCollisionFree-⊆ bs⊆ˢbs′ cfbs = L.All.anti-mono (cartesianProduct-⊆-Mono bs⊆ˢbs′ bs⊆ˢbs′) cfbs
-
-isCollisionFree : GlobalState → Type
-isCollisionFree N = isBlockListCollisionFree gsBlockHistory
-  where
-    gsBlockHistory = genesisBlock ∷ blockHistory N
-
-progressCollisionFreePreservation : ∀ {N : GlobalState} {s : Progress} → isCollisionFree N → isCollisionFree (record N {progress = s})
-progressCollisionFreePreservation = id
 
 updateLocalState : Party → LocalState → GlobalState → GlobalState
 updateLocalState p ls N = record N { states = set p ls (N .states) }
@@ -210,14 +124,18 @@ broadcastMsgᶜ msg φ N =
 broadcastMsgsᶜ : List (Message × DelayMap) → GlobalState → GlobalState
 broadcastMsgsᶜ = flip $ L.foldr (λ{ (msg , φ) N′ → broadcastMsgᶜ msg φ N′ })
 
+-- Get in-transit blocks in `N` addressed to `p` to be delivered within `d` rounds.
+blocksDeliveredIn : Party → Delay → GlobalState → List Block
+blocksDeliveredIn p d N = map (projBlock ∘ msg) $ L.filter (λ env → ¿ DeliveredIn env ¿² p d) (N .messages)
+
 -- Get in-transit messages in `N` addressed to `p` immediately.
 immediateMsgs : Party → GlobalState → List Envelope
-immediateMsgs p N = L.filter ¿ flip isImmediate p ¿¹ (N .messages)
+immediateMsgs p N = L.filter ¿ flip Immediate p ¿¹ (N .messages)
 
 -- Remove in-transit messages in `N` address to `p` immediately.
 removeImmediateMsgs : Party → GlobalState → GlobalState
 removeImmediateMsgs p N =
-  record N { messages = L.filter ¿ ¬_ ∘ flip isImmediate p ¿¹ (N .messages) }
+  record N { messages = L.filter ¿ ¬_ ∘ flip Immediate p ¿¹ (N .messages) }
 
 -- Get in-transit messages in `N` addressed to `p` immediately and remove them from `N`.
 fetchNewMsgs : Party → GlobalState → List Message × GlobalState
@@ -264,17 +182,17 @@ data _↝[_]↓_ : GlobalState → Party → GlobalState → Type where
 
   honestParty↓ : ∀ {N : GlobalState} {p : Party} {ls : LocalState} →
     ∙ N .states ⁉ p ≡ just ls
-    ∙ isHonest p
+    ∙ Honest p
     ────────────────────────────────────
     N ↝[ p ]↓ honestMsgsDelivery p ls N
 
   corruptParty↓ : ∀ {N : GlobalState} {p : Party} {ls : LocalState} →
     ∙ N .states ⁉ p ≡ just ls
-    ∙ isCorrupt p
+    ∙ Corrupt p
     ────────────────────────────────────
     N ↝[ p ]↓ corruptMsgsDelivery p N
 
-record ↓Tag : Set where
+record ↓Tag : Type where
 
 instance
   HasTransition-↝[]↓ : HasTransition ↓Tag GlobalState Party
@@ -320,17 +238,17 @@ data _↝[_]↑_ : GlobalState → Party → GlobalState → Type where
 
   honestParty↑ : ∀ {N : GlobalState} {p : Party} {ls : LocalState} →
     ∙ N .states ⁉ p ≡ just ls
-    ∙ isHonest p
+    ∙ Honest p
     ────────────────────────────────────
     N ↝[ p ]↑ honestBlockMaking p ls N
 
   corruptParty↑ : ∀ {N : GlobalState} {p : Party} {ls : LocalState} →
     ∙ N .states ⁉ p ≡ just ls
-    ∙ isCorrupt p
+    ∙ Corrupt p
     ────────────────────────────────────
     N ↝[ p ]↑ corruptBlockMaking p N
 
-record ↑Tag : Set where
+record ↑Tag : Type where
 
 instance
   HasTransition-↝[]↑ : HasTransition ↑Tag GlobalState Party
@@ -400,3 +318,66 @@ _↝⁺_ = _↝⋆_ ⁺
 
 infix 3 _↝⁺ʳ_
 _↝⁺ʳ_ =  _↝⋆ʳ_ ⁺
+
+module _ where
+
+  private variable
+    N₁ N₂ : GlobalState
+
+  -- The messages delivery phase sub-step relation.
+  data _↷↓_ : Rel GlobalState 0ℓ where
+
+    refine↓ :
+      ∙ N₁ ↝⋆ N₂
+      ────────────────────────────────────
+      N₁ ↷↓ N₂
+
+    progress↓ :
+      ∙ record N₁ { progress = msgsDelivered } ↷↓ N₂
+      ────────────────────────────────────
+      N₁ ↷↓ N₂
+
+    delivery↓ : ∀ {N′ : GlobalState} {p : Party} →
+      ∙ _ ⊢ N₁ —[ p ]↓→ N′
+      ∙ N′ ↷↓ N₂
+      ────────────────────────────────────
+      N₁ ↷↓ N₂
+
+  ↷↓-refl : ∀ {N} → N ↷↓ N
+  ↷↓-refl = refine↓ ε
+    where open Star
+
+  -- The block making phase sub-step relation.
+  data _↷↑_ : Rel GlobalState 0ℓ where
+
+    refine↑ :
+      ∙ N₁ ↝⋆ N₂
+      ────────────────────────────────────
+      N₁ ↷↑ N₂
+
+    progress↑ :
+      ∙ record N₁ { progress = blockMade } ↷↑ N₂
+      ────────────────────────────────────
+      N₁ ↷↑ N₂
+
+    blockMaking↑ : ∀ {N′ : GlobalState} {p : Party} →
+      ∙ _ ⊢ N₁ —[ p ]↑→ N′
+      ∙ N′ ↷↑ N₂
+      ────────────────────────────────────
+      N₁ ↷↑ N₂
+
+  ↷↑-refl : ∀ {N} → N ↷↑ N
+  ↷↑-refl = refine↑ ε
+    where open Star
+
+N₀ : GlobalState
+N₀ =
+  record
+    { clock     = slot₀
+    ; messages  = []
+    ; states    = map (_, it .def) parties₀
+    ; history   = []
+    ; advState  = adversarialState₀
+    ; execOrder = parties₀
+    ; progress  = ready
+    }
