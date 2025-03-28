@@ -121,9 +121,16 @@ opaque
 
   unfolding honestMsgsDelivery honestBlockMaking
 
-  localStatePreservation-↑∗ : ∀ {N N′ : GlobalState} {ps : List Party} {p : Party} →
+  localStatePreservation-∉-↑∗ : ∀ {N N′ : GlobalState} {ps : List Party} {p : Party} →
     p ∉ ps → _ ⊢ N —[ ps ]↑→∗ N′ → N′ .states ⁉ p ≡ N .states ⁉ p
-  localStatePreservation-↑∗ = {!!}
+  localStatePreservation-∉-↑∗ = {!!}
+
+  localStatePreservation-∈-↑∗ : ∀ {N N′ N″ : GlobalState} {p : Party} →
+      N₀ ↝⋆ N
+    → _ ⊢ N —[ N .execOrder ]↑→∗ N′
+    → _ ⊢ N —[ p ]↑→ N″
+    → N′ .states ⁉ p ≡ N″ .states ⁉ p
+  localStatePreservation-∈-↑∗ = {!!}
 
   localStatePreservation-↓∗ : ∀ {N N′ N″ : GlobalState} {p : Party} →
       N₀ ↝⋆ N
@@ -766,7 +773,7 @@ private opaque
                                   open Data.List.Relation.Binary.Permutation.Propositional
 
                                   ls[p′]inN′ : N′ .states ⁉ p′ ≡ just ls
-                                  ls[p′]inN′ rewrite sym $ localStatePreservation-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆) = lsπ
+                                  ls[p′]inN′ rewrite sym $ localStatePreservation-∉-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆) = lsπ
 
                       ... | inj₂ b∈hbhN‴ = subsetCfb✓Preservation cfπ bhπ cfb✓π
                         where
@@ -1096,7 +1103,7 @@ private opaque
                               ... | ⁇ (yes isWinner) rewrite lsπ = step-honestParty↑
                                 where
                                   lsN′ : N′ .states ⁉ p′ ≡ just ls
-                                  lsN′ rewrite sym $ localStatePreservation-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆) = lsπ
+                                  lsN′ rewrite sym $ localStatePreservation-∉-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆) = lsπ
 
                                   best : Chain
                                   best = bestChain (N‴ .clock ∸ 1) (ls .tree)
@@ -1347,7 +1354,7 @@ private opaque
                               ls≢◇ : N′ .states ⁉ p′ ≢ nothing
                               ls≢◇ ls≡◇ = contradiction (subst M.Is-just ls≡◇ (L.All.∷ʳ⁻ ps′∷ʳp′Lss .proj₂)) λ()
                               lsN′≡lsN* : N′ .states ⁉ p′ ≡ N* .states ⁉ p′
-                              lsN′≡lsN* = sym $ localStatePreservation-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆)
+                              lsN′≡lsN* = sym $ localStatePreservation-∉-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆)
                           step (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
                           ... | ⁇ (no ¬isWinner) = ih* ps′Sb sb∈bhN* b∈hbhN*
                             where
@@ -1378,7 +1385,7 @@ private opaque
                                     where open ≡-Reasoning
 
                               lsN′ : N′ .states ⁉ p′ ≡ just ls
-                              lsN′ rewrite sym $ localStatePreservation-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆) = lsπ
+                              lsN′ rewrite sym $ localStatePreservation-∉-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆) = lsπ
 
                               best : Chain
                               best = bestChain (N‴ .clock ∸ 1) (ls .tree)
@@ -1442,7 +1449,7 @@ private opaque
                                           ls≢◇ ls≡◇ = contradiction (subst M.Is-just ls≡◇ (L.All.∷ʳ⁻ ps″∷ʳp″Lss .proj₂)) λ()
 
                                           lsN′≡lsN** : N′ .states ⁉ p″ ≡ N** .states ⁉ p″
-                                          lsN′≡lsN** = sym $ localStatePreservation-↑∗ p″∉ps″ (—[]→∗ʳ⇒—[]→∗ ts⋆′)
+                                          lsN′≡lsN** = sym $ localStatePreservation-∉-↑∗ p″∉ps″ (—[]→∗ʳ⇒—[]→∗ ts⋆′)
                                       step† (honestParty↑ {ls = ls} lsπ hp″π) with Params.winnerᵈ params {p″} {N⁗ .clock}
                                       ... | ⁇ (no ¬isWinner) = ih** ps″Sb
                                         where

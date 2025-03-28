@@ -31,7 +31,7 @@ record TreeType (T : Type) : Type₁ where
       allBlocks tree₀ ≡ [ genesisBlock ]
 
     extendable : ∀ (t : T) (b : Block) →
-      allBlocks (extendTree t b) ≡ allBlocks t ++ [ b ]
+      allBlocks (extendTree t b) ≡ˢ allBlocks t ++ [ b ]
 
     valid : ∀ (t : T) (sl : Slot) →
       bestChain sl t ✓
@@ -51,7 +51,7 @@ record TreeType (T : Type) : Type₁ where
   buildTreeUsesAllBlocks [] = ≡⇒≡ˢ instantiated
   buildTreeUsesAllBlocks (b ∷ bs) {b′} = begin
     b′ ∈ allBlocks (buildTree (b ∷ bs))          ≡⟨⟩
-    b′ ∈ allBlocks (extendTree (buildTree bs) b) ≡⟨ cong (b′ ∈_) (extendable _ _) ⟩
+    b′ ∈ allBlocks (extendTree (buildTree bs) b) ∼⟨ extendable _ _ ⟩
     b′ ∈ allBlocks (buildTree bs) ++ [ b ]       ∼⟨ ++-cong (buildTreeUsesAllBlocks bs) ≡ˢ-refl ⟩
     b′ ∈ genesisBlock ∷ bs ++ [ b ]              ∼⟨ bag-=⇒ (↭⇒∼bag g∷bs∷b↭g∷b∷bs) ⟩
     b′ ∈ genesisBlock ∷ b ∷ bs
