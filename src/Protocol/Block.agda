@@ -1,4 +1,5 @@
 open import Protocol.Params using (Params)
+open import Protocol.Params using (Params)
 
 module Protocol.Block
   ⦃ _ : Params ⦄
@@ -6,7 +7,7 @@ module Protocol.Block
 
 open import Protocol.Prelude
 open import Protocol.BaseTypes using (Slot)
-open Params ⦃ ... ⦄
+open import Protocol.Params using (Hash; Txs; Party; winner)
 open import Data.Nat.Properties using (≤-trans; n≤1+n)
 
 record Block : Type where

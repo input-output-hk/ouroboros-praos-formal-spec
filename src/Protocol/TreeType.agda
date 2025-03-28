@@ -1,11 +1,10 @@
 open import Protocol.Prelude using (Default)
 open import Protocol.Params using (Params)
-open import Protocol.Block using (Block)
 open import Protocol.Crypto using (Hashable)
+open import Protocol.Block using (Block)
 
 module Protocol.TreeType
-  ⦃ _ : Params ⦄
-  ⦃ _ : Block ⦄
+  ⦃ params : _ ⦄ (open Params params)
   ⦃ _ : Hashable Block ⦄
   ⦃ _ : Default Block ⦄
   where
@@ -15,8 +14,8 @@ open import Data.List.Relation.Binary.BagAndSetEquality using (++-cong; ↭⇒�
 open import Function.Related.Propositional as Related
 open import Protocol.Prelude
 open import Protocol.BaseTypes using (Slot)
-open import Protocol.Block
-open import Protocol.Chain
+open import Protocol.Block ⦃ params ⦄ hiding (Block)
+open import Protocol.Chain ⦃ params ⦄
 
 ∣_∣ : List Block → ℕ
 ∣_∣ = length
@@ -32,18 +31,18 @@ record TreeType (T : Type) : Type₁ where
       allBlocks tree₀ ≡ [ genesisBlock ]
 
     extendable : ∀ (t : T) (b : Block) →
-      allBlocks (extendTree t b) ≡ allBlocks t ++ [ b ]
+      allBlocks (extendTree t b) ≡ˢ allBlocks t ++ [ b ]
 
     valid : ∀ (t : T) (sl : Slot) →
       bestChain sl t ✓
 
     optimal : ∀ (c : Chain) (t : T) (sl : Slot) →
         c ✓
-      → c ⊆ˢ filter (λ b → slot b ≤? sl) (allBlocks t)
+      → c ⊆ˢ filter ((_≤? sl) ∘ slot) (allBlocks t)
       → ∣ c ∣ ≤ ∣ bestChain sl t ∣
 
     selfContained : ∀ (t : T) (sl : Slot) →
-      bestChain sl t ⊆ˢ filter (λ b → slot b ≤? sl) (allBlocks t)
+      bestChain sl t ⊆ˢ filter ((_≤? sl) ∘ slot) (allBlocks t)
 
   buildTree : List Block → T
   buildTree = L.foldr (flip extendTree) tree₀
@@ -52,7 +51,7 @@ record TreeType (T : Type) : Type₁ where
   buildTreeUsesAllBlocks [] = ≡⇒≡ˢ instantiated
   buildTreeUsesAllBlocks (b ∷ bs) {b′} = begin
     b′ ∈ allBlocks (buildTree (b ∷ bs))          ≡⟨⟩
-    b′ ∈ allBlocks (extendTree (buildTree bs) b) ≡⟨ cong (b′ ∈_) (extendable _ _) ⟩
+    b′ ∈ allBlocks (extendTree (buildTree bs) b) ∼⟨ extendable _ _ ⟩
     b′ ∈ allBlocks (buildTree bs) ++ [ b ]       ∼⟨ ++-cong (buildTreeUsesAllBlocks bs) ≡ˢ-refl ⟩
     b′ ∈ genesisBlock ∷ bs ++ [ b ]              ∼⟨ bag-=⇒ (↭⇒∼bag g∷bs∷b↭g∷b∷bs) ⟩
     b′ ∈ genesisBlock ∷ b ∷ bs
@@ -64,7 +63,7 @@ record TreeType (T : Type) : Type₁ where
       g∷bs∷b↭g∷b∷bs : genesisBlock ∷ bs ++ [ b ] ↭ genesisBlock ∷ b ∷ bs
       g∷bs∷b↭g∷b∷bs = prep _ (↭-sym $ ∷↭∷ʳ _ _)
 
-  bestChainSlotBounded : ∀ (t : T) (sl : Slot) → L.All.All (λ b → slot b ≤ sl) (bestChain sl t)
+  bestChainSlotBounded : ∀ (t : T) (sl : Slot) → L.All.All ((_≤ sl) ∘ slot) (bestChain sl t)
   bestChainSlotBounded t sl = L.All.tabulate $
     λ {b} b∈best → L.Mem.∈-filter⁻ _ {xs = allBlocks t} (selfContained t sl b∈best) .proj₂
 

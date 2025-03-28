@@ -9,7 +9,7 @@ open import Data.List.Membership.Propositional using (_∈_)
 open import Data.List.Relation.Unary.Any using (here; there)
 open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; refl; sym)
 open import Relation.Nullary.Negation using (contradiction)
-open import Prelude.DecEq using (DecEq)
+open import Class.DecEq using (DecEq)
 
 x∈x∷xs : ∀ {A : Set} (xs : List A) {x} → x ∈ x ∷ xs
 x∈x∷xs xs = here refl

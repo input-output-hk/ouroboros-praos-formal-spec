@@ -2,16 +2,15 @@
 
 repoRoot.nix.agda-packages.mkDerivation rec {
   pname = "iog-prelude";
-  version = "0.1.0.0";
-  meta = { };
+  version = "2.0";
   src = pkgs.fetchFromGitHub {
     repo = "iog-agda-prelude";
     owner = "input-output-hk";
-    rev = "v${version}";
-    sha256 = "sha256-OV2WvQkjyGcfsgj81tkk/tIWHBUKsPia1d2Lh3F8qf4=";
+    rev = "35138185fee10c7bc604a13e63eafaa2e40ce7df";
+    sha256 = "sha256-PvfxcoK5MweXfdtbfDUTY23xsaAG093MbeX9fRac4sQ=";
   };
-  preConfigure = ''
-    mv src/Everything.agda Everything.agda
-  '';
-  buildInputs = [ repoRoot.nix.agda-stdlib ];
+  meta = { };
+  libraryFile = "iog-prelude.agda-lib";
+  everythingFile = "src/Everything.agda";
+  buildInputs = [ repoRoot.nix.agda-stdlib repoRoot.nix.agda-stdlib-classes ];
 }

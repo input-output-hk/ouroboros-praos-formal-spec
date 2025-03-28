@@ -17,7 +17,7 @@ open import Data.Fin.Properties using (subst-is-cast)
 open import Data.Fin.Properties.Ext using (suc-≢-injective)
 open import Data.Maybe using (just)
 open import Data.Maybe.Properties using (just-injective)
-open import Prelude.DecEq using (DecEq)
+open import Class.DecEq using (DecEq)
 open DecEq ⦃...⦄
 
 private variable
