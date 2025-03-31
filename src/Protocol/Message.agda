@@ -1,12 +1,11 @@
 open import Protocol.Params using (Params)
-open import Protocol.Block using (Block)
 
 module Protocol.Message
-  ⦃ _ : Params ⦄
-  ⦃ _ : Block  ⦄  
+  ⦃ params : _ ⦄ (open Params params)
   where
 
 open import Protocol.Prelude
+open import Protocol.Block ⦃ params ⦄
 
 data Message : Type where
   newBlock : Block → Message

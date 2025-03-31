@@ -1,13 +1,15 @@
+{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
+
 module Prelude.AssocList.Properties.Ext where
 
 open import Data.Product using (_,′_)
 open import Data.Product.Properties using (×-≡,≡→≡)
 open import Data.List.Properties.Ext using (updateAt-id-local)
 open import Prelude.Init
-open import Prelude.Decidable using (¿_¿²)
+open import Class.Decidable using (¿_¿²)
 open import Prelude.Irrelevance using (AnyFirst-irrelevant; ·¬⇒¬)
-open import Prelude.DecEq using (DecEq)
-open import Prelude.Default using (Default)
+open import Class.DecEq using (DecEq)
+open import Class.Default using (Default)
 open import Prelude.AssocList using (AssocList; _⁉_; _‼_; set; _∈ᵐ_; _∈ᵐ?_; modify; ∈ᵐ-irrelevant)
 
 private variable
@@ -37,12 +39,17 @@ module _ ⦃ _ : DecEq K ⦄ where
   ... | yes (x ∷ p) | x′ ∷ p′ rewrite ∈ᵐ-irrelevant p p′ = cong just eq
   ... | no p | q = contradiction q p
 
-  module _ ⦃ _ : Default V ⦄ {v : V} where
+  module _ ⦃ Default-V : Default V ⦄ where
 
-    set-id-local : m ⁉ k ≡ just v → set k v m ≡ m
+    set-id-local : m ⁉ k ≡ just v → set ⦃ it ⦄ ⦃ Default-V ⦄ k v m ≡ m
     set-id-local {m} {k} p with k ∈ᵐ? m
     ... | yes q rewrite dec-yes (k ∈ᵐ? m) q .proj₂ = updateAt-id-local m (L.First.index q) (×-≡,≡→≡ $ L.First.index-satisfied q ,′ (sym $ M.just-injective p))
     ... | no _ = contradiction p λ()
 
     modify-modifies : ∀ {f : V → V} → m ⁉ k ≡ just v → modify k f m ⁉ k ≡ just (f v)
     modify-modifies = {!!} -- TODO: Prove
+
+    set-⁉ : ∀ (m : AssocList K V) (k : K) (v : V) → set k v m ⁉ k ≡ just v
+    set-⁉ m k v with k ∈ᵐ? m
+    ... | yes p  = {!!}
+    ... | no ¬p  = {!!}
