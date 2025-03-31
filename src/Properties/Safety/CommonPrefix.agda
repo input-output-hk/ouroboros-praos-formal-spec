@@ -23,7 +23,7 @@ open import Properties.Safety ⦃ params ⦄ ⦃ assumptions ⦄
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Data.Nat.Base using (>-nonZero)
-open import Data.Nat.Properties using (≤-refl; ≤-trans; *-monoʳ-≤; m≤n⇒m≤1+n; +-suc; +-identityʳ; n≮n; module ≤-Reasoning)
+open import Data.Nat.Properties using (≤-refl; ≤-trans; *-monoʳ-≤; m≤n⇒m≤1+n; +-suc; +-identityʳ; n≮n; n≤1+n; module ≤-Reasoning)
 open import Data.Nat.Properties.Ext using (pred[n]<n)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-just)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
@@ -471,6 +471,91 @@ commonPrefix {N₁} {N₂} {k} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ {p₁
           (inj₁ bc₁⪯bcN′ls₂′) → subgoal-⪯-↑∗ (Params.winnerᵈ params {p₂} {N′ .clock}) bc₁⪯bcN′ls₂′
           (inj₂ advπ) → inj₂ advπ)
 
-    ... | advanceRound x = {!!}
-    ... | permuteParties x = {!!}
-    ... | permuteMsgs x = {!!}
+    ... | advanceRound N′BlockMade = goal-⁺
+      where
+        ffN′ : ForgingFree N′
+        ffN′ = ForgingFreePrev (N′↝N₂ ◅ ε) ffN₂
+
+        cfN′ : CollisionFree N′
+        cfN′ = CollisionFreePrev (N′↝N₂ ◅ ε) cfN₂
+
+        N₀↝⋆N′ : N₀ ↝⋆ N′
+        N₀↝⋆N′ = N₀↝⋆N₁ ◅◅ Starʳ⇒Star N₁↝⋆ʳN′
+
+        bc₁      = Chain ∋ bestChain (N₁ .clock ∸ 1) (ls₁ .tree)
+        bc₂      = Chain ∋ bestChain (N₂ .clock ∸ 1) (ls₂ .tree)
+        bc₂N′    = Chain ∋ bestChain (N′ .clock ∸ 1) (ls₂ .tree)
+
+        ih :
+         prune k bc₁ ⪯ bc₂N′
+         ⊎
+         ∃₂[ sl′ , sl″ ]
+             sl′ ≤ k
+           × N₁ .clock ≤ sl″
+           × sl″ ≤ N′ .clock
+           × length (superSlotsInRange (sl′ + 1) (sl″ ∸ 1))
+             ≤
+             2 * length (corruptSlotsInRange (sl′ + 1) (sl″ + 1))
+        ih = commonPrefixʳ {N₁} {N′} {k} N₀↝⋆N₁ N₁↝⋆ʳN′ ffN′ cfN′ hp₁ hp₂ lsp₁ lsp₂
+
+        goal-⁺ :
+          prune k bc₁ ⪯ bc₂
+          ⊎
+          ∃₂[ sl′ , sl″ ]
+              sl′ ≤ k
+            × N₁ .clock ≤ sl″
+            × sl″ ≤ N₂ .clock
+            × length (superSlotsInRange (sl′ + 1) (sl″ ∸ 1))
+              ≤
+              2 * length (corruptSlotsInRange (sl′ + 1) (sl″ + 1))
+        goal-⁺ = (case ih of λ where
+          (inj₁ bc₁⪯bc₂N′) →
+            case singlePartyCommonPrefix {k = k} N₀↝⋆N′ ffN′ cfN′ {p₂} {ls₂} hp₂ lsp₂ {bc₂} {1} π₁ π₂ π₃ of λ where
+              (inj₁ bc₂N′⪯bc₂) → inj₁ $ prune-⪯-trans {c₁ = bc₁} bc₁⪯bc₂N′ bc₂N′⪯bc₂
+              (inj₂ (sl′ , h₁ , h₂)) → inj₂ (sl′ , N′ .clock , h₁ , clockMonotonicity (Starʳ⇒Star N₁↝⋆ʳN′) , n≤1+n (N′ .clock) , h₂)
+          (inj₂ (sl′ , sl″ , sl′≤k , N₁ₜ≤sl″ , sl″≤N′ₜ , advπ)) → inj₂ (sl′ , sl″ , sl′≤k , N₁ₜ≤sl″ , m≤n⇒m≤1+n sl″≤N′ₜ , advπ))
+          where
+            π₁ : bc₂ ⊆ˢ filter ((_≤? N′ .clock ∸ 1 + 1) ∘ slot) (genesisBlock ∷ blockHistory N′)
+            π₁ {b} b∈bc₂ = L.Mem.∈-filter⁺ ((_≤? N′ .clock ∸ 1 + 1) ∘ slot) (π1-1 b∈bc₂) π1-2
+              where
+                π1-1 : bc₂ ⊆ˢ genesisBlock ∷ blockHistory N′
+                π1-1 = begin
+                  bc₂
+                    ⊆⟨ selfContained (ls₂ .tree) (N₂ .clock ∸ 1) ⟩
+                  filter ((_≤? N₂ .clock ∸ 1) ∘ slot) (allBlocks (ls₂ .tree))
+                    ⊆⟨ L.SubS.filter-⊆ _ _ ⟩
+                  allBlocks (ls₂ .tree)
+                    ⊆⟨ honestLocalTreeInHonestGlobalTree N₀↝⋆N′ hp₂ lsp₂ ⟩
+                  allBlocks (honestTree N′)
+                    ⊆⟨ honestGlobalTreeInBlockHistory N₀↝⋆N′ ⟩
+                  genesisBlock ∷ blockHistory N′ ∎
+                  where open L.SubS.⊆-Reasoning Block
+
+                π1-2 : b .slot ≤ N′ .clock ∸ 1 + 1
+                π1-2
+                  rewrite
+                    +-suc (N′ .clock ∸ 1) 0
+                  | +-identityʳ (N′ .clock ∸ 1)
+                  | Nat.suc-pred (N′ .clock) ⦃ >-nonZero $ positiveClock N₀↝⋆N′ ⦄
+                  = L.All.lookup (bestChainSlotBounded (ls₂ .tree) (N′ .clock)) b∈bc₂
+
+            π₂ : bc₂ ✓
+            π₂ = valid (ls₂ .tree) (N₂ .clock ∸ 1)
+
+            π₃ : ∣ bc₂N′ ∣ ≤ ∣ bc₂ ∣
+            π₃ = optimal bc₂N′ (ls₂ .tree) (N′ .clock) bc₂N′✓ π3-1
+              where
+                bc₂N′✓ : bc₂N′ ✓
+                bc₂N′✓ = valid (ls₂ .tree) (N′ .clock ∸ 1)
+
+                π3-1 : bc₂N′ ⊆ˢ filter ((_≤? N′ .clock) ∘ slot) (allBlocks (ls₂ .tree))
+                π3-1 = begin
+                  bc₂N′
+                    ⊆⟨ selfContained (ls₂ .tree) (N′ .clock ∸ 1) ⟩
+                  filter ((_≤? N′ .clock ∸ 1) ∘ slot) (allBlocks (ls₂ .tree))
+                    ⊆⟨ L.SubS.filter⁺′ _ _ Nat.≤pred⇒≤ {xs = allBlocks (ls₂ .tree)} L.SubS.⊆-refl ⟩
+                  filter ((_≤? N′ .clock) ∘ slot) (allBlocks (ls₂ .tree)) ∎
+                  where open L.SubS.⊆-Reasoning Block
+
+    ... | permuteParties _ = {!!}
+    ... | permuteMsgs _ = {!!}
