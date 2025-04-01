@@ -20,6 +20,7 @@ open import Properties.Base.ForgingFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.CollisionFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.SuperBlocks ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Safety ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Safety.SingleRoundCommonPrefix ⦃ params ⦄ ⦃ assumptions ⦄
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Data.Nat.Base using (>-nonZero)
@@ -30,53 +31,6 @@ open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭)
 open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊆×⊇)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (++⁻ˡ; ++-meet)
-
-lcs : Chain → Chain → Chain
-lcs (b ∷ c) (b′ ∷ c′) with b ≟ b′
-... | yes _ = b ∷ lcs c c′
-... | no  _ = []
-lcs _       _         = []
-
-singlePartyCommonPrefix : ∀ {N : GlobalState} {k : Slot} →
-    N₀ ↝⋆ N
-  → ForgingFree N
-  → CollisionFree N
-  → ∀ {p : Party} {ls : LocalState}
-    → Honest p
-    → N .states ⁉ p ≡ just ls
-    → let bc = bestChain (N .clock ∸ 1) (ls .tree)
-      in ∀ {c : Chain} {sl : Slot} →
-          c ⊆ˢ filter ((_≤? N .clock ∸ 1 + sl) ∘ slot) (genesisBlock ∷ blockHistory N)
-        → c ✓
-        → ∣ bc ∣ ≤ ∣ c ∣
-        → prune k bc ⪯ c
-          ⊎
-          ∃[ sl′ ]
-              sl′ ≤ k
-            × length (superSlotsInRange (sl′ + 1) (N .clock ∸ 1))
-              ≤
-              2 * length (corruptSlotsInRange (sl′ + 1) (N .clock + sl))
-singlePartyCommonPrefix = {!!}
-
-singleRoundCommonPrefix : ∀ {N : GlobalState} {k : Slot} →
-    N₀ ↝⋆ N
-  → ForgingFree N
-  → CollisionFree N
-  → ∀ {p₁ p₂ : Party} {ls₁ ls₂ : LocalState}
-  → Honest p₁
-  → Honest p₂
-  → N .states ⁉ p₁ ≡ just ls₁
-  → N .states ⁉ p₂ ≡ just ls₂
-  → let bc₁ = bestChain (N .clock ∸ 1) (ls₁ .tree)
-        bc₂ = bestChain (N .clock ∸ 1) (ls₂ .tree)
-    in prune k bc₁ ⪯ bc₂
-       ⊎
-       ∃[ sl′ ]
-           sl′ ≤ k
-         × length (superSlotsInRange (sl′ + 1) (N .clock ∸ 1))
-           ≤
-           2 * length (corruptSlotsInRange (sl′ + 1) (N .clock))
-singleRoundCommonPrefix = {!!}
 
 commonPrefix : ∀ {N₁ N₂ : GlobalState} {k : Slot} →
     N₀ ↝⋆ N₁
@@ -215,7 +169,7 @@ commonPrefix {N₁} {N₂} {k} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ {p₁
                   2 * length (corruptSlotsInRange (sl′ + 1) (sl″ + 1))
             goal-↓∗ rewrite clockPreservation-↓∗ N′—[eoN′]↓→∗N″ = (case ih ls₂′ lsp₂N′ of λ where
               (inj₁ bc₁⪯bcN′ls₂′) → (
-                case singlePartyCommonPrefix {k = k} N₀↝⋆N′ ffN′ cfN′ {p₂} {ls₂′} hp₂ lsp₂N′ {bcN′ls₂} {1} π1 bcN′ls₂✓ π2 of λ where
+                case singlePartyCommonPrefix-⪯ {k = k} N₀↝⋆N′ ffN′ cfN′ {p₂} {ls₂′} hp₂ lsp₂N′ {bcN′ls₂} {1} π1 bcN′ls₂✓ π2 of λ where
                   (inj₁ bcN′ls₂′⪯bcN′ls₂) → inj₁ $ prune-⪯-trans {c₁ = bc₁} bc₁⪯bcN′ls₂′ bcN′ls₂′⪯bcN′ls₂
                   (inj₂ (sl′ , h₁ , h₂)) → inj₂ (sl′ , N′ .clock , h₁ , clockMonotonicity (Starʳ⇒Star N₁↝⋆ʳN′) , ≤-refl , h₂)
                 )
@@ -328,7 +282,7 @@ commonPrefix {N₁} {N₂} {k} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ {p₁
                 bc₁⪯bcN′ls₂ : prune k bc₁ ⪯ bcN′ls₂
                 bc₁⪯bcN′ls₂ = subst (λ ◆ → prune k bc₁ ⪯ bestChain (N′ .clock ∸ 1) (◆ .tree)) ls₂′≡ls₂ bc₁⪯bcN′ls₂′
             subgoal-⪯-↑∗ (⁇ (yes isWinner)) bc₁⪯bcN′ls₂′ =
-                case singlePartyCommonPrefix {k = k} N₀↝⋆N′ ffN′ cfN′ {p₂} {ls₂′} hp₂ lsp₂N′ {bcN′ls₂} {0} π1 bcN′ls₂✓ π2 of λ where
+                case singlePartyCommonPrefix-⪯ {k = k} N₀↝⋆N′ ffN′ cfN′ {p₂} {ls₂′} hp₂ lsp₂N′ {bcN′ls₂} {0} π1 bcN′ls₂✓ π2 of λ where
                   (inj₁ bcN′ls₂′⪯bcN′ls₂) → inj₁ $ prune-⪯-trans {c₁ = bc₁} bc₁⪯bcN′ls₂′ bcN′ls₂′⪯bcN′ls₂
                   (inj₂ (sl′ , h₁ , h₂)) → inj₂ (sl′ , N′ .clock , h₁ , clockMonotonicity (Starʳ⇒Star N₁↝⋆ʳN′) , ≤-refl , ≤-trans h₂ (*-monoʳ-≤ 2 (h₂′ sl′)))
               where
@@ -430,7 +384,7 @@ commonPrefix {N₁} {N₂} {k} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ {p₁
 
         ... | advanceRound _ = (case ih ls₂ lsp₂ of λ where
           (inj₁ bc₁⪯bc₂N′) →
-            case singlePartyCommonPrefix {k = k} N₀↝⋆N′ ffN′ cfN′ {p₂} {ls₂} hp₂ lsp₂ {bc₂} {1} π1 bc₂✓ π2 of λ where
+            case singlePartyCommonPrefix-⪯ {k = k} N₀↝⋆N′ ffN′ cfN′ {p₂} {ls₂} hp₂ lsp₂ {bc₂} {1} π1 bc₂✓ π2 of λ where
               (inj₁ bc₂N′⪯bc₂) → inj₁ $ prune-⪯-trans {c₁ = bc₁} bc₁⪯bc₂N′ bc₂N′⪯bc₂
               (inj₂ (sl′ , h₁ , h₂)) → inj₂ (sl′ , N′ .clock , h₁ , clockMonotonicity (Starʳ⇒Star N₁↝⋆ʳN′) , n≤1+n (N′ .clock) , h₂)
           (inj₂ (sl′ , sl″ , sl′≤k , N₁ₜ≤sl″ , sl″≤N′ₜ , advπ)) → inj₂ (sl′ , sl″ , sl′≤k , N₁ₜ≤sl″ , m≤n⇒m≤1+n sl″≤N′ₜ , advπ))
