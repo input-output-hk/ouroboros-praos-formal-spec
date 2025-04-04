@@ -29,10 +29,8 @@ open import Data.Nat.Base using (z<s; s<s)
 open import Data.Nat.Properties using (<-trans; 0≢1+n; +-comm)
 open import Data.Nat.Properties.Ext using (pred[n]<n; suc-≢-injective)
 open import Data.List.Properties.Ext using (filter-∘-comm; filter-∘-×; []≢∷ʳ; Px-findᵇ⁻; ∷≢[]; ≢[]⇒∷; filter-acceptʳ; filter-rejectʳ)
-open import Data.List.Relation.Unary.Linked.Properties using (Linked⇒AllPairs)
 open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (++⁻; Unique[x∷xs]⇒x∉xs; Unique[xs∷ʳx]⇒x∉xs)
 open import Data.List.Relation.Unary.All.Properties.Ext using (cartesianProduct⁻)
-open import Data.List.Relation.Unary.AllPairs.Properties.Ext renaming (++⁻ to AP-++⁻)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-refl; ↭-trans)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (Unique-resp-↭; length-cong; filter-↭)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (cartesianProduct-⊆-Mono; filterᵇ-mono; ∷-⊆; ∷-⊆⁺; ∷⊆⇒∈)
@@ -1232,7 +1230,8 @@ private opaque
                                                           ds[b′∷c] = [b′∷c]✓ .proj₂ .proj₂
 
                                                           b′>ˢc : L.All.All (b′ >ˢ_) c
-                                                          b′>ˢc = L.All.head $ AP-++⁻ (Linked⇒AllPairs (λ {b b′ b″} → >ˢ-trans {b} {b′} {b″}) ds[b′∷c]) .proj₂ .proj₂
+                                                          b′>ˢc = ∷-DecreasingSlots ds[b′∷c] .proj₂
+
                                                           sb>ˢb″ : b″ ∈ c → sb >ˢ b″
                                                           sb>ˢb″ rewrite sym b′≡sb = L.All.lookup b′>ˢc
 
@@ -1595,7 +1594,7 @@ private opaque
                                                           ds[b′∷c] = [b′∷c]✓ .proj₂ .proj₂
 
                                                           b′>ˢc : L.All.All (b′ >ˢ_) c
-                                                          b′>ˢc = L.All.head $ AP-++⁻ (Linked⇒AllPairs (λ {b b′ b″} → >ˢ-trans {b} {b′} {b″}) ds[b′∷c]) .proj₂ .proj₂
+                                                          b′>ˢc = ∷-DecreasingSlots ds[b′∷c] .proj₂
 
                                                           b>ˢb″ : b″ ∈ c → b >ˢ b″
                                                           b>ˢb″ rewrite sym b′≡b = L.All.lookup b′>ˢc
