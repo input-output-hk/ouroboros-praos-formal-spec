@@ -29,10 +29,12 @@ open import Data.Nat.Base using (z<s; s<s)
 open import Data.Nat.Properties using (<-trans; 0≢1+n; +-comm)
 open import Data.Nat.Properties.Ext using (pred[n]<n; suc-≢-injective)
 open import Data.List.Properties.Ext using (filter-∘-comm; filter-∘-×; []≢∷ʳ; Px-findᵇ⁻; ∷≢[]; ≢[]⇒∷; filter-acceptʳ; filter-rejectʳ)
-open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (++⁻; Unique[x∷xs]⇒x∉xs; Unique[xs∷ʳx]⇒x∉xs)
+open import Data.List.Relation.Unary.Unique.Propositional.Properties using (Unique[x∷xs]⇒x∉xs)
+open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (++⁻; Unique[xs∷ʳx]⇒x∉xs)
 open import Data.List.Relation.Unary.All.Properties.Ext using (cartesianProduct⁻)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-refl; ↭-trans)
-open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (Unique-resp-↭; length-cong; filter-↭)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (↭-length)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (Unique-resp-↭; filter-↭)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (cartesianProduct-⊆-Mono; filterᵇ-mono; ∷-⊆; ∷-⊆⁺; ∷⊆⇒∈)
 open import Data.List.Membership.Propositional.Properties.Ext using (x∈x∷xs; ∈-∷⁻; ∈-findᵇ⁻; ∈-∷-≢⁻)
 open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ-refl; ≡ˢ-sym; ≡ˢ-trans; ≡ˢ⇒⊆×⊇; ⊆×⊇⇒≡ˢ; deduplicate-cong; filter-cong; All-resp-≡ˢ; Any-resp-≡ˢ; cartesianProduct-cong)
@@ -1295,7 +1297,7 @@ private opaque
                   goal-sbₜ≡Nₜ = makeBlockGoal-sbₜ≡Nₜ (N′ .execOrder) (allPartiesHaveLocalState N₀↝⋆N′) eoSb N″↷↑N″[bM] cfN (L.SubS.filter-⊆ _ _ sb∈hbhN) b∈hbhN uniqEoN′ (—[]→∗⇒—[]→∗ʳ N′—[eoN′]↑→∗N″)
                     where
                       eoSb : length (filter (λ p → ¿ winner p (sb .slot) × Honest p ¿) (N′ .execOrder)) ≡ 1
-                      eoSb = trans (sym $ length-cong (filter-↭ _ (execOrderPreservation-↭ N₀↝⋆N′))) sbHasSuperSlot
+                      eoSb = trans (sym $ ↭-length (filter-↭ _ (execOrderPreservation-↭ N₀↝⋆N′))) sbHasSuperSlot
 
                       makeBlockGoal-sbₜ≡Nₜ : ∀ {N*} ps →
                           L.All.All (M.Is-just ∘ (N′ .states ⁉_)) ps

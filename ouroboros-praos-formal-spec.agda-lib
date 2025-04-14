@@ -1,5 +1,0 @@
-name: ouroboros-praos-formal-spec
-depend: standard-library standard-library-classes iog-prelude
-include: src
-flags: --erasure
-
