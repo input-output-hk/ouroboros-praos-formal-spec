@@ -1,0 +1,6 @@
+name: praos-spec
+depend:
+  standard-library
+  standard-library-classes
+  iog-prelude
+include: src

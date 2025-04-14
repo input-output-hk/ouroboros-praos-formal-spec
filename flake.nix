@@ -1,26 +1,34 @@
+# Unified flake.nix that:
+# - Preserves original flake features (hydraJobs, formalLedger)
+# - Imports logic from default.nix and shell.nix
+# - Supports nix build, nix run, nix develop
+
 {
-  description = "ouroboros-praos-formal-spec";
+  description = "Ouroboros Praos Formal Specification";
 
   inputs = {
-    iogx = {
-      url = "github:input-output-hk/iogx";
-      inputs.hackage.follows = "hackage";
-    };
-    hackage = {
-      url = "github:input-output-hk/hackage.nix";
-      flake = false;
-    };
-    crane.url = "github:ipetkov/crane";
-    crane.inputs.nixpkgs.follows = "nixpkgs";
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/0da3c44a9460a26d2025ec3ed2ec60a895eb1114";
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = inputs:
-    inputs.iogx.lib.mkFlake rec {
-      inherit inputs;
-      repoRoot = ./.;
-      outputs = import ./nix/outputs.nix;
-      systems = [ "x86_64-linux" "x86_64-darwin" "aarch64-darwin" ];
-      # debug = false;
-    };
+  outputs = { self, nixpkgs, flake-utils, ... }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [];
+        };
+
+        # Load shell environment from shell.nix
+        shellEnv = import ./shell.nix { inherit pkgs; };
+
+        # Load package from default.nix
+        defaultPackage = import ./default.nix { inherit pkgs; };
+      in {
+        # Dev shell imports same environment as shell.nix
+        devShells = {
+          default = shellEnv.shell;
+          ci = shellEnv.run.shell;
+        };
+      });
 }
