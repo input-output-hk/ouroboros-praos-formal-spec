@@ -169,17 +169,17 @@ commonPrefix {N₁} {N₂} {k} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ {p₁
                   2 * length (corruptSlotsInRange (sl′ + 1) (sl″ + 1))
             goal-↓∗ rewrite clockPreservation-↓∗ N′—[eoN′]↓→∗N″ = (case ih ls₂′ lsp₂N′ of λ where
               (inj₁ bc₁⪯bcN′ls₂′) → (
-                case singlePartyCommonPrefix-⪯ {k = k} N₀↝⋆N′ ffN′ cfN′ {p₂} {ls₂′} hp₂ lsp₂N′ {bcN′ls₂} {1} π1 bcN′ls₂✓ π2 of λ where
+                case singlePartyCommonPrefix-⪯ {k = k} N₀↝⋆N′ ffN′ cfN′ {p₂} {ls₂′} hp₂ lsp₂N′ {bcN′ls₂} {1} bcN′ls₂⊆fgb+bhN′ bcN′ls₂✓ ∣bcN′ls₂′∣≤∣bcN′ls₂∣ of λ where
                   (inj₁ bcN′ls₂′⪯bcN′ls₂) → inj₁ $ prune-⪯-trans {c₁ = bc₁} bc₁⪯bcN′ls₂′ bcN′ls₂′⪯bcN′ls₂
                   (inj₂ (sl′ , h₁ , h₂)) → inj₂ (sl′ , N′ .clock , h₁ , clockMonotonicity (Starʳ⇒Star N₁↝⋆ʳN′) , ≤-refl , h₂)
                 )
               (inj₂ advπ) → inj₂ advπ)
               where
-                π1 : bcN′ls₂ ⊆ˢ filter ((_≤? N′ .clock ∸ 1 + 1) ∘ slot) (genesisBlock ∷ blockHistory N′)
-                π1 {b} b∈bcN′ls₂ = L.Mem.∈-filter⁺ ((_≤? N′ .clock ∸ 1 + 1) ∘ slot) (π1-1 b∈bcN′ls₂) π1-2
+                bcN′ls₂⊆fgb+bhN′ : bcN′ls₂ ⊆ˢ filter ((_≤? N′ .clock ∸ 1 + 1) ∘ slot) (genesisBlock ∷ blockHistory N′)
+                bcN′ls₂⊆fgb+bhN′ {b} b∈bcN′ls₂ = L.Mem.∈-filter⁺ ((_≤? N′ .clock ∸ 1 + 1) ∘ slot) (bcN′ls₂⊆gb+bhN′ b∈bcN′ls₂) bₜ≤N′ₜ
                   where
-                    π1-1 : bcN′ls₂ ⊆ˢ genesisBlock ∷ blockHistory N′
-                    π1-1 = begin
+                    bcN′ls₂⊆gb+bhN′ : bcN′ls₂ ⊆ˢ genesisBlock ∷ blockHistory N′
+                    bcN′ls₂⊆gb+bhN′ = begin
                       bcN′ls₂
                         ⊆⟨ selfContained (ls₂ .tree) (N′ .clock ∸ 1) ⟩
                       filter ((_≤? N′ .clock ∸ 1) ∘ slot) (allBlocks (ls₂ .tree))
@@ -187,13 +187,13 @@ commonPrefix {N₁} {N₂} {k} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ {p₁
                       allBlocks (ls₂ .tree)
                         ⊆⟨ ≡ˢ⇒⊆×⊇ allBlocksls₂-ls₂′ .proj₁ ⟩
                       allBlocks (ls₂′ .tree) ++ blocksDeliveredIn p₂ 𝟘 N′
-                        ⊆⟨ π1-1-1 ⟩
+                        ⊆⟨ t+𝟘s⊆gb+bhN′ ⟩
                       genesisBlock ∷ blockHistory N′ ∎
                       where
                         open L.SubS.⊆-Reasoning Block
 
-                        π1-1-2 : blocksDeliveredIn p₂ 𝟘 N′ ⊆ˢ blockHistory N′
-                        π1-1-2 {b} b∈𝟘s = let
+                        𝟘s⊆bhN′ : blocksDeliveredIn p₂ 𝟘 N′ ⊆ˢ blockHistory N′
+                        𝟘s⊆bhN′ {b} b∈𝟘s = let
                             (e , e∈𝟘s , b≡blk[e]) = L.Mem.∈-map⁻ _ b∈𝟘s
                             (e∈msgs[N′] , eIs𝟘)   = L.Mem.∈-filter⁻ _ {xs = N′ .messages} e∈𝟘s
                           in e∈msgs[N′] ∶
@@ -204,29 +204,29 @@ commonPrefix {N₁} {N₂} {k} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ {p₁
                             b ∈ blockHistory N′
                           where open import Function.Reasoning
 
-                        π1-1-1 : allBlocks (ls₂′ .tree) ++ blocksDeliveredIn p₂ 𝟘 N′ ⊆ˢ genesisBlock ∷ blockHistory N′
-                        π1-1-1 = ++-meet
+                        t+𝟘s⊆gb+bhN′ : allBlocks (ls₂′ .tree) ++ blocksDeliveredIn p₂ 𝟘 N′ ⊆ˢ genesisBlock ∷ blockHistory N′
+                        t+𝟘s⊆gb+bhN′ = ++-meet
                           (begin
                             allBlocks (ls₂′ .tree)         ⊆⟨ honestLocalTreeInHonestGlobalTree N₀↝⋆N′ hp₂ lsp₂N′ ⟩
                             allBlocks (honestTree N′)      ⊆⟨ honestGlobalTreeInBlockHistory N₀↝⋆N′ ⟩
                             genesisBlock ∷ blockHistory N′ ∎)
                           (begin
-                            blocksDeliveredIn p₂ 𝟘 N′      ⊆⟨ π1-1-2 ⟩
+                            blocksDeliveredIn p₂ 𝟘 N′      ⊆⟨ 𝟘s⊆bhN′ ⟩
                             blockHistory N′                ⊆⟨ L.SubS.xs⊆x∷xs _ _ ⟩
                             genesisBlock ∷ blockHistory N′ ∎)
 
-                    π1-2 : b .slot ≤ N′ .clock ∸ 1 + 1
-                    π1-2
+                    bₜ≤N′ₜ : b .slot ≤ N′ .clock ∸ 1 + 1
+                    bₜ≤N′ₜ
                       rewrite
                         +-suc (N′ .clock ∸ 1) 0
                       | +-identityʳ (N′ .clock ∸ 1)
                       = m≤n⇒m≤1+n $ L.All.lookup (bestChainSlotBounded (ls₂ .tree) (N′ .clock ∸ 1)) b∈bcN′ls₂
 
-                π2 : ∣ bcN′ls₂′ ∣ ≤ ∣ bcN′ls₂ ∣
-                π2 = optimal bcN′ls₂′ (ls₂ .tree) (N′ .clock ∸ 1) bcN′ls₂′✓ π2-1
+                ∣bcN′ls₂′∣≤∣bcN′ls₂∣ : ∣ bcN′ls₂′ ∣ ≤ ∣ bcN′ls₂ ∣
+                ∣bcN′ls₂′∣≤∣bcN′ls₂∣ = optimal bcN′ls₂′ (ls₂ .tree) (N′ .clock ∸ 1) bcN′ls₂′✓ bcN′ls₂′⊆ft
                   where
-                    π2-1 : bcN′ls₂′ ⊆ˢ filter ((_≤? N′ .clock ∸ 1) ∘ slot) (allBlocks (ls₂ .tree))
-                    π2-1 = begin
+                    bcN′ls₂′⊆ft : bcN′ls₂′ ⊆ˢ filter ((_≤? N′ .clock ∸ 1) ∘ slot) (allBlocks (ls₂ .tree))
+                    bcN′ls₂′⊆ft = begin
                       bcN′ls₂′
                         ⊆⟨ selfContained (ls₂′ .tree) (N′ .clock ∸ 1) ⟩
                       filter ((_≤? N′ .clock ∸ 1) ∘ slot) (allBlocks (ls₂′ .tree))
@@ -282,7 +282,7 @@ commonPrefix {N₁} {N₂} {k} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ {p₁
                 bc₁⪯bcN′ls₂ : prune k bc₁ ⪯ bcN′ls₂
                 bc₁⪯bcN′ls₂ = subst (λ ◆ → prune k bc₁ ⪯ bestChain (N′ .clock ∸ 1) (◆ .tree)) ls₂′≡ls₂ bc₁⪯bcN′ls₂′
             subgoal-⪯-↑∗ (⁇ (yes isWinner)) bc₁⪯bcN′ls₂′ =
-                case singlePartyCommonPrefix-⪯ {k = k} N₀↝⋆N′ ffN′ cfN′ {p₂} {ls₂′} hp₂ lsp₂N′ {bcN′ls₂} {0} π1 bcN′ls₂✓ π2 of λ where
+                case singlePartyCommonPrefix-⪯ {k = k} N₀↝⋆N′ ffN′ cfN′ {p₂} {ls₂′} hp₂ lsp₂N′ {bcN′ls₂} {0} bcN′ls₂⊆fgb+bhN′ bcN′ls₂✓ ∣bcN′ls₂′∣≤∣bcN′ls₂∣ of λ where
                   (inj₁ bcN′ls₂′⪯bcN′ls₂) → inj₁ $ prune-⪯-trans {c₁ = bc₁} bc₁⪯bcN′ls₂′ bcN′ls₂′⪯bcN′ls₂
                   (inj₂ (sl′ , h₁ , h₂)) → inj₂ (sl′ , N′ .clock , h₁ , clockMonotonicity (Starʳ⇒Star N₁↝⋆ʳN′) , ≤-refl , ≤-trans h₂ (*-monoʳ-≤ 2 (h₂′ sl′)))
               where
@@ -304,15 +304,15 @@ commonPrefix {N₁} {N₂} {k} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ {p₁
                   length (corruptSlotsInRange (sl′ + 1) (N′ .clock + 1))
                 h₂′ sl′ rewrite +-identityʳ (N′ .clock) = slotsInRange-≤-+ ¿ CorruptSlot ¿¹ (sl′ + 1) (N′ .clock) 1
 
-                π1 : bcN′ls₂ ⊆ˢ filter ((_≤? N′ .clock ∸ 1 + 0) ∘ slot) (genesisBlock ∷ blockHistory N′)
-                π1 {b} b∈bcN′ls₂ = L.Mem.∈-filter⁺ ((_≤? N′ .clock ∸ 1 + 0) ∘ slot) b∈gb∷bhN′ bₜ≤N′ₜ-1+0
+                bcN′ls₂⊆fgb+bhN′ : bcN′ls₂ ⊆ˢ filter ((_≤? N′ .clock ∸ 1 + 0) ∘ slot) (genesisBlock ∷ blockHistory N′)
+                bcN′ls₂⊆fgb+bhN′ {b} b∈bcN′ls₂ = L.Mem.∈-filter⁺ ((_≤? N′ .clock ∸ 1 + 0) ∘ slot) b∈gb+bhN′ bₜ≤N′ₜ-1+0
                   where
                     bₜ≤N′ₜ-1+0 : b .slot ≤ N′ .clock ∸ 1 + 0
                     bₜ≤N′ₜ-1+0 rewrite +-identityʳ (N′ .clock ∸ 1) = L.All.lookup (bestChainSlotBounded (ls₂ .tree) (N′ .clock ∸ 1)) b∈bcN′ls₂
 
-                    b∈gb∷bhN′ : b ∈ genesisBlock ∷ blockHistory N′
-                    b∈gb∷bhN′ = (case L.Mem.∈-++⁻ (allBlocks (ls₂′ .tree)) (bcN′ls₂⊆ls₂′+nb b∈bcN′ls₂) of λ where
-                      (inj₁ p∈ls₂′) → ls₂′⊆gb∷bhN′ p∈ls₂′
+                    b∈gb+bhN′ : b ∈ genesisBlock ∷ blockHistory N′
+                    b∈gb+bhN′ = (case L.Mem.∈-++⁻ (allBlocks (ls₂′ .tree)) (bcN′ls₂⊆ls₂′+nb b∈bcN′ls₂) of λ where
+                      (inj₁ p∈ls₂′) → ls₂′⊆gb+bhN′ p∈ls₂′
                       (inj₂ (here b≡nb)) → contradiction (N′ₜ<N′ₜ b≡nb) (Nat.n≮n $ N′ .clock))
                       where
                         N′ₜ<N′ₜ : b ≡ nb → N′ .clock < N′ .clock
@@ -338,23 +338,23 @@ commonPrefix {N₁} {N₂} {k} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ {p₁
                           allBlocks (ls₂′ .tree) ++ [ nb ] ∎
                           where open L.SubS.⊆-Reasoning Block
 
-                        ls₂′⊆gb∷bhN′ : allBlocks (ls₂′ .tree) ⊆ˢ genesisBlock ∷ blockHistory N′
-                        ls₂′⊆gb∷bhN′ = begin
+                        ls₂′⊆gb+bhN′ : allBlocks (ls₂′ .tree) ⊆ˢ genesisBlock ∷ blockHistory N′
+                        ls₂′⊆gb+bhN′ = begin
                           allBlocks (ls₂′ .tree)         ⊆⟨ honestLocalTreeInHonestGlobalTree N₀↝⋆N′ hp₂ lsp₂N′ ⟩
                           allBlocks (honestTree N′)      ⊆⟨ honestGlobalTreeInBlockHistory N₀↝⋆N′ ⟩
                           genesisBlock ∷ blockHistory N′ ∎
                           where open L.SubS.⊆-Reasoning Block
 
-                π2 : ∣ bcN′ls₂′ ∣ ≤ ∣ bcN′ls₂ ∣
-                π2 = subst (λ ◆ → ∣ bcN′ls₂′ ∣ ≤ ∣ bestChain (N′ .clock ∸ 1) (◆  .tree) ∣) ls₂′+nb≡ls₂ π2-1
+                ∣bcN′ls₂′∣≤∣bcN′ls₂∣ : ∣ bcN′ls₂′ ∣ ≤ ∣ bcN′ls₂ ∣
+                ∣bcN′ls₂′∣≤∣bcN′ls₂∣ = subst (λ ◆ → ∣ bcN′ls₂′ ∣ ≤ ∣ bestChain (N′ .clock ∸ 1) (◆  .tree) ∣) ls₂′+nb≡ls₂ ∣bcN′ls₂′∣≤∣bcN′ls₂′+nb∣
                   where
                     bcN′ls₂′+nb = Chain ∋ bestChain (N′ .clock ∸ 1) (extendTree (ls₂′ .tree) nb)
 
-                    π2-1 : ∣ bcN′ls₂′ ∣ ≤ ∣ bcN′ls₂′+nb ∣
-                    π2-1 = optimal bcN′ls₂′ (extendTree (ls₂′ .tree) nb) (N′ .clock ∸ 1) bcN′ls₂′✓ π2-1-1
+                    ∣bcN′ls₂′∣≤∣bcN′ls₂′+nb∣ : ∣ bcN′ls₂′ ∣ ≤ ∣ bcN′ls₂′+nb ∣
+                    ∣bcN′ls₂′∣≤∣bcN′ls₂′+nb∣ = optimal bcN′ls₂′ (extendTree (ls₂′ .tree) nb) (N′ .clock ∸ 1) bcN′ls₂′✓ bcN′ls₂′⊆ft
                       where
-                        π2-1-1 : bcN′ls₂′ ⊆ˢ filter ((_≤? N′ .clock ∸ 1) ∘ slot) (allBlocks (extendTree (ls₂′ .tree) nb))
-                        π2-1-1 = begin
+                        bcN′ls₂′⊆ft : bcN′ls₂′ ⊆ˢ filter ((_≤? N′ .clock ∸ 1) ∘ slot) (allBlocks (extendTree (ls₂′ .tree) nb))
+                        bcN′ls₂′⊆ft = begin
                           bcN′ls₂′
                             ⊆⟨ selfContained (ls₂′ .tree) (N′ .clock ∸ 1) ⟩
                           filter ((_≤? N′ .clock ∸ 1) ∘ slot) (allBlocks (ls₂′ .tree))
@@ -384,16 +384,16 @@ commonPrefix {N₁} {N₂} {k} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ {p₁
 
         ... | advanceRound _ = (case ih ls₂ lsp₂ of λ where
           (inj₁ bc₁⪯bc₂N′) →
-            case singlePartyCommonPrefix-⪯ {k = k} N₀↝⋆N′ ffN′ cfN′ {p₂} {ls₂} hp₂ lsp₂ {bc₂} {1} π1 bc₂✓ π2 of λ where
+            case singlePartyCommonPrefix-⪯ {k = k} N₀↝⋆N′ ffN′ cfN′ {p₂} {ls₂} hp₂ lsp₂ {bc₂} {1} bc₂⊆fgb+bhN′ bc₂✓ ∣bcN′ls₂∣≤∣bc₂∣ of λ where
               (inj₁ bc₂N′⪯bc₂) → inj₁ $ prune-⪯-trans {c₁ = bc₁} bc₁⪯bc₂N′ bc₂N′⪯bc₂
               (inj₂ (sl′ , h₁ , h₂)) → inj₂ (sl′ , N′ .clock , h₁ , clockMonotonicity (Starʳ⇒Star N₁↝⋆ʳN′) , n≤1+n (N′ .clock) , h₂)
           (inj₂ (sl′ , sl″ , sl′≤k , N₁ₜ≤sl″ , sl″≤N′ₜ , advπ)) → inj₂ (sl′ , sl″ , sl′≤k , N₁ₜ≤sl″ , m≤n⇒m≤1+n sl″≤N′ₜ , advπ))
           where
-            π1 : bc₂ ⊆ˢ filter ((_≤? N′ .clock ∸ 1 + 1) ∘ slot) (genesisBlock ∷ blockHistory N′)
-            π1 {b} b∈bc₂ = L.Mem.∈-filter⁺ ((_≤? N′ .clock ∸ 1 + 1) ∘ slot) (π1-1 b∈bc₂) π1-2
+            bc₂⊆fgb+bhN′ : bc₂ ⊆ˢ filter ((_≤? N′ .clock ∸ 1 + 1) ∘ slot) (genesisBlock ∷ blockHistory N′)
+            bc₂⊆fgb+bhN′ {b} b∈bc₂ = L.Mem.∈-filter⁺ ((_≤? N′ .clock ∸ 1 + 1) ∘ slot) (bc₂⊆gb+bhN′ b∈bc₂) bₜ≤N′ₜ
               where
-                π1-1 : bc₂ ⊆ˢ genesisBlock ∷ blockHistory N′
-                π1-1 = begin
+                bc₂⊆gb+bhN′ : bc₂ ⊆ˢ genesisBlock ∷ blockHistory N′
+                bc₂⊆gb+bhN′ = begin
                   bc₂
                     ⊆⟨ selfContained (ls₂ .tree) (N₂ .clock ∸ 1) ⟩
                   filter ((_≤? N₂ .clock ∸ 1) ∘ slot) (allBlocks (ls₂ .tree))
@@ -405,19 +405,19 @@ commonPrefix {N₁} {N₂} {k} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ {p₁
                   genesisBlock ∷ blockHistory N′ ∎
                   where open L.SubS.⊆-Reasoning Block
 
-                π1-2 : b .slot ≤ N′ .clock ∸ 1 + 1
-                π1-2
+                bₜ≤N′ₜ : b .slot ≤ N′ .clock ∸ 1 + 1
+                bₜ≤N′ₜ
                   rewrite
                     +-suc (N′ .clock ∸ 1) 0
                   | +-identityʳ (N′ .clock ∸ 1)
                   | Nat.suc-pred (N′ .clock) ⦃ >-nonZero $ positiveClock N₀↝⋆N′ ⦄
                   = L.All.lookup (bestChainSlotBounded (ls₂ .tree) (N′ .clock)) b∈bc₂
 
-            π2 : ∣ bcN′ls₂ ∣ ≤ ∣ bc₂ ∣
-            π2 = optimal bcN′ls₂ (ls₂ .tree) (N′ .clock) bcN′ls₂✓ π2-1
+            ∣bcN′ls₂∣≤∣bc₂∣ : ∣ bcN′ls₂ ∣ ≤ ∣ bc₂ ∣
+            ∣bcN′ls₂∣≤∣bc₂∣ = optimal bcN′ls₂ (ls₂ .tree) (N′ .clock) bcN′ls₂✓ bcN′ls₂⊆ft
               where
-                π2-1 : bcN′ls₂ ⊆ˢ filter ((_≤? N′ .clock) ∘ slot) (allBlocks (ls₂ .tree))
-                π2-1 = begin
+                bcN′ls₂⊆ft : bcN′ls₂ ⊆ˢ filter ((_≤? N′ .clock) ∘ slot) (allBlocks (ls₂ .tree))
+                bcN′ls₂⊆ft = begin
                   bcN′ls₂
                     ⊆⟨ selfContained (ls₂ .tree) (N′ .clock ∸ 1) ⟩
                   filter ((_≤? N′ .clock ∸ 1) ∘ slot) (allBlocks (ls₂ .tree))

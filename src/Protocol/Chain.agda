@@ -21,8 +21,12 @@ open import Data.List.Relation.Binary.Suffix.Homogeneous.Properties using (isPre
 open import Relation.Binary.Definitions using (Reflexive; Transitive)
 open import Relation.Binary.Structures using (IsPreorder)
 open import Relation.Binary.PropositionalEquality.Properties renaming (isPreorder to ≡-isPreorder)
+open import Relation.Binary.Bundles using (Preorder)
+import Relation.Binary.Reasoning.Preorder as ≲-Reasoning
+open import Relation.Binary.Reasoning.Syntax
 open import Data.List.Relation.Binary.Pointwise as Pointwise using (Pointwise; ≡⇒Pointwise-≡; Pointwise-≡⇒≡)
 open import Data.List.Properties.Ext using (≢[]⇒∷)
+open import Data.List.Membership.Propositional.Properties.Ext using (x∈x∷xs)
 
 genesisBlock : Block
 genesisBlock = it .def
@@ -46,6 +50,11 @@ _⪯_ = Suffix _≡_
 ⪯-isPreorder : IsPreorder (Pointwise _≡_) _⪯_
 ⪯-isPreorder = isPreorder ≡-isPreorder
 
+⪯-preorder : Preorder _ _ _
+⪯-preorder = record
+  { isPreorder = ⪯-isPreorder
+  }
+
 ⪯-refl : Reflexive _⪯_
 ⪯-refl = PO.reflexive (≡⇒Pointwise-≡ refl)
   where module PO = IsPreorder ⪯-isPreorder
@@ -54,6 +63,17 @@ _⪯_ = Suffix _≡_
 ⪯-trans = PO.trans
   where module PO = IsPreorder ⪯-isPreorder
 
+module ⪯-Reasoning where
+
+  private module Base = ≲-Reasoning ⪯-preorder
+
+  open Base public
+    hiding (step-≈; step-≈˘; step-≈-⟩; step-≈-⟨; step-≲; step-∼)
+    renaming (≲-go to ⪯-go; ≈-go to ≋-go)
+
+  open ≲-syntax _IsRelatedTo_ _IsRelatedTo_ ⪯-go public
+  open ≋-syntax _IsRelatedTo_ _IsRelatedTo_ ≋-go public
+
 []⪯ : ∀ {c : Chain} → [] ⪯ c
 []⪯ {[]}    = ⪯-refl
 []⪯ {b ∷ c} = there ([]⪯ {c})
@@ -61,7 +81,16 @@ _⪯_ = Suffix _≡_
 ⪯-++ : ∀ (c₁ c₂ : Chain) → c₁ ⪯ (c₂ ++ c₁)
 ⪯-++ _ c₂ = c₂ ++ˢ ⪯-refl
 
-open import Function.Bundles using (_⇔_; mk⇔)
+module _ where
+
+  open import Data.List.Relation.Binary.Sublist.Heterogeneous.Properties.Ext using (Suffix⇒Sublist)
+  import Data.List.Relation.Binary.Subset.Setoid.Properties as Subset
+  open import Relation.Binary.PropositionalEquality.Properties using (setoid)
+
+  ⪯⇒⊆ˢ : ∀ {c₁ c₂ : Chain} → c₁ ⪯ c₂ → c₁ ⊆ˢ c₂
+  ⪯⇒⊆ˢ = Subset.Sublist⇒Subset (setoid _) ∘ Suffix⇒Sublist _≡_
+
+open import Function.Bundles using (_⇔_; mk⇔; Equivalence)
 
 ⪯∷⇔≡⊎⪯ : ∀ {c₁ c₂ : Chain} {b : Block} → c₁ ⪯ (b ∷ c₂) ⇔ (c₁ ≡ b ∷ c₂ ⊎ c₁ ⪯ c₂)
 ⪯∷⇔≡⊎⪯ {c₁} {c₂} {b} = mk⇔ to from
@@ -92,6 +121,11 @@ open import Function.Bundles using (_⇔_; mk⇔)
     ... | yes c≡[] = here $ ≡⇒Pointwise-≡ $ subst (λ ◆ → ◆ ++ c₁ ≡ b ∷ c₂) c≡[] c++c₁≡b∷c₂
     ... | no  c≢[] with ≢[]⇒∷ c≢[]
     ... |   (_ , c′ , c≡_∷c′) = there $ from (c′ , L.∷-injective (subst (λ ◆ → ◆ ++ c₁ ≡ b ∷ c₂) c≡_∷c′ c++c₁≡b∷c₂) .proj₂)
+
+++-¬-⪯ : ∀ (c₁ : Chain) {c₂ : Chain} → c₂ ≢ [] → ¬ (c₂ ++ c₁) ⪯ c₁
+++-¬-⪯ c₁ {[]}     []≢[]   = contradiction refl []≢[]
+++-¬-⪯ c₁ {b ∷ c₂} b∷c₂≢[] b+c₂+c₁⪯c₁ with ⪯⇔∃ .Equivalence.to b+c₂+c₁⪯c₁
+... | c′ , c′+b+c₂+c₁≡c₁ = contradiction (L.++-identityˡ-unique (c′ ++ b ∷ c₂) (sym $ trans (L.++-assoc c′ (b ∷ c₂) c₁) c′+b+c₂+c₁≡c₁)) (contraposition (L.++-conicalʳ c′ (b ∷ c₂)) λ ())
 
 _⪯?_ : Decidable² _⪯_
 c₁ ⪯? c₂ = suffix? _≟_ c₁ c₂
@@ -140,6 +174,7 @@ ProperlyLinked-++⁻ (b ∷ b′ ∷ c) {c′}     p1 p2 = ProperlyLinked-++⁻ 
 open import Data.List.Relation.Unary.Linked
 DecreasingSlots = Linked _>ˢ_
 
+open import Data.List.Relation.Unary.AllPairs
 open import Data.List.Relation.Unary.Linked.Properties using (Linked⇒AllPairs; AllPairs⇒Linked)
 open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (++⁻)
 
@@ -151,9 +186,33 @@ open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (++⁻)
 ∷-DecreasingSlots {c} {b} p with ++-DecreasingSlots {c = [ b ]} {c′ = c} p
 ... | (_ , p₂ , p₃) = p₂ , L.All.head p₃
 
+DecreasingSlots⇒UniqueSlots : ∀ {c : Chain} → DecreasingSlots c → Unique (L.map slot c)
+DecreasingSlots⇒UniqueSlots {[]}    _       = AllPairs.[]
+DecreasingSlots⇒UniqueSlots {b ∷ c} ds[b∷c] with ∷-DecreasingSlots ds[b∷c]
+... | ds[c] , b>ˢc = L.All.map⁺ (L.All.map Nat.>⇒≢ b>ˢc) AllPairs.∷ DecreasingSlots⇒UniqueSlots ds[c]
+
+nonAdjacentBlocksDecreasingSlots : ∀ {cₕ cₘ cₜ : Chain} {b₁ b₂ : Block} →
+    DecreasingSlots (cₕ ++ b₁ ∷ cₘ ++ b₂ ∷ cₜ)
+  → b₁ >ˢ b₂
+nonAdjacentBlocksDecreasingSlots {cₕ} {cₘ} {cₜ} {b₁} {b₂} dsπ =
+    dsπ ∶
+  DecreasingSlots (cₕ ++ b₁ ∷ cₘ ++ b₂ ∷ cₜ)
+    |> proj₁ ∘ proj₂ ∘ ++-DecreasingSlots {cₕ} ∶
+  DecreasingSlots (b₁ ∷ cₘ ++ b₂ ∷ cₜ)
+    |> proj₂ ∘ ∷-DecreasingSlots ∶
+  L.All.All (b₁ >ˢ_) (cₘ ++ b₂ ∷ cₜ)
+    |> L.All.++⁻ʳ cₘ ∶
+  L.All.All (b₁ >ˢ_) (b₂ ∷ cₜ)
+    |> L.All.head ∶
+  b₁ >ˢ b₂
+  where open import Function.Reasoning
+
 opaque
   _✓ : Pred Chain 0ℓ
   c ✓ = CorrectBlocks c × ProperlyLinked c × DecreasingSlots c
+
+  ✓⇒cb : ∀ {c : Chain} → c ✓ → CorrectBlocks c
+  ✓⇒cb (cb , _ , _) = cb
 
   ✓⇒ds : ∀ {c : Chain} → c ✓ → DecreasingSlots c
   ✓⇒ds (_ , _ , ds) = ds
@@ -183,6 +242,10 @@ opaque
 
   ✓⇒gb⪯ : ∀ {c : Chain} → c ✓ → [ genesisBlock ] ⪯ c
   ✓⇒gb⪯ c✓ = let c′ , c′∷gb≡c = ✓⇒gbIsHead c✓ in subst ([ genesisBlock ] ⪯_) c′∷gb≡c $ ⪯-++ [ genesisBlock ] c′
+
+  tip-∈ : ∀ {c : Chain} → c ✓ → tip c ∈ c
+  tip-∈ {[]}    p = contradiction p $ contraposition (✓⇒≢[] {[]}) (contradiction refl)
+  tip-∈ {b ∷ c} p = x∈x∷xs c
 
   pruneIdentity : ∀ {c : Chain} {b : Block} {sl : Slot} →
       b .slot ≤ sl
