@@ -28,10 +28,12 @@ open import Relation.Binary.PropositionalEquality using (≢-sym)
 open import Data.Nat.Base using (z<s; s<s)
 open import Data.Nat.Properties using (<-trans; 0≢1+n; +-comm)
 open import Data.Nat.Properties.Ext using (pred[n]<n; suc-≢-injective)
+open import Data.List.Ext using (ι)
 open import Data.List.Properties.Ext using (filter-∘-comm; filter-∘-×; []≢∷ʳ; Px-findᵇ⁻; ∷≢[]; ≢[]⇒∷; filter-acceptʳ; filter-rejectʳ)
 open import Data.List.Relation.Unary.Unique.Propositional.Properties using (Unique[x∷xs]⇒x∉xs)
 open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (++⁻; Unique[xs∷ʳx]⇒x∉xs)
 open import Data.List.Relation.Unary.All.Properties.Ext using (cartesianProduct⁻)
+open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-refl; ↭-trans)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (↭-length)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (Unique-resp-↭; filter-↭)
@@ -48,6 +50,21 @@ foldr-preservesʳ' : ∀ {A B : Set} {P : B → Set} {f : A → B → B} →
   (∀ x {y} → P y → P (f x y)) → ∀ {e} → P e → ∀ xs → P (L.foldr f e xs)
 foldr-preservesʳ' pres Pe []       = Pe
 foldr-preservesʳ' pres Pe (_ ∷ xs) = pres _ (foldr-preservesʳ' pres Pe xs)
+
+≡tips⇒≡chains : ∀ {N : GlobalState} {c c′ : Chain} {b : Block} →
+    N₀ ↝⋆ N
+  → CollisionFree N
+  → (b ∷ c) ✓
+  → (b ∷ c′) ✓
+  → c ⊆ˢ genesisBlock ∷ blockHistory N
+  → c′ ⊆ˢ genesisBlock ∷ blockHistory N
+  → c ≡ c′
+≡tips⇒≡chains = {!!}
+
+rewindToReady : ∀ {N : GlobalState} →
+    N₀ ↝⁺ N
+  → ∃[ N′ ] N₀ ↝⋆ N′ × N′ ↝⋆ N × N′ .progress ≡ ready × N′ .clock ≡ N .clock ∸ 1
+rewindToReady = {!!}
 
 honestLocalTreeInHonestGlobalTree : ∀ {N : GlobalState} {p : Party} {ls : LocalState} →
     N₀ ↝⋆ N
@@ -74,10 +91,24 @@ honestGlobalTreeInHonestLocalTree : ∀ {N N′ : GlobalState} {p : Party} {ls :
   → allBlocks (honestTree N) ⊆ˢ allBlocks (ls .tree)
 honestGlobalTreeInHonestLocalTree = {!!}
 
+honestGlobalTreeInHonestLocalTree⁺ : ∀ {N N′ : GlobalState} {p : Party} {ls : LocalState} →
+    N₀ ↝⋆ N
+  → Honest p
+  → N .progress ≡ ready
+  → N ↝⁺ N′
+  → N′ .states ⁉ p ≡ just ls
+  → allBlocks (honestTree N) ⊆ˢ allBlocks (ls .tree)
+honestGlobalTreeInHonestLocalTree⁺ = {!!}
+
 honestGlobalTreeInBlockHistory : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
   → allBlocks (honestTree N) ⊆ˢ genesisBlock ∷ blockHistory N
 honestGlobalTreeInBlockHistory = {!!}
+
+honestGlobalTreeButGBInBlockHistory : ∀ {N : GlobalState} →
+    N₀ ↝⋆ N
+  → filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N)) ⊆ˢ blockHistory N
+honestGlobalTreeButGBInBlockHistory = {!!}
 
 cfbInBlockListIsSubset : ∀ {b : Block} {bs : List Block} {c : Chain} →
   let
@@ -242,14 +273,6 @@ positiveClock = positiveClock′ ∘ Star⇒Starʳ
     ... | advanceRound   _      = <-trans z<s (s<s ih)
     ... | permuteParties _      = ih
     ... | permuteMsgs    _      = ih
-
-module _ {a ℓ} {A : Set a} {R : Rel A ℓ} where
-
-  open import Data.List.Relation.Unary.AllPairs as AllPairs using (AllPairs; []; _∷_)
-  open import Data.List.Relation.Unary.AllPairs.Properties.Ext as AP using (++⁻)
-
-  headʳ : ∀ {x xs} → AllPairs R (xs L.∷ʳ x) → AllPairs R xs
-  headʳ {xs = xs} prf = proj₁ (AP.++⁻ prf)
 
 execOrderPreservation-↭-↓∗ : ∀ {N N′ : GlobalState} {ps : List Party} →
   _ ⊢ N —[ ps ]↓→∗ N′ → N .execOrder ↭ N′ .execOrder
@@ -505,6 +528,22 @@ cfbInHonestTree : ∀ {N : GlobalState} {b : Block} →
   → chainFromBlock b (blockHistory N) ⊆ˢ allBlocks (honestTree N)
 cfbInHonestTree = {!!}
 
+{- Traversing a chain `c` from the tip to the genesis block and calculating
+   the length of the "chain from block" of each block `b` is equal to a countdown
+   from the length of `c` until 1.
+   Example: Let `c` be bᴬ ← bᴰ ← bᴮ ← gb. Then:
+     chainFromBlock bᴬ bs ≡ bᴬ ← bᴰ ← bᴮ ← gb ⇒ ∣ chainFromBlock bᴬ bs ∣ ≡ 4
+     chainFromBlock bᴰ bs ≡      bᴰ ← bᴮ ← gb ⇒ ∣ chainFromBlock bᴰ bs ∣ ≡ 3
+     chainFromBlock bᴰ bs ≡           bᴮ ← gb ⇒ ∣ chainFromBlock bᴮ bs ∣ ≡ 2
+     chainFromBlock bᴰ bs ≡                gb ⇒ ∣ chainFromBlock gb bs ∣ ≡ 1
+-}
+cfbLenghtsIsCountdown : ∀ {bs : List Block} {c : Chain} →
+    BlockListCollisionFree bs
+  → c ✓
+  → c ⊆ˢ genesisBlock ∷ bs
+  → L.map (λ b → ∣ chainFromBlock b bs ∣) c ≡ L.reverse (ι 1 ∣ c ∣) -- L.map suc (L.downFrom ∣ c ∣)
+cfbLenghtsIsCountdown = {!!}
+
 -- Proof of `subsetCfbPreservation`
 module _ where
 
@@ -585,7 +624,7 @@ subsetCfb✓Preservation {bs} {bs′} {b} cfbs′ bs⊆ˢbs′ cfbbs✓ = subst 
     cfbbs≡cfbbs′ : chainFromBlock b bs ≡ chainFromBlock b bs′
     cfbbs≡cfbbs′ = subsetCfbPreservation cfbs′ bs⊆ˢbs′ cfbbs≢[]
 
-private opaque
+opaque
 
   unfolding honestBlockMaking corruptBlockMaking
 
@@ -855,14 +894,6 @@ honestPosPreservation-↓∗ : ∀ {N N′ : GlobalState} {b : Block} →
   → blockPos b N ≡ blockPos b N′
 honestPosPreservation-↓∗ N₀↝⋆N N—[eoN′]↓→∗N′ ffN cfN′ b∈hbhN NReady = cong ∣_∣ $ honestCfbPreservation-↓∗ N₀↝⋆N N—[eoN′]↓→∗N′ ffN cfN′ b∈hbhN NReady
 
--- TODO: More involved than needed, simplify using superBlocksAltDef.
-superBlocksInHonestBlockHistory :  ∀ {N} → superBlocks N ⊆ˢ honestBlockHistory N
-superBlocksInHonestBlockHistory {N} {b} b∈sbsN =
-  let
-    (b∈hbh , bIsHonest , _) = L.Mem.∈-filter⁻ ¿ SuperBlock ¿¹ {xs = blockHistory N} (L.Mem.∈-deduplicate⁻ _≟_ (filter ¿ SuperBlock ¿¹ (blockHistory N)) b∈sbsN)
-  in
-    L.Mem.∈-filter⁺ ¿ HonestBlock ¿¹ b∈hbh bIsHonest
-
 superBlocksPreservation-↓∗ : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
   → _ ⊢ N —[ N .execOrder ]↓→∗ N′
@@ -879,7 +910,7 @@ superBlocksPreservation-↓∗ {N} {N′} N₀↝⋆N N—[ps]↓→∗N′ ffN�
   b ∈ superBlocks N′ ∎
   where open Related.EquationalReasoning
 
-private opaque
+opaque
 
   unfolding honestBlockMaking corruptBlockMaking _✓
 
@@ -888,8 +919,12 @@ private opaque
       N₀ ↝⋆ N
     → CollisionFree N
     → ForgingFree N
+-- TODO: Follow the evolution of https://github.com/agda/agda/issues/7856
+--    → L.All.All
+--        (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
+--        (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
     → L.All.All
-        (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
+        (λ p → blockPos (p .proj₁) N ≢ blockPos (p .proj₂) N ⊎ p .proj₁ ≡ p .proj₂)
         (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
   superBlockPositions = superBlockPositionsʳ ∘ Star⇒Starʳ
     where
@@ -1731,3 +1766,23 @@ private opaque
       ... | advanceRound   _                  = ih
       ... | permuteParties _                  = ih
       ... | permuteMsgs    _                  = ih
+
+olderBlocksHaveSmallerPositions : ∀ {N : GlobalState} {b : Block} →
+    N₀ ↝⋆ N
+  → ForgingFree N
+  → CollisionFree N
+  → b ∈ genesisBlock ∷ honestBlockHistory N
+  → L.All.All
+      (λ b′ → blockPos b′ N < blockPos b N)
+      (filter ¿ b >ˢ_ ¿¹ (genesisBlock ∷ honestBlockHistory N))
+olderBlocksHaveSmallerPositions = {!!}
+
+superBlockPositions′ : ∀ {N : GlobalState} →
+    N₀ ↝⋆ N
+  → CollisionFree N
+  → ForgingFree N
+  → L.All.All
+      (λ p → blockPos (p .proj₁) N ≢ blockPos (p .proj₂) N ⊎ p .proj₁ ≡ p .proj₂)
+      (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
+superBlockPositions′ = superBlockPositions
+

@@ -4,7 +4,7 @@ module Data.List.Relation.Binary.SetEquality where
 -- TODO: Perhaps use set theory library?
 
 open import Level using (0ℓ)
-open import Function.Base using (id; _∋_)
+open import Function.Base using (id; _∋_; _∘_)
 open import Function.Related.Propositional using (K-refl; SK-sym; K-trans; ≡⇒)
 open import Function.Bundles using (mk⇔)
 open import Relation.Unary using (Pred)
@@ -13,7 +13,7 @@ open import Relation.Binary.Definitions using (_Respects_)
 open import Relation.Binary.PropositionalEquality.Core using (_≡_; refl)
 open import Data.Product.Base using (_×_; _,_; proj₁; proj₂)
 open import Data.Bool using (Bool)
-open import Data.List.Base using (List; []; _∷_; filter; deduplicate; cartesianProduct)
+open import Data.List.Base using (List; []; _∷_; filter; deduplicate; cartesianProduct; reverse)
 open import Data.List.Relation.Unary.All using (All)
 open import Data.List.Relation.Unary.All.Properties using (anti-mono)
 open import Data.List.Relation.Unary.Any using (Any; here; there)
@@ -21,6 +21,7 @@ open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties using (filter⁺′; Any-resp-⊆)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (cartesianProduct-⊆-Mono; deduplicate⁺′)
 open import Data.List.Relation.Binary.BagAndSetEquality as BS hiding (set; Kind)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (↭-reverse)
 open import Data.List.Membership.Propositional.Properties using (∈-deduplicate⁻; ∈-deduplicate⁺)
 open import Class.DecEq using (DecEq; _≟_)
 
@@ -73,6 +74,9 @@ All-resp-≡ˢ eq = anti-mono (≡ˢ⇒⊆×⊇ eq .proj₂)
 
 Any-resp-≡ˢ : ∀ {ℓ} {P : Pred A ℓ} → (Any P) Respects _≡ˢ_
 Any-resp-≡ˢ eq = Any-resp-⊆ (≡ˢ⇒⊆×⊇ eq .proj₁)
+
+reverse-≡ˢ : ∀ (xs : List A) → reverse xs ≡ˢ xs
+reverse-≡ˢ = BS.bag-=⇒ ∘ BS.↭⇒∼bag ∘ ↭-reverse
 
 {--- TODO: Continue later perhaps...
 -- NOTE: We cannot generalize `R` and `P` to be of any level since `Prelude.DecEq` requires `A` to be `Set` only.

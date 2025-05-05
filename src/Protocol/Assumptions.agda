@@ -46,6 +46,7 @@ record Assumptions : Type₁ where
     ⦃ TreeType-Tree      ⦄ : TreeType Tree
     ⦃ parties₀Uniqueness ⦄ : Unique parties₀
     ⦃ genesisBlockSlot   ⦄ : genesisBlock .slot ≡ 0
+    ⦃ genesisHonesty     ⦄ : honestyOf (genesisBlock .pid) ≡ honest
 
   Honest : Pred Party 0ℓ
   Honest p = honestyOf p ≡ honest
