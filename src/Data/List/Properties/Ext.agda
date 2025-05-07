@@ -6,7 +6,7 @@ open import Data.Nat using (ℕ; zero; suc; _+_; _∸_; _≤_; _<_; s≤s; z≤n
 open import Data.Nat.Properties using (+-identityʳ; +-suc; ≤⇒≯; m≤n⇒m<n∨m≡n; +-cancelˡ-≡; ≤-refl; m<m+n; <⇒≤)
 open import Data.Bool using (Bool; true; false)
 open import Relation.Binary.PropositionalEquality using (refl; _≡_; _≢_; module ≡-Reasoning)
-open import Data.List using (List; []; [_]; _∷_; _∷ʳ_; _++_; map; filter; length; updateAt; _[_]%=_; lookup; findᵇ; find; upTo; downFrom; reverse)
+open import Data.List using (List; []; [_]; _∷_; _∷ʳ_; _++_; map; filter; length; updateAt; _[_]%=_; lookup; findᵇ; find; upTo; downFrom; reverse; foldr)
 open import Data.List.Ext using (ι)
 open import Data.List.Properties using (∷ʳ-injective; filter-++; filter-accept; filter-reject; ++-identityʳ; unfold-reverse; ++-cancelˡ; ∷-injectiveˡ; ∷-injectiveʳ; reverse-selfInverse; length-map; length-downFrom; length-reverse)
 open import Data.List.Membership.Propositional using (_∈_)
@@ -33,6 +33,12 @@ private variable
   x y : A
   xs ys zs ws : List A
   P Q : Pred A ℓ
+
+-- the standard library version is strangely for f : A → A → A
+foldr-preservesʳ' : ∀ {A B : Set} {P : B → Set} {f : A → B → B} →
+  (∀ x {y} → P y → P (f x y)) → ∀ {e} → P e → ∀ xs → P (foldr f e xs)
+foldr-preservesʳ' pres Pe []       = Pe
+foldr-preservesʳ' pres Pe (_ ∷ xs) = pres _ (foldr-preservesʳ' pres Pe xs)
 
 []≢∷ʳ : [] ≢ xs ∷ʳ x
 []≢∷ʳ {xs = []} ()

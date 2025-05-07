@@ -40,3 +40,9 @@ instance
   ... | _         | no ¬slot≡ | _        | _        = no λ b≢b′ → contradiction (cong slot b≢b′) ¬slot≡
   ... | _         | _         | no ¬txs≡ | _        = no λ b≢b′ → contradiction (cong txs  b≢b′) ¬txs≡
   ... | _         | _         | _        | no ¬pid≡ = no λ b≢b′ → contradiction (cong pid  b≢b′) ¬pid≡
+
+open import Relation.Binary.PropositionalEquality.Properties
+  using (isDecEquivalence)
+
+instance
+  Block-≡-isDecEquivalence = isDecEquivalence {A = Block} _≟_
