@@ -103,11 +103,9 @@ superBlockPositionsUniqueness : ∀ {N : GlobalState} →
   → Unique (map (flip blockPos N) (superBlocks N))
 superBlockPositionsUniqueness = {!!}
 
-superBlocksInHonestBlockHistory :  ∀ {N} → superBlocks N ⊆ˢ honestBlockHistory N
-superBlocksInHonestBlockHistory {N} {b} b∈sbsN = L.Mem.∈-filter⁺ ¿ HonestBlock ¿¹ b∈bhN bIsHonest
-  where
-    b∈bhN : b ∈ blockHistory N
-    b∈bhN = ∈-superBlocks⁻ {N} b∈sbsN .proj₁
-
-    bIsHonest : Honest (b .pid)
-    bIsHonest = ∈-superBlocks⁻ {N} b∈sbsN .proj₂ .proj₁
+superBlocks⊆honestBlockHistory : ∀ (N : GlobalState) → superBlocks N ⊆ˢ honestBlockHistory N
+superBlocks⊆honestBlockHistory N rewrite superBlocksAltDef N = begin
+  (L.deduplicate _≟_ $ filter ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N)) ⊆⟨ L.Mem.∈-deduplicate⁻ _≟_ _ ⟩
+  filter ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N)                       ⊆⟨ L.SubS.filter-⊆ _ _ ⟩
+  honestBlockHistory N ∎
+  where open L.SubS.⊆-Reasoning _

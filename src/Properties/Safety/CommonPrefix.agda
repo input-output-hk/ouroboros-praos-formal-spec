@@ -16,10 +16,14 @@ open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.TreeType ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.BlockHistory ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ForgingFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.CollisionFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.SuperBlocks ⦃ params ⦄ ⦃ assumptions ⦄
-open import Properties.Safety ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.Trees ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Safety.SingleRoundCommonPrefix ⦃ params ⦄ ⦃ assumptions ⦄
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)

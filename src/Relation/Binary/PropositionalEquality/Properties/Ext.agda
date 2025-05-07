@@ -9,7 +9,6 @@ open import Relation.Nullary using (yes; no)
 open import Relation.Nullary.Negation using (contradiction; contraposition)
 open import Class.DecEq using (DecEq)
 open DecEq ⦃...⦄
-open import Prelude.DecEq.Properties.Ext using (==-refl)
 
 ≡×≢⇒≢ : ∀ {A : Set} {x y z : A} → x ≡ y → y ≢ z → x ≢ z
 ≡×≢⇒≢ p q = subst _ (sym p) q
@@ -23,7 +22,9 @@ open import Prelude.DecEq.Properties.Ext using (==-refl)
     ... | no x≢y = contradiction x==y λ ()
 
     from : ∀ {A : Set} ⦃ _ : DecEq A ⦄ {x y : A} → x ≡ y → (x == y) ≡ true
-    from refl = ==-refl
+    from {x = x} {y = y} refl with x ≟ y
+    ... | yes p = refl
+    ... | no ¬p = contradiction refl ¬p
 
 =/=⇔≢ : ∀ {A : Set} ⦃ _ : DecEq A ⦄ {x y : A} → (x == y) ≡ false ⇔ x ≢ y
 =/=⇔≢ = mk⇔ to from

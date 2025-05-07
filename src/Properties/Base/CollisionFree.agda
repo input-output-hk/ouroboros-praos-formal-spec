@@ -15,6 +15,7 @@ open import Data.List.Relation.Binary.Subset.Propositional.Properties using (xs�
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (cartesianProduct-⊆-Mono)
 open L.All using (All; anti-mono)
 open Hashable ⦃ ... ⦄
+open import Properties.Base.BlockHistory ⦃ params ⦄ ⦃ assumptions ⦄
 
 BlockListCollisionFree : Pred (List Block) 0ℓ
 BlockListCollisionFree bs =
@@ -35,3 +36,21 @@ CollisionFree N = BlockListCollisionFree gsBlockHistory
 
 progressCollisionFreePreservation : ∀ {N : GlobalState} {s : Progress} → CollisionFree N → CollisionFree (record N {progress = s})
 progressCollisionFreePreservation = id
+
+CollisionFreePrev-↓ : ∀ {p : Party} {N₁ N₂ : GlobalState} → _ ⊢ N₁ —[ p ]↓→ N₂ → CollisionFree N₂ → CollisionFree N₁
+CollisionFreePrev-↓ {p} {N₁} {N₂} ts cfN₂ = BlockListCollisionFree-⊆ subs cfN₂
+  where
+    subs : genesisBlock ∷ blockHistory N₁ ⊆ˢ genesisBlock ∷ blockHistory N₂
+    subs = L.SubS.∷⁺ʳ genesisBlock (blockHistoryPreservation-↓ ts)
+
+CollisionFreePrev-↑ : ∀ {p : Party} {N₁ N₂ : GlobalState} → _ ⊢ N₁ —[ p ]↑→ N₂ → CollisionFree N₂ → CollisionFree N₁
+CollisionFreePrev-↑ {p} {N₁} {N₂} ts cfN₂ = BlockListCollisionFree-⊆ subs cfN₂
+  where
+    subs : genesisBlock ∷ blockHistory N₁ ⊆ˢ genesisBlock ∷ blockHistory N₂
+    subs = L.SubS.∷⁺ʳ genesisBlock (blockHistoryPreservation-↑ ts)
+
+CollisionFreePrev : ∀ {N₁ N₂ : GlobalState} → N₁ ↝⋆ N₂ → CollisionFree N₂ → CollisionFree N₁
+CollisionFreePrev {N₁} {N₂} N₁↝⋆N₂ cfN₂ = BlockListCollisionFree-⊆ subs cfN₂
+  where
+    subs : genesisBlock ∷ blockHistory N₁ ⊆ˢ genesisBlock ∷ blockHistory N₂
+    subs = L.SubS.∷⁺ʳ genesisBlock (blockHistoryPreservation-↝⋆ N₁↝⋆N₂)

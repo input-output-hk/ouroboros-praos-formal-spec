@@ -18,7 +18,11 @@ open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ForgingFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.CollisionFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.SuperBlocks ⦃ params ⦄ ⦃ assumptions ⦄
-open import Properties.Safety ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.BlockHistory ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.Trees ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Safety.BlockPositions ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Safety.ChainFromBlock ⦃ params ⦄ ⦃ assumptions ⦄
 open import Data.Sum.Algebra.Ext using ([B⊎C]×A⇒[AxB]⊎C; [A⊎B]×¬A⇒B)
 open import Data.Nat.Properties.Ext using (n≤pred[m]⇒n<m; n>0⇒pred[n]<n; suc≗+1)
 open import Data.List.Ext using (ι)
@@ -304,7 +308,7 @@ adversaryHasAdvantage {N} N₀↝⋆N ffN cfN {p} {ls} hp lsp {c} {sl} c⊆fgb�
                         sb∈sbsN = L.Mem.∈-filter⁻ (λ b → ¿ b′ .slot + 1 ≤ b .slot × b .slot < N .clock ∸ 1 ¿) sb∈sb[ρ] .proj₁
 
                         sb∈hbhN : sb ∈ honestBlockHistory N
-                        sb∈hbhN = superBlocksInHonestBlockHistory {N} sb∈sbsN
+                        sb∈hbhN = superBlocks⊆honestBlockHistory N sb∈sbsN
 
                         sb∈gb+hbhN : sb ∈ genesisBlock ∷ honestBlockHistory N
                         sb∈gb+hbhN = there sb∈hbhN
@@ -536,7 +540,7 @@ adversaryHasAdvantage {N} N₀↝⋆N ffN cfN {p} {ls} hp lsp {c} {sl} c⊆fgb�
                                 Nₜ-1<Nₜ = n>0⇒pred[n]<n (positiveClock N₀↝⋆N)
 
                                 cfb[sb]✓ : chainFromBlock sb (blockHistory N) ✓
-                                cfb[sb]✓ = honestBlockCfb✓ N₀↝⋆N ffN cfN (superBlocksInHonestBlockHistory {N} sb∈sbsN)
+                                cfb[sb]✓ = honestBlockCfb✓ N₀↝⋆N ffN cfN (superBlocks⊆honestBlockHistory N sb∈sbsN)
 
                                 cfb[sb]⊆t : chainFromBlock sb (blockHistory N) ⊆ˢ filter (λ b″ → b″ .slot ≤? N .clock ∸ 1) (allBlocks (ls .tree))
                                 cfb[sb]⊆t {b″} b″∈cfb = L.Mem.∈-filter⁺ _ {xs = allBlocks (ls .tree)} b″∈t b″ₜ≤Nₜ-1
