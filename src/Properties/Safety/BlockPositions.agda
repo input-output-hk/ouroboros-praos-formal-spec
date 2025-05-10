@@ -59,29 +59,29 @@ noPrematureHonestBlocksAtReady : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
   → ForgingFree N
   → N .progress ≡ ready
-  → L.All.All (λ b → b .slot < N .clock) (honestBlockHistory N)
+  → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
 noPrematureHonestBlocksAtReady = {!!}
 
 noPrematureHonestBlocksAt↓ : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
   → ForgingFree N
   → N .progress ≡ msgsDelivered
-  → L.All.All (λ b → b .slot < N .clock) (honestBlockHistory N)
+  → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
 noPrematureHonestBlocksAt↓ = {!!}
 
 noPrematureHonestBlocks : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
   → ForgingFree N
-  → L.All.All (λ b → b .slot ≤ N .clock) (honestBlockHistory N)
+  → L.All.All ((_≤ N .clock) ∘ slot) (honestBlockHistory N)
 noPrematureHonestBlocks = {!!}
 
 honestBlocksBelowSlotPreservation : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
   → N ↝⋆ N′
   → ForgingFree N′
-  → filter (λ b → b .slot <? N .clock) (honestBlockHistory N)
+  → filter ((_<? N .clock) ∘ slot) (honestBlockHistory N)
     ≡ˢ
-    filter (λ b → b .slot <? N .clock) (honestBlockHistory N′)
+    filter ((_<? N .clock) ∘ slot) (honestBlockHistory N′)
 honestBlocksBelowSlotPreservation = {!!}
 
 opaque
@@ -96,7 +96,313 @@ opaque
     → L.All.All
         (λ b′ → blockPos b′ N < blockPos b N)
         (filter ¿ b >ˢ_ ¿¹ (honestBlockHistory N))
-  olderNonGBBlocksHaveSmallerPositions = {!!}
+  olderNonGBBlocksHaveSmallerPositions = olderNonGBBlocksHaveSmallerPositionsʳ ∘ Star⇒Starʳ
+    where
+      open RTC; open Starʳ
+      olderNonGBBlocksHaveSmallerPositionsʳ : ∀ {N : GlobalState} {b : Block} →
+          N₀ ↝⋆ʳ N
+        → ForgingFree N
+        → CollisionFree N
+        → b ∈ honestBlockHistory N
+        → L.All.All
+            (λ b′ → blockPos b′ N < blockPos b N)
+            (filter ¿ b >ˢ_ ¿¹ (honestBlockHistory N))
+      olderNonGBBlocksHaveSmallerPositionsʳ {N} {b} N₀↝⋆ʳN@(_◅ʳ_ {j = N′} N₀↝⋆ʳN′ N′↝N) ffN cfN b∈hbhN = goal N′↝N
+        where
+          N₀↝⋆N′ : N₀ ↝⋆ N′
+          N₀↝⋆N′ = Starʳ⇒Star N₀↝⋆ʳN′
+
+          ffN′ : ForgingFree N′
+          ffN′ = ForgingFreePrev (N′↝N ◅ ε) ffN
+
+          cfN′ : CollisionFree N′
+          cfN′ = CollisionFreePrev (N′↝N ◅ ε) cfN
+
+          N′↝⋆N : N′ ↝⋆ N
+          N′↝⋆N = Starʳ⇒Star (εʳ ◅ʳ N′↝N)
+
+          ih :
+              b ∈ honestBlockHistory N′
+            → L.All.All (λ b′ → blockPos b′ N′ < blockPos b N′) (filter ¿ b >ˢ_ ¿¹ (honestBlockHistory N′))
+          ih b∈hbhN′ = olderNonGBBlocksHaveSmallerPositionsʳ N₀↝⋆ʳN′ ffN′ cfN′ b∈hbhN′
+
+          goal :
+              N′ ↝ N
+            → L.All.All (λ b′ → blockPos b′ N < blockPos b N) (filter ¿ b >ˢ_ ¿¹ (honestBlockHistory N))
+          goal N′↝N
+            with N′↝N
+          ... | deliverMsgs {N′ = N″} N′Ready N′—[eoN′]↓→∗N″ = L.All.tabulate deliveryMsgsGoal
+            where
+              hbhPres : honestBlockHistory N′ ≡ˢ honestBlockHistory N
+              hbhPres = honestBlockHistoryPreservation-↓∗ N₀↝⋆N′ N′—[eoN′]↓→∗N″ ffN N′Ready
+
+              b∈hbhN′ : b ∈ honestBlockHistory N′
+              b∈hbhN′ = ≡ˢ⇒⊆×⊇ hbhPres .proj₂ b∈hbhN
+
+              cfbhN′≡cfbhN : ∀ {b°} →
+                  b° ∈ honestBlockHistory N
+                → chainFromBlock b° (blockHistory N′) ≡ chainFromBlock b° (blockHistory N)
+              cfbhN′≡cfbhN b°∈hbhN = cfbHbhPres N₀↝⋆N′ N′↝N ffN cfN b°∈hbhN hbhPres
+
+              deliveryMsgsGoal : ∀ {b′} → b′ ∈ filter ¿ b >ˢ_ ¿¹ (honestBlockHistory N) → blockPos b′ N < blockPos b N
+              deliveryMsgsGoal {b′} b′∈[b>ˢ]hbhN with L.Mem.∈-filter⁻ ¿ b >ˢ_ ¿¹ {xs = honestBlockHistory N} b′∈[b>ˢ]hbhN
+              ... | b′∈hbhN , b>ˢb′ = subst₂ (_<_ on ∣_∣) (cfbhN′≡cfbhN b′∈hbhN) (cfbhN′≡cfbhN b∈hbhN) ih′
+                where
+                  b′∈[b>ˢ]hbhN′ : b′ ∈ filter ¿ b >ˢ_ ¿¹ (honestBlockHistory N′)
+                  b′∈[b>ˢ]hbhN′ = ≡ˢ⇒⊆×⊇ (filter-cong hbhPres) .proj₂ b′∈[b>ˢ]hbhN
+
+                  ih′ : blockPos b′ N′ < blockPos b N′
+                  ih′ = L.All.lookup (ih b∈hbhN′) b′∈[b>ˢ]hbhN′
+
+          ... | makeBlock {N′} {N″} N′MsgsDelivered N′—[eoN′]↑→∗N″ = L.All.tabulate makeBlockGoal
+            where
+              b°∈hbhN′ : ∀ {b°} → b° ∈ honestBlockHistory N → b° .slot < N .clock → b° ∈ honestBlockHistory N′
+              b°∈hbhN′ {b°} b°∈hbhN b°ₜ<Nₜ = L.SubS.filter-⊆ _ _ $
+                  b°∈hbhN ∶
+                b° ∈ honestBlockHistory N
+                  |> flip (L.Mem.∈-filter⁺ _) b°ₜ<Nₜ ∶
+                b° ∈ filter ((_<? N .clock) ∘ slot) (honestBlockHistory N)
+                  |> subst _ (clockPreservation-↑∗ N′—[eoN′]↑→∗N″) ∶
+                b° ∈ filter ((_<? N′ .clock) ∘ slot) (honestBlockHistory N)
+                  |> ≡ˢ⇒⊆×⊇ (honestBlocksBelowSlotPreservation N₀↝⋆N′ N′↝⋆N ffN) .proj₂ ∶
+                b° ∈ filter ((_<? N′ .clock) ∘ slot) (honestBlockHistory N′)
+                where open import Function.Reasoning
+
+              bcfbhN : BlockListCollisionFree (blockHistory N)
+              bcfbhN = BlockListCollisionFree-∷ {blockHistory N} {genesisBlock} cfN
+
+              bhN′⊆bhN : blockHistory N′ ⊆ˢ blockHistory N
+              bhN′⊆bhN = blockHistoryPreservation-↝⋆ N′↝⋆N
+
+              bHonest : HonestBlock b
+              bHonest = L.Mem.∈-filter⁻ ¿ HonestBlock ¿¹ {xs = blockHistory N} b∈hbhN .proj₂
+
+              nphb : ∀ {b°} → b° ∈ honestBlockHistory N → b° .slot ≤ N .clock
+              nphb = L.All.lookup $ noPrematureHonestBlocks (Starʳ⇒Star N₀↝⋆ʳN) ffN
+
+              makeBlockGoal : ∀ {b′} → b′ ∈ filter ¿ b >ˢ_ ¿¹ (honestBlockHistory N) → blockPos b′ N < blockPos b N
+              makeBlockGoal {b′} b′∈[b>ˢ]hbhN
+                with Nat.m≤n⇒m<n∨m≡n (nphb b∈hbhN) | L.Mem.∈-filter⁻ _ {xs = honestBlockHistory N} b′∈[b>ˢ]hbhN
+              ... | inj₂ bₜ≡Nₜ | b′∈hbhN , b>ˢb′ = makeBlockGoal-bₜ≡Nₜ (N′ .execOrder) N″↷↑N″[bM] cfN b∈hbhN uniqEoN′ (—[]→∗⇒—[]→∗ʳ N′—[eoN′]↑→∗N″)
+                where
+                  b′ₜ<Nₜ : b′ .slot < N .clock
+                  b′ₜ<Nₜ rewrite sym bₜ≡Nₜ = b>ˢb′
+
+                  b′∈hbhN′ : b′ ∈ honestBlockHistory N′
+                  b′∈hbhN′ = b°∈hbhN′ b′∈hbhN b′ₜ<Nₜ
+
+                  ih′ : b ∈ honestBlockHistory N′ → blockPos b′ N′ < blockPos b N′
+                  ih′ b∈hbhN′ = L.All.lookup (ih b∈hbhN′) $ L.Mem.∈-filter⁺ _  b′∈hbhN′ b>ˢb′
+
+                  N″↷↑N″[bM] : N″ ↷↑ record N″ { progress = blockMade }
+                  N″↷↑N″[bM] = progress↑ ↷↑-refl
+
+                  uniqEoN′ : Unique (N′ .execOrder)
+                  uniqEoN′ = execOrderUniqueness N₀↝⋆N′
+
+                  makeBlockGoal-bₜ≡Nₜ : ∀ {N*} ps →
+                      N* ↷↑ N
+                    → CollisionFree N*
+                    → b ∈ honestBlockHistory N*
+                    → Unique ps
+                    → _ ⊢ N′ —[ ps ]↑→∗ʳ N*
+                    → blockPos b′ N* < blockPos b N*
+                  makeBlockGoal-bₜ≡Nₜ {N*} [] _ _ b∈hbhN* _ [] = ih′ b∈hbhN*
+                  makeBlockGoal-bₜ≡Nₜ {N*} [] _ _ _ _ (_∷ʳ_ {eq = eq} _ _) = contradiction eq []≢∷ʳ
+                  makeBlockGoal-bₜ≡Nₜ {N*} (p ∷ ps) prfN cfN* b∈hbhN* p∷psUniq (_∷ʳ_ {is = ps′} {i = p′} {s′ = N‴} {eq = eq} ts⋆ ts) = step ts
+                    where
+                      cfN‴ : CollisionFree N‴
+                      cfN‴ = CollisionFreePrev-↑ ts cfN*
+
+                      ps′∷ʳp′Uniq : Unique (ps′ L.∷ʳ p′)
+                      ps′∷ʳp′Uniq = subst Unique eq p∷psUniq
+
+                      ps′Uniq : Unique ps′
+                      ps′Uniq = headʳ ps′∷ʳp′Uniq
+
+                      p′∉ps′ : p′ ∉ ps′
+                      p′∉ps′ = Unique[xs∷ʳx]⇒x∉xs ps′∷ʳp′Uniq
+
+                      ih* : b ∈ honestBlockHistory N‴ → blockPos b′ N‴ < blockPos b N‴
+                      ih* b∈hbhN‴ = makeBlockGoal-bₜ≡Nₜ {N‴} ps′ (blockMaking↑ ts prfN) cfN‴ b∈hbhN‴ ps′Uniq ts⋆
+
+                      bhN′⊆bhN‴ : blockHistory N′ ⊆ˢ blockHistory N‴
+                      bhN′⊆bhN‴ = blockHistoryPreservation-↑∗ (—[]→∗ʳ⇒—[]→∗ ts⋆)
+
+                      b′∈hbhN‴ : b′ ∈ honestBlockHistory N‴
+                      b′∈hbhN‴ with L.Mem.∈-filter⁻ _ b′∈hbhN′
+                      ... | b′∈bhN′ , b′Honest = L.Mem.∈-filter⁺ _  (bhN′⊆bhN‴ b′∈bhN′) b′Honest
+
+                      cfbhN‴≢[] : ∀ {b°} → b° ∈ honestBlockHistory N‴ → chainFromBlock b° (blockHistory N‴) ≢ []
+                      cfbhN‴≢[] {b°} b°∈hbhN‴ = ✓⇒≢[] cfbhN‴✓
+                        where
+                          cfbhN‴✓ : chainFromBlock b° (blockHistory N‴) ✓
+                          cfbhN‴✓ = L.All.lookup (honestBlockCfb✓-↑∗ N₀↝⋆N′ N′↝⋆N ffN (—[]→∗ʳ⇒—[]→∗ ts⋆) (blockMaking↑ ts prfN) ps′Uniq cfN‴) b°∈hbhN‴
+
+                      step : _ ⊢ N‴ —[ p′ ]↑→ N* → blockPos b′ N* < blockPos b N*
+                      step (unknownParty↑ _) = ih* b∈hbhN*
+                      step (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
+                      ... | ⁇ (yes isWinner) rewrite lsπ = step-honestParty↑
+                        where
+                          lsN′ : N′ .states ⁉ p′ ≡ just ls
+                          lsN′ rewrite sym $ localStatePreservation-∉-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆) = lsπ
+
+                          best : Chain
+                          best = bestChain (N‴ .clock ∸ 1) (ls .tree)
+
+                          nb : Block
+                          nb = mkBlock (hash (tip best)) (N‴ .clock) (txSelection (N‴ .clock) p′) p′
+
+                          b∈nb+hbhN‴ : b ∈ nb ∷ honestBlockHistory N‴
+                          b∈nb+hbhN‴ rewrite hp′π = b∈hbhN*
+
+                          bhN‴⊆nb+bhN‴ : blockHistory N‴ ⊆ˢ nb ∷ blockHistory N‴
+                          bhN‴⊆nb+bhN‴  = L.SubS.xs⊆x∷xs _ _
+
+                          blcf[nb+bhN‴] : BlockListCollisionFree (nb ∷ blockHistory N‴)
+                          blcf[nb+bhN‴] = BlockListCollisionFree-∷ {nb ∷ blockHistory N‴} {genesisBlock} cfN*
+
+                          step-honestParty↑ :
+                            ∣ chainFromBlock b′ (nb ∷ blockHistory N‴) ∣
+                            <
+                            ∣ chainFromBlock b  (nb ∷ blockHistory N‴) ∣
+                          step-honestParty↑
+                            with ∈-∷⁻ b∈nb+hbhN‴ | b ≟ nb
+                          ... | inj₁ b≡nb        | no b≢nb = contradiction b≡nb b≢nb
+                          ... | inj₂ b∈hbhN‴     | no _  = subst₂ (_<_ on ∣_∣) (cfbhN‴≡cfb[nb+bhN‴] b′∈hbhN‴) (cfbhN‴≡cfb[nb+bhN‴] b∈hbhN‴) (ih* b∈hbhN‴)
+                            where
+                              cfbhN‴≡cfb[nb+bhN‴] : ∀ {b°} →
+                                  b° ∈ honestBlockHistory N‴
+                                → chainFromBlock b° (blockHistory N‴) ≡ chainFromBlock b° (nb ∷ blockHistory N‴)
+                              cfbhN‴≡cfb[nb+bhN‴] = subsetCfbPreservation blcf[nb+bhN‴] bhN‴⊆nb+bhN‴ ∘ cfbhN‴≢[]
+
+                          ... | _                | yes b≡nb with chainFromNewBlock N₀↝⋆N′ ts⋆ isWinner p′∉ps′ lsπ hp′π cfN*
+                          ... |   cfb≡nb∷best , _ with ∃ReadyBeforeMsgsDelivered N₀↝⋆N′ N′MsgsDelivered
+                          ... |     Nᴿ , N₀↝⋆Nᴿ , Nᴿ↝⋆⟨0⟩N′ , NᴿReady rewrite b≡nb | cfb≡nb∷best = ∣cfb[nb+bhN‴]∣<1+∣best∣
+                            where
+                              b′∈hbhNᴿ : b′ ∈ honestBlockHistory Nᴿ
+                              b′∈hbhNᴿ = ≡ˢ⇒⊆×⊇ (honestBlockHistoryPreservation-↝⋆⟨0⟩ N₀↝⋆Nᴿ NᴿReady Nᴿ↝⋆⟨0⟩N′ ffN′ N′MsgsDelivered) .proj₂ b′∈hbhN′
+
+                              Nᴿ↝⋆N′ : Nᴿ ↝⋆ N′
+                              Nᴿ↝⋆N′ = Nᴿ↝⋆⟨0⟩N′ .proj₁
+
+                              bhNᴿ⊆bhN‴ : blockHistory Nᴿ ⊆ˢ blockHistory N‴
+                              bhNᴿ⊆bhN‴ = blockHistoryPreservation-↑∗ (—[]→∗ʳ⇒—[]→∗ ts⋆) ∘ blockHistoryPreservation-↝⋆ Nᴿ↝⋆N′
+
+                              Nᴿₜ≡N′ₜ : Nᴿ .clock ≡ N′ .clock
+                              Nᴿₜ≡N′ₜ = Nᴿ↝⋆⟨0⟩N′ .proj₂
+
+                              ffNᴿ : ForgingFree Nᴿ
+                              ffNᴿ = ForgingFreePrev Nᴿ↝⋆N′ ffN′
+
+                              cfNᴿ : CollisionFree Nᴿ
+                              cfNᴿ = CollisionFreePrev Nᴿ↝⋆N′ cfN′
+
+                              cfbhNᴿ✓ : chainFromBlock b′ (blockHistory Nᴿ) ✓
+                              cfbhNᴿ✓ = honestBlockCfb✓ N₀↝⋆Nᴿ ffNᴿ cfNᴿ b′∈hbhNᴿ
+
+                              cfbhNᴿ≢[] : chainFromBlock b′ (blockHistory Nᴿ) ≢ []
+                              cfbhNᴿ≢[] = ✓⇒≢[] cfbhNᴿ✓
+
+                              cfbhNᴿ≡cfb[nb+bhN‴] : chainFromBlock b′ (blockHistory Nᴿ) ≡ chainFromBlock b′ (nb ∷ blockHistory N‴)
+                              cfbhNᴿ≡cfb[nb+bhN‴] = subsetCfbPreservation blcf[nb+bhN‴] (∷-⊆⁺ bhNᴿ⊆bhN‴) cfbhNᴿ≢[]
+
+                              ∣cfb[nb+bhN‴]∣<1+∣best∣ : ∣ chainFromBlock b′ (nb ∷ blockHistory N‴) ∣ < 1 + ∣ best ∣
+                              ∣cfb[nb+bhN‴]∣<1+∣best∣ = let open Nat.≤-Reasoning in begin-strict
+                                ∣ chainFromBlock b′ (nb ∷ blockHistory N‴) ∣ ≡⟨ cong ∣_∣ cfbhNᴿ≡cfb[nb+bhN‴] ⟨
+                                ∣ chainFromBlock b′ (blockHistory Nᴿ) ∣      ≤⟨ ∣cfbNᴿ∣≤∣best∣ ⟩
+                                ∣ best ∣                                     <⟨ Nat.n<1+n _ ⟩
+                                1 + ∣ best ∣ ∎
+                                where
+                                  cfbNᴿ⊆t :
+                                    chainFromBlock b′ (blockHistory Nᴿ)
+                                    ⊆ˢ
+                                    filter ((_≤? N‴ .clock ∸ 1) ∘ slot) (allBlocks (ls .tree))
+                                  cfbNᴿ⊆t {b″} b″∈cfb = L.Mem.∈-filter⁺ _ {xs = allBlocks (ls .tree)} b″∈t b″ₜ≤N‴ₜ-1
+                                    where
+                                       open L.SubS.⊆-Reasoning Block
+
+                                       b″∈t : b″ ∈ allBlocks (ls .tree)
+                                       b″∈t =
+                                         b″                                  ∈⟨ b″∈cfb ⟩
+                                         chainFromBlock b′ (blockHistory Nᴿ) ⊆⟨ cfbInHonestTree N₀↝⋆Nᴿ ffNᴿ cfNᴿ b′∈hbhNᴿ ⟩
+                                         allBlocks (honestTree Nᴿ)           ⊆⟨ honestGlobalTreeInHonestLocalTree N₀↝⋆Nᴿ hp′π NᴿReady N′MsgsDelivered Nᴿ↝⋆⟨0⟩N′ lsN′ ⟩
+                                         allBlocks (ls .tree) ∎
+
+                                       b″ₜ≤N‴ₜ-1 : b″ .slot ≤ N‴ .clock ∸ 1
+                                       b″ₜ≤N‴ₜ-1 rewrite clockPreservation-↑∗ (—[]→∗ʳ⇒—[]→∗ ts⋆) = Nat.<⇒≤pred b″ₜ<N′ₜ
+                                         where
+                                           b″ₜ<N′ₜ : b″ .slot < N′ .clock
+                                           b″ₜ<N′ₜ with cfbStartsWithBlock {b′} {blockHistory Nᴿ} cfbhNᴿ≢[]
+                                           ... | c′ , cfb≡b′∷c′ with ∈-∷⁻ $ subst (b″ ∈_) cfb≡b′∷c′ b″∈cfb
+                                           ... |   inj₁ b″≡b′ rewrite b″≡b′ = b>ˢb′
+                                           ... |   inj₂ b″∈c′ = Nat.<-trans b′>ˢb″ b>ˢb′
+                                             where
+                                               [b′∷c′]✓ : (b′ ∷ c′) ✓
+                                               [b′∷c′]✓ rewrite sym cfb≡b′∷c′ = cfbhNᴿ✓
+
+                                               b′>ˢb″ : b′ >ˢ b″
+                                               b′>ˢb″ = DecreasingSlots-∈ (✓⇒ds [b′∷c′]✓) (here refl) b″∈c′
+
+                                  ∣cfbNᴿ∣≤∣best∣ : ∣ chainFromBlock b′ (blockHistory Nᴿ) ∣ ≤ ∣ best ∣
+                                  ∣cfbNᴿ∣≤∣best∣ = optimal (chainFromBlock b′ (blockHistory Nᴿ)) (ls .tree) (N‴ .clock ∸ 1) cfbhNᴿ✓ cfbNᴿ⊆t
+                      ... | ⁇ (no _) = ih* b∈hbhN*
+
+                      step (corruptParty↑ _ _) = subst₂ (_<_ on ∣_∣) (cfbhN′≡cfbhN b′∈hbhN‴) (cfbhN′≡cfbhN b∈hbhN‴) (ih* b∈hbhN‴)
+                        where
+                          mds : List (Message × DelayMap)
+                          mds = makeBlockᶜ (N‴ .clock) (N‴ .history) (N‴ .messages) (N‴ .advState).proj₁
+
+                          sub : L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N‴
+                          sub = ffN .proj₂ (blockMaking↑ ts prfN)
+
+                          hbhPres : honestBlockHistory N‴ ≡ˢ honestBlockHistory (broadcastMsgsᶜ mds N‴)
+                          hbhPres = honestBlockHistoryPreservation-broadcastMsgsᶜ {N‴} {mds} sub
+
+                          b∈hbhN‴ : b ∈ honestBlockHistory N‴
+                          b∈hbhN‴ = ≡ˢ⇒⊆×⊇ hbhPres .proj₂ b∈hbhN*
+
+                          bhN‴⊆bhBc : blockHistory N‴ ⊆ˢ blockHistory (broadcastMsgsᶜ mds N‴)
+                          bhN‴⊆bhBc = blockHistoryPreservation-broadcastMsgsᶜ mds N‴
+
+                          blcfbhBc : BlockListCollisionFree (blockHistory (broadcastMsgsᶜ mds N‴))
+                          blcfbhBc = BlockListCollisionFree-∷ {blockHistory (broadcastMsgsᶜ mds N‴)} {genesisBlock} cfN*
+
+                          cfbhN′≡cfbhN : ∀ {b°} →
+                              b° ∈ honestBlockHistory N‴
+                            → chainFromBlock b° (blockHistory N‴) ≡ chainFromBlock b° (blockHistory (broadcastMsgsᶜ mds N‴))
+                          cfbhN′≡cfbhN = subsetCfbPreservation blcfbhBc bhN‴⊆bhBc ∘ cfbhN‴≢[]
+
+              ... | inj₁ bₜ<Nₜ | _ with L.Mem.∈-filter⁻ _ {xs = honestBlockHistory N} b′∈[b>ˢ]hbhN
+              ... |    b′∈hbhN , b>ˢb′ = subst₂ (_<_ on ∣_∣) (cfbhN′≡cfbhN b′∈hbhN′ b′ₜ<Nₜ) (cfbhN′≡cfbhN b∈hbhN′ bₜ<Nₜ) ih′
+                where
+                  b′ₜ<Nₜ : b′ .slot < N .clock
+                  b′ₜ<Nₜ = Nat.<-trans b>ˢb′ bₜ<Nₜ
+
+                  b∈hbhN′ : b ∈ honestBlockHistory N′
+                  b∈hbhN′ = b°∈hbhN′ b∈hbhN bₜ<Nₜ
+
+                  b′∈hbhN′ : b′ ∈ honestBlockHistory N′
+                  b′∈hbhN′ = b°∈hbhN′ b′∈hbhN b′ₜ<Nₜ
+
+                  cfbhN′≡cfbhN : ∀ {b°} →
+                      b° ∈ honestBlockHistory N′
+                    → b° .slot < N .clock
+                    → chainFromBlock b° (blockHistory N′) ≡ chainFromBlock b° (blockHistory N)
+                  cfbhN′≡cfbhN {b°} b°∈hbhN′ b°ₜ<Nₜ = subsetCfbPreservation bcfbhN bhN′⊆bhN cfbhN′≢[]
+                    where
+                      cfbhN′≢[] : chainFromBlock b° (blockHistory N′) ≢ []
+                      cfbhN′≢[] = ✓⇒≢[] cfbhN′✓
+                        where
+                          cfbhN′✓ : chainFromBlock b° (blockHistory N′) ✓
+                          cfbhN′✓ = L.All.lookup (L.All.tabulate $ λ {b} → honestBlockCfb✓ N₀↝⋆N′ ffN′ cfN′) b°∈hbhN′
+
+                  ih′ : blockPos b′ N′ < blockPos b N′
+                  ih′ = L.All.lookup (ih b∈hbhN′) $ L.Mem.∈-filter⁺ _ b′∈hbhN′ b>ˢb′
+
+          ... | advanceRound   _                  = ih b∈hbhN
+          ... | permuteParties _                  = ih b∈hbhN
+          ... | permuteMsgs    _                  = ih b∈hbhN
 
   olderBlocksHaveSmallerPositions : ∀ {N : GlobalState} {b : Block} →
       N₀ ↝⋆ N
@@ -172,22 +478,13 @@ opaque
                   b∈hbhN′ : b ∈ honestBlockHistory N′
                   b∈hbhN′ = ≡ˢ⇒⊆×⊇ hbhPres .proj₂ b∈hbhN
 
-                  cfbhN′≢[] : chainFromBlock b (blockHistory N′) ≢ []
-                  cfbhN′≢[] = ✓⇒≢[] $ honestBlockCfb✓ N₀↝⋆N′ ffN′ cfN′ b∈hbhN′
-
                   cfbhN′≡cfbhN : chainFromBlock b (blockHistory N′) ≡ chainFromBlock b (blockHistory N)
-                  cfbhN′≡cfbhN = subsetCfbPreservation cfbhN bhN′⊆bhN cfbhN′≢[]
-                    where
-                      cfbhN : BlockListCollisionFree (blockHistory N)
-                      cfbhN = BlockListCollisionFree-∷ {blockHistory N} {genesisBlock} cfN
-
-                      bhN′⊆bhN : blockHistory N′ ⊆ˢ blockHistory N
-                      bhN′⊆bhN = blockHistoryPreservation-↝⋆ (N′↝N ◅ ε)
+                  cfbhN′≡cfbhN = cfbHbhPres {N} {N′} {b} N₀↝⋆N′ N′↝N ffN cfN b∈hbhN hbhPres
 
               ... | makeBlock {N′} {N″} N′MsgsDelivered N′—[eoN′]↑→∗N″ = makeBlockGoal (N′ .execOrder) N″↷↑N″[bM] cfN b∈hbhN uniqEoN′ (—[]→∗⇒—[]→∗ʳ N′—[eoN′]↑→∗N″)
                 where
                   N″↷↑N″[bM] : N″ ↷↑ record N″ { progress = blockMade }
-                  N″↷↑N″[bM] = progress↑ (↷↑-refl)
+                  N″↷↑N″[bM] = progress↑ ↷↑-refl
 
                   uniqEoN′ : Unique (N′ .execOrder)
                   uniqEoN′ = execOrderUniqueness N₀↝⋆N′
@@ -253,7 +550,7 @@ opaque
                           cfb≢[] b∈hbhN‴ = ✓⇒≢[] cfbhN‴✓
                             where
                               cfbhN‴✓ : chainFromBlock b (blockHistory N‴) ✓
-                              cfbhN‴✓ = L.All.lookup (honestBlockCfb✓∗ N₀↝⋆N′ N′↝⋆N ffN (—[]→∗ʳ⇒—[]→∗ ts⋆) (blockMaking↑ ts prfN) ps′Uniq cfN‴) b∈hbhN‴
+                              cfbhN‴✓ = L.All.lookup (honestBlockCfb✓-↑∗ N₀↝⋆N′ N′↝⋆N ffN (—[]→∗ʳ⇒—[]→∗ ts⋆) (blockMaking↑ ts prfN) ps′Uniq cfN‴) b∈hbhN‴
 
                           step-honestParty↑ : 1 < ∣ chainFromBlock b (nb ∷ blockHistory N‴) ∣
                           step-honestParty↑  with ∈-∷⁻ b∈nb∷hbhN‴
@@ -300,7 +597,7 @@ opaque
                           cfb≢[] = ✓⇒≢[] cfbhN‴✓
                             where
                               cfbhN‴✓ : chainFromBlock b (blockHistory N‴) ✓
-                              cfbhN‴✓ = L.All.lookup (honestBlockCfb✓∗ N₀↝⋆N′ N′↝⋆N ffN (—[]→∗ʳ⇒—[]→∗ ts⋆) (blockMaking↑ ts prfN) ps′Uniq cfN‴) b∈hbhN‴
+                              cfbhN‴✓ = L.All.lookup (honestBlockCfb✓-↑∗ N₀↝⋆N′ N′↝⋆N ffN (—[]→∗ʳ⇒—[]→∗ ts⋆) (blockMaking↑ ts prfN) ps′Uniq cfN‴) b∈hbhN‴
 
                           cfbhBcN‴≡cfbhN‴ : chainFromBlock b (blockHistory N‴) ≡ chainFromBlock b (blockHistory (broadcastMsgsᶜ mds N‴))
                           cfbhBcN‴≡cfbhN‴ = subsetCfbPreservation cfπ bhπ cfb≢[]
@@ -446,16 +743,16 @@ opaque
                 with sb∈hbhN ← superBlocks⊆honestBlockHistory N sb∈sbsN | Nat.m≤n⇒m<n∨m≡n (nphb sb∈hbhN)
               ... | inj₁ sbₜ<Nₜ = goal-sbₜ<Nₜ
                 where
-                  sb∈fhbhN′ : sb ∈ filter (λ b′ → b′ .slot <? N′ .clock) (honestBlockHistory N′)
+                  sb∈fhbhN′ : sb ∈ filter ((_<? N′ .clock) ∘ slot) (honestBlockHistory N′)
                   sb∈fhbhN′ =
                          sb∈hbhN ∶
                     sb ∈ honestBlockHistory N
-                      |> λ ◆ → L.Mem.∈-filter⁺ _ ◆ sbₜ<Nₜ ∶
-                    sb ∈ filter (λ b′ → b′ .slot <? N .clock) (honestBlockHistory N)
+                      |> flip (L.Mem.∈-filter⁺ _) sbₜ<Nₜ ∶
+                    sb ∈ filter ((_<? N .clock) ∘ slot) (honestBlockHistory N)
                       |> subst _ (clockPreservation-↑∗ N′—[eoN′]↑→∗N″) ∶
-                    sb ∈ filter (λ b′ → b′ .slot <? N′ .clock) (honestBlockHistory N)
+                    sb ∈ filter ((_<? N′ .clock) ∘ slot) (honestBlockHistory N)
                       |> ≡ˢ⇒⊆×⊇ (honestBlocksBelowSlotPreservation N₀↝⋆N′ N′↝⋆N ffN) .proj₂ ∶
-                    sb ∈ filter (λ b′ → b′ .slot <? N′ .clock) (honestBlockHistory N′)
+                    sb ∈ filter ((_<? N′ .clock) ∘ slot) (honestBlockHistory N′)
                     where open import Function.Reasoning
 
                   sb∈hbhN′ : sb ∈ honestBlockHistory N′
@@ -488,7 +785,7 @@ opaque
                       cfNᴿ = CollisionFreePrev Nᴿ↝⋆N′ cfN′
 
                       cfbhNᴿ≢[] : chainFromBlock sb (blockHistory Nᴿ) ≢ []
-                      cfbhNᴿ≢[] = subst (_≢ []) (✓⇒gbIsHead cfbhNᴿ✓ .proj₂) (≢-sym []≢∷ʳ)
+                      cfbhNᴿ≢[] = ✓⇒≢[] cfbhNᴿ✓
                         where
                           cfbhNᴿ✓ : chainFromBlock sb (blockHistory Nᴿ) ✓
                           cfbhNᴿ✓ = L.All.lookup (L.All.tabulate $ λ {b} → honestBlockCfb✓ N₀↝⋆Nᴿ ffNᴿ cfNᴿ) sb∈hbhNᴿ
@@ -586,62 +883,16 @@ opaque
                                   cfb≢[] b∈hbhN‴ = ✓⇒≢[] cfbhN‴✓
                                     where
                                       cfbhN‴✓ : chainFromBlock b (blockHistory N‴) ✓
-                                      cfbhN‴✓ = L.All.lookup (honestBlockCfb✓∗ N₀↝⋆N′ N′↝⋆N ffN (—[]→∗ʳ⇒—[]→∗ ts⋆) (blockMaking↑ ts prfN) ps′Uniq cfN‴) b∈hbhN‴
+                                      cfbhN‴✓ = L.All.lookup (honestBlockCfb✓-↑∗ N₀↝⋆N′ N′↝⋆N ffN (—[]→∗ʳ⇒—[]→∗ ts⋆) (blockMaking↑ ts prfN) ps′Uniq cfN‴) b∈hbhN‴
 
                                   step-honestParty↑ : blockPos sb Nᴿ ≢ ∣ chainFromBlock b (nb ∷ blockHistory N‴) ∣ ⊎ sb ≡ b
                                   step-honestParty↑ with ∈-∷⁻ b∈nb∷hbhN‴ | b ≟ nb
                                   ... | inj₁ b≡nb    | no b≢nb = contradiction b≡nb b≢nb
                                   ... | inj₂ b∈hbhN‴ | no _ rewrite sym $ subsetCfbPreservation cfπ bhπ (cfb≢[] b∈hbhN‴) = ih* b∈hbhN‴
-                                  ... | _            | yes b≡nb rewrite b≡nb = subst (λ ◆ → blockPos sb Nᴿ ≢ ∣ ◆ ∣ ⊎ sb ≡ nb) (sym cfb≡nb∷best) possb
+                                  ... | _            | yes b≡nb rewrite b≡nb
+                                    with chainFromNewBlock N₀↝⋆N′ ts⋆ isWinner p′∉ps′ lsπ hp′π cfN*
+                                  ... |   cfbIsNb∷Best , _ = subst (λ ◆ → blockPos sb Nᴿ ≢ ∣ ◆ ∣ ⊎ sb ≡ nb) (sym cfbIsNb∷Best) possb
                                     where
-                                      best✓ : best ✓
-                                      best✓ = valid (ls .tree) (N‴ .clock ∸ 1)
-
-                                      nb∷best✓ : (nb ∷ best) ✓
-                                      nb∷best✓ with ≢[]⇒∷ (✓⇒≢[] best✓)
-                                      ... | bestH , bestT , best≡bestH∷bestT
-                                        rewrite best≡bestH∷bestT =
-                                          ✓-∷ .Equivalence.to (isWinner , refl , nb>ˢbestH , subst _✓ best≡bestH∷bestT best✓)
-                                        where
-                                          nb>ˢbestH : N‴ .clock > bestH .slot -- i.e., nb >ˢ bestH
-                                          nb>ˢbestH = Nat.≤-<-trans bestHₛ≤N‴ₜ-1 N‴ₜ-1<N‴ₜ
-                                            where
-                                              bestH∈best : bestH ∈ best
-                                              bestH∈best rewrite best≡bestH∷bestT = x∈x∷xs bestT {bestH}
-
-                                              bestHₛ≤N‴ₜ-1 : bestH .slot ≤ N‴ .clock ∸ 1
-                                              bestHₛ≤N‴ₜ-1 = L.All.lookup (bestChainSlotBounded (ls .tree) (N‴ .clock ∸ 1)) bestH∈best
-
-                                              N‴ₜ-1<N‴ₜ : N‴ .clock ∸ 1 < N‴ .clock
-                                              N‴ₜ-1<N‴ₜ = pred[n]<n {N‴ .clock} ⦃ Nat.>-nonZero N‴ₜ>0 ⦄
-                                                where
-                                                  N‴ₜ>0 : N‴ .clock > 0
-                                                  N‴ₜ>0 rewrite (clockPreservation-↑∗ (—[]→∗ʳ⇒—[]→∗ ts⋆)) = positiveClock N₀↝⋆N′
-
-                                      cfb≡nb∷best : chainFromBlock nb (nb ∷ blockHistory N‴) ≡ nb ∷ best
-                                      cfb≡nb∷best = cfbInBlockListIsSubset cfN* nb∷best✓ bestInHist
-                                        where
-                                          bestInHist : best ⊆ˢ genesisBlock ∷ nb ∷ blockHistory N‴
-                                          bestInHist = begin
-                                            best
-                                              ⊆⟨ selfContained (ls .tree) (N‴ .clock ∸ 1) ⟩
-                                            filter (λ b → slot b ≤? (N‴ .clock ∸ 1)) (allBlocks (ls .tree))
-                                              ⊆⟨ L.SubS.filter-⊆ (λ b → slot b ≤? (N‴ .clock ∸ 1)) (allBlocks (ls .tree)) ⟩
-                                            allBlocks (ls .tree)
-                                              ⊆⟨ honestLocalTreeInHonestGlobalTree N₀↝⋆N′ hp′π lsN′ ⟩
-                                            allBlocks (honestTree N′)
-                                              ⊆⟨ honestGlobalTreeInBlockHistory N₀↝⋆N′ ⟩
-                                            genesisBlock ∷ blockHistory N′
-                                              ⊆⟨ L.SubS.∷⁺ʳ _ (blockHistoryPreservation-↑∗ (—[]→∗ʳ⇒—[]→∗ ts⋆)) ⟩
-                                            genesisBlock ∷ blockHistory N‴
-                                              ⊆⟨ L.SubS.xs⊆x∷xs _ _ ⟩
-                                            nb ∷ genesisBlock ∷ blockHistory N‴
-                                              ⊆⟨ L.SubS.⊆-reflexive-↭ (swap _ _ refl) ⟩
-                                            genesisBlock ∷ nb ∷ blockHistory N‴ ∎
-                                            where
-                                              open L.SubS.⊆-Reasoning Block
-                                              open Data.List.Relation.Binary.Permutation.Propositional
-
                                       possb : blockPos sb Nᴿ ≢ ∣ nb ∷ best ∣ ⊎ sb ≡ nb
                                       possb with chainFromBlock sb (blockHistory Nᴿ) in cfbNᴿEq
                                       ... | []     = inj₁ $ (flip contradiction) Nat.0≢1+n
@@ -732,7 +983,7 @@ opaque
                                   cfb≢[] = ✓⇒≢[] cfbhN‴✓
                                     where
                                       cfbhN‴✓ : chainFromBlock b (blockHistory N‴) ✓
-                                      cfbhN‴✓ = L.All.lookup (honestBlockCfb✓∗ N₀↝⋆N′ N′↝⋆N ffN (—[]→∗ʳ⇒—[]→∗ ts⋆) (blockMaking↑ ts prfN) ps′Uniq cfN‴) b∈hbhN‴
+                                      cfbhN‴✓ = L.All.lookup (honestBlockCfb✓-↑∗ N₀↝⋆N′ N′↝⋆N ffN (—[]→∗ʳ⇒—[]→∗ ts⋆) (blockMaking↑ ts prfN) ps′Uniq cfN‴) b∈hbhN‴
 
                                   step-corruptParty↑ : blockPos sb Nᴿ ≢ blockPos b (broadcastMsgsᶜ mds N‴) ⊎ sb ≡ b
                                   step-corruptParty↑ rewrite sym $ subsetCfbPreservation cfπ bhπ cfb≢[] = ih* b∈hbhN‴
@@ -970,7 +1221,9 @@ opaque
                                   sbₜ<N′ₜ = L.All.lookup (All-resp-≡ˢ hbhN′≡hbhN‴ (noPrematureHonestBlocksAt↓ N₀↝⋆N′ ffN′ N′MsgsDelivered)) sb∈hbhN‴
                               ... | inj₁ sb≡nb with ∈-∷⁻ b∈nb∷hbhN‴
                               ... |   inj₁ b≡nb = inj₂ (trans sb≡nb (sym b≡nb))
-                              ... |   inj₂ b∈hbhN‴ rewrite sb≡nb = subst (λ ◆ → ∣ ◆ ∣ ≢ ∣ chainFromBlock b (nb ∷ blockHistory N‴) ∣ ⊎ nb ≡ b) (sym cfb≡nb∷best) step-honestWinner↑′
+                              ... |   inj₂ b∈hbhN‴ rewrite sb≡nb
+                                with chainFromNewBlock N₀↝⋆N′ ts⋆ isWinner p′∉ps′ lsπ hp′π cfN*
+                              ... |     cfbIsNb∷Best , _ = subst (λ ◆ → ∣ ◆ ∣ ≢ ∣ chainFromBlock b (nb ∷ blockHistory N‴) ∣ ⊎ nb ≡ b) (sym cfbIsNb∷Best) step-honestWinner↑′
                                 where
                                   step-honestWinner↑′ : ∣ nb ∷ best ∣ ≢ ∣ chainFromBlock b (nb ∷ blockHistory N‴) ∣ ⊎ nb ≡ b
                                   step-honestWinner↑′ with ∃ReadyBeforeMsgsDelivered N₀↝⋆N′ N′MsgsDelivered
@@ -1067,55 +1320,6 @@ opaque
 
                                           ∣c∣≢∣best∣ : ∣ c ∣ ≢ ∣ best ∣
                                           ∣c∣≢∣best∣ p = contradiction (subst (∣ b′ ∷ c ∣ ≤_) (sym p) ∣b′∷c∣≤∣best∣) Nat.1+n≰n
-
-                                  best✓ : best ✓
-                                  best✓ = valid (ls .tree) (N‴ .clock ∸ 1)
-
-                                  nb∷best✓ : (nb ∷ best) ✓
-                                  nb∷best✓ with ≢[]⇒∷ (✓⇒≢[] best✓)
-                                  ... | bestH , bestT , best≡bestH∷bestT
-                                    rewrite best≡bestH∷bestT =
-                                      ✓-∷ .Equivalence.to (isWinner , refl , nb>ˢbestH , subst _✓ best≡bestH∷bestT best✓)
-                                    where
-                                      nb>ˢbestH : N‴ .clock > bestH .slot -- i.e., nb >ˢ bestH
-                                      nb>ˢbestH = Nat.≤-<-trans bestHₛ≤N‴ₜ-1 N‴ₜ-1<N‴ₜ
-                                        where
-                                          bestH∈best : bestH ∈ best
-                                          bestH∈best rewrite best≡bestH∷bestT = x∈x∷xs bestT {bestH}
-
-                                          bestHₛ≤N‴ₜ-1 : bestH .slot ≤ N‴ .clock ∸ 1
-                                          bestHₛ≤N‴ₜ-1 = L.All.lookup (bestChainSlotBounded (ls .tree) (N‴ .clock ∸ 1)) bestH∈best
-
-                                          N‴ₜ-1<N‴ₜ : N‴ .clock ∸ 1 < N‴ .clock
-                                          N‴ₜ-1<N‴ₜ = pred[n]<n {N‴ .clock} ⦃ Nat.>-nonZero N‴ₜ>0 ⦄
-                                            where
-                                              N‴ₜ>0 : N‴ .clock > 0
-                                              N‴ₜ>0 rewrite (clockPreservation-↑∗ (—[]→∗ʳ⇒—[]→∗ ts⋆)) = positiveClock N₀↝⋆N′
-
-                                  cfb≡nb∷best : chainFromBlock nb (nb ∷ blockHistory N‴) ≡ nb ∷ best
-                                  cfb≡nb∷best = cfbInBlockListIsSubset cfN* nb∷best✓ bestInHist
-                                    where
-                                      bestInHist : best ⊆ˢ genesisBlock ∷ nb ∷ blockHistory N‴
-                                      bestInHist = begin
-                                        best
-                                          ⊆⟨ selfContained (ls .tree) (N‴ .clock ∸ 1) ⟩
-                                        filter (λ b → slot b ≤? (N‴ .clock ∸ 1)) (allBlocks (ls .tree))
-                                          ⊆⟨ L.SubS.filter-⊆ (λ b → slot b ≤? (N‴ .clock ∸ 1)) (allBlocks (ls .tree)) ⟩
-                                        allBlocks (ls .tree)
-                                          ⊆⟨ honestLocalTreeInHonestGlobalTree N₀↝⋆N′ hp′π lsN′ ⟩
-                                        allBlocks (honestTree N′)
-                                          ⊆⟨ honestGlobalTreeInBlockHistory N₀↝⋆N′ ⟩
-                                        genesisBlock ∷ blockHistory N′
-                                          ⊆⟨ L.SubS.∷⁺ʳ _ (blockHistoryPreservation-↑∗ (—[]→∗ʳ⇒—[]→∗ ts⋆)) ⟩
-                                        genesisBlock ∷ blockHistory N‴
-                                          ⊆⟨ L.SubS.xs⊆x∷xs _ _ ⟩
-                                        nb ∷ genesisBlock ∷ blockHistory N‴
-                                          ⊆⟨ L.SubS.⊆-reflexive-↭ (swap _ _ refl) ⟩
-                                        genesisBlock ∷ nb ∷ blockHistory N‴ ∎
-                                        where
-                                          open L.SubS.⊆-Reasoning Block
-                                          open Data.List.Relation.Binary.Permutation.Propositional
-
                           step (corruptParty↑ _ cp′π) = step-corruptParty↑
                             where
                               mds : List (Message × DelayMap)
@@ -1177,7 +1381,7 @@ opaque
                               cfbhN‴≢[] {b′} b′∈hbhN‴ = ✓⇒≢[] cfbhN‴✓
                                 where
                                   cfbhN‴✓ : chainFromBlock b′ (blockHistory N‴) ✓
-                                  cfbhN‴✓ = L.All.lookup (honestBlockCfb✓∗ N₀↝⋆N′ N′↝⋆N ffN (—[]→∗ʳ⇒—[]→∗ ts⋆) (blockMaking↑ ts prfN) ps′Uniq cfN‴) b′∈hbhN‴
+                                  cfbhN‴✓ = L.All.lookup (honestBlockCfb✓-↑∗ N₀↝⋆N′ N′↝⋆N ffN (—[]→∗ʳ⇒—[]→∗ ts⋆) (blockMaking↑ ts prfN) ps′Uniq cfN‴) b′∈hbhN‴
 
                               step-corruptParty↑ : blockPos sb (broadcastMsgsᶜ mds N‴) ≢ blockPos b (broadcastMsgsᶜ mds N‴) ⊎ sb ≡ b
                               step-corruptParty↑

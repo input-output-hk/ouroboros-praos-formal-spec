@@ -207,6 +207,21 @@ nonAdjacentBlocksDecreasingSlots {cₕ} {cₘ} {cₜ} {b₁} {b₂} dsπ =
   b₁ >ˢ b₂
   where open import Function.Reasoning
 
+DecreasingSlots-∈ : ∀ {c c′ : Chain} {b b′ : Block} → DecreasingSlots (c ++ c′) → b ∈ c → b′ ∈ c′ → b >ˢ b′
+DecreasingSlots-∈ {c} {c′} {b} {b′} ds[c++c′] b∈c b′∈c′ with L.Mem.∈-∃++ b∈c | L.Mem.∈-∃++ b′∈c′
+... | cₕ , cₜ , c≡cₕ+b+cₜ | cₕ′ , cₜ′ , c′≡cₕ′+b′+cₜ′ = nonAdjacentBlocksDecreasingSlots ds
+  where
+    open ≡-Reasoning
+
+    eq : (cₕ ++ b ∷ cₜ) ++ (cₕ′ ++ b′ ∷ cₜ′) ≡ cₕ ++ b ∷ (cₜ ++ cₕ′) ++ b′ ∷ cₜ′
+    eq = begin
+      (cₕ ++ b ∷ cₜ) ++ (cₕ′ ++ b′ ∷ cₜ′) ≡⟨ L.++-assoc _ (b ∷ cₜ) _ ⟩
+      cₕ ++ b ∷ (cₜ ++ (cₕ′ ++ b′ ∷ cₜ′)) ≡⟨ cong ((cₕ ++_) ∘ (b ∷_)) (sym $ L.++-assoc cₜ cₕ′ _) ⟩
+      cₕ ++ b ∷ (cₜ ++ cₕ′) ++ b′ ∷ cₜ′   ∎
+
+    ds : DecreasingSlots (cₕ ++ b ∷ (cₜ ++ cₕ′) ++ b′ ∷ cₜ′)
+    ds rewrite c≡cₕ+b+cₜ | c′≡cₕ′+b′+cₜ′ | sym eq = ds[c++c′]
+
 opaque
   _✓ : Pred Chain 0ℓ
   c ✓ = CorrectBlocks c × ProperlyLinked c × DecreasingSlots c

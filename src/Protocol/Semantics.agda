@@ -17,7 +17,7 @@ open import Protocol.TreeType ⦃ params ⦄
 open Hashable ⦃ ... ⦄
 open Honesty
 open Envelope
-
+open import Relation.Binary.Definitions using (Reflexive)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 
 -- Party's local state
@@ -293,6 +293,10 @@ data _↝_ : Rel GlobalState 0ℓ where
     ────────────────────────────────────
     N ↝ record N { messages = envelopes }
 
+
+↝-refl : Reflexive _↝_
+↝-refl = permuteParties _↭_.refl
+
 infix 3 _↝⋆_
 
 _↝⋆_ : Rel GlobalState 0ℓ
@@ -343,7 +347,7 @@ module _ where
       ────────────────────────────────────
       N₁ ↷↓ N₂
 
-  ↷↓-refl : ∀ {N} → N ↷↓ N
+  ↷↓-refl : Reflexive _↷↓_
   ↷↓-refl = refine↓ ε
     where open Star
 
@@ -366,7 +370,7 @@ module _ where
       ────────────────────────────────────
       N₁ ↷↑ N₂
 
-  ↷↑-refl : ∀ {N} → N ↷↑ N
+  ↷↑-refl : Reflexive _↷↑_
   ↷↑-refl = refine↑ ε
     where open Star
 
