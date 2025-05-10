@@ -44,7 +44,7 @@ open import Class.DecEq.WithK using (≟-refl)
 cfb[gb]≡[gb] : ∀ {bs : List Block} → chainFromBlock genesisBlock bs ≡ [ genesisBlock ]
 cfb[gb]≡[gb] rewrite ≟-refl genesisBlock = refl
 
-honestBlockCfb✓∗ : ∀ {N₁ N₂ N′ : GlobalState} {ps : List Party} →
+honestBlockCfb✓-↑∗ : ∀ {N₁ N₂ N′ : GlobalState} {ps : List Party} →
     N₀ ↝⋆ N₁
   → N₁ ↝⋆ N₂
   → ForgingFree N₂
@@ -53,7 +53,7 @@ honestBlockCfb✓∗ : ∀ {N₁ N₂ N′ : GlobalState} {ps : List Party} →
   → Unique ps
   → CollisionFree N′
   → L.All.All (λ b → chainFromBlock b (blockHistory N′) ✓) (honestBlockHistory N′)
-honestBlockCfb✓∗ = {!!}
+honestBlockCfb✓-↑∗ = {!!}
 
 cfbInBlockListIsSubset′ : ∀ {b : Block} {bs : List Block} {c : Chain} →
     BlockListCollisionFree bs
@@ -455,3 +455,33 @@ honestCfbPreservation-↓∗ {N} {N′} {b} N₀↝⋆N N—[eoN′]↓→∗N�
 
         cfbbN✓ : chainFromBlock b (blockHistory N) ✓
         cfbbN✓ = honestBlockCfb✓ N₀↝⋆N ffN cfN b∈hbhN
+
+cfbHbhPres :  ∀ {N N′ : GlobalState} {b : Block} →
+    N₀ ↝⋆ N′
+  → N′ ↝ N
+  → ForgingFree N
+  → CollisionFree N
+  → b ∈ honestBlockHistory N
+  → honestBlockHistory N′ ≡ˢ honestBlockHistory N
+  → chainFromBlock b (blockHistory N′) ≡ chainFromBlock b (blockHistory N)
+cfbHbhPres {N} {N′} {b} N₀↝⋆N′ N′↝N ffN cfN b∈hbhN hbhPres = subsetCfbPreservation cfbhN bhN′⊆bhN cfbhN′≢[]
+  where
+    open RTC; open Starʳ
+
+    ffN′ : ForgingFree N′
+    ffN′ = ForgingFreePrev (N′↝N ◅ ε) ffN
+
+    cfN′ : CollisionFree N′
+    cfN′ = CollisionFreePrev (N′↝N ◅ ε) cfN
+
+    cfbhN′≢[] : chainFromBlock b (blockHistory N′) ≢ []
+    cfbhN′≢[] = ✓⇒≢[] $ honestBlockCfb✓ N₀↝⋆N′ ffN′ cfN′ b∈hbhN′
+      where
+        b∈hbhN′ : b ∈ honestBlockHistory N′
+        b∈hbhN′ = ≡ˢ⇒⊆×⊇ hbhPres .proj₂ b∈hbhN
+
+    bhN′⊆bhN : blockHistory N′ ⊆ˢ blockHistory N
+    bhN′⊆bhN = blockHistoryPreservation-↝⋆ (N′↝N ◅ ε)
+
+    cfbhN : BlockListCollisionFree (blockHistory N)
+    cfbhN = BlockListCollisionFree-∷ {blockHistory N} {genesisBlock} cfN
