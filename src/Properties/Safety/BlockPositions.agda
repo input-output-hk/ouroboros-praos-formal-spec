@@ -325,7 +325,7 @@ opaque
                                        b″∈t : b″ ∈ allBlocks (ls .tree)
                                        b″∈t =
                                          b″                                  ∈⟨ b″∈cfb ⟩
-                                         chainFromBlock b′ (blockHistory Nᴿ) ⊆⟨ cfbInHonestTree N₀↝⋆Nᴿ ffNᴿ cfNᴿ b′∈hbhNᴿ ⟩
+                                         chainFromBlock b′ (blockHistory Nᴿ) ⊆⟨ L.All.lookup (cfbInHonestTree N₀↝⋆Nᴿ ffNᴿ cfNᴿ) b′∈hbhNᴿ ⟩
                                          allBlocks (honestTree Nᴿ)           ⊆⟨ honestGlobalTreeInHonestLocalTree N₀↝⋆Nᴿ hp′π NᴿReady N′MsgsDelivered Nᴿ↝⋆⟨0⟩N′ lsN′ ⟩
                                          allBlocks (ls .tree) ∎
 
@@ -604,6 +604,7 @@ opaque
               ... | advanceRound   _                  = ih b∈hbhN
               ... | permuteParties _                  = ih b∈hbhN
               ... | permuteMsgs    _                  = ih b∈hbhN
+
 honestPosPreservation-↓∗ : ∀ {N N′ : GlobalState} {b : Block} →
     N₀ ↝⋆ N
   → _ ⊢ N —[ N .execOrder ]↓→∗ N′
@@ -639,7 +640,7 @@ opaque
       N₀ ↝⋆ N
     → CollisionFree N
     → ForgingFree N
--- TODO: Follow the evolution of https://github.com/agda/agda/issues/7856
+-- TODO: Bug reported in https://github.com/agda/agda/issues/7856 and fixed in Agda 2.8.0.
 --    → L.All.All
 --        (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
 --        (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
@@ -911,7 +912,7 @@ opaque
                                                   b″∈t = L.SubS.⊆-trans π₁ π₂  b″∈cfb
                                                     where
                                                       π₁ : chainFromBlock sb (blockHistory Nᴿ) ⊆ˢ allBlocks (honestTree Nᴿ)
-                                                      π₁ = cfbInHonestTree N₀↝⋆Nᴿ ffNᴿ cfNᴿ sb∈hbhNᴿ
+                                                      π₁ = L.All.lookup (cfbInHonestTree N₀↝⋆Nᴿ ffNᴿ cfNᴿ) sb∈hbhNᴿ
 
                                                       π₂ : allBlocks (honestTree Nᴿ) ⊆ˢ allBlocks (ls .tree)
                                                       π₂ = honestGlobalTreeInHonestLocalTree N₀↝⋆Nᴿ hp′π NᴿReady N′MsgsDelivered Nᴿ↝⋆⟨0⟩N′ lsN′
@@ -1277,7 +1278,7 @@ opaque
                                                   b″∈t = L.SubS.⊆-trans π₁ π₂ b″∈cfb
                                                     where
                                                       π₁ : chainFromBlock b (blockHistory Nᴿ) ⊆ˢ allBlocks (honestTree Nᴿ)
-                                                      π₁ = cfbInHonestTree N₀↝⋆Nᴿ ffNᴿ cfNᴿ b∈hbhNᴿ
+                                                      π₁ = L.All.lookup (cfbInHonestTree N₀↝⋆Nᴿ ffNᴿ cfNᴿ) b∈hbhNᴿ
 
                                                       π₂ : allBlocks (honestTree Nᴿ) ⊆ˢ allBlocks (ls .tree)
                                                       π₂ = honestGlobalTreeInHonestLocalTree N₀↝⋆Nᴿ hp′π NᴿReady N′MsgsDelivered Nᴿ↝⋆⟨0⟩N′ lsN′

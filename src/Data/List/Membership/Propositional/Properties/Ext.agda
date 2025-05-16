@@ -14,6 +14,7 @@ open import Class.DecEq using (DecEq)
 x∈x∷xs : ∀ {a} {A : Set a} (xs : List A) {x} → x ∈ x ∷ xs
 x∈x∷xs xs = here refl
 
+-- NOTE: This seems to be an instance of ++-∈⇔ .from
 ∈-∷⁻ : ∀ {a} {A : Set a} {xs : List A} {x y} → y ∈ x ∷ xs → (y ≡ x) ⊎ (y ∈ xs)
 ∈-∷⁻ (here px) = inj₁ px
 ∈-∷⁻ (there p) = inj₂ p

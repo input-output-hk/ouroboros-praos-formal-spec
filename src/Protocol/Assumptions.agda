@@ -45,6 +45,7 @@ record Assumptions : Type₁ where
     ⦃ Default-Block      ⦄ : Default Block
     ⦃ TreeType-Tree      ⦄ : TreeType Tree
     ⦃ parties₀Uniqueness ⦄ : Unique parties₀
+    ⦃ parties₀HasHonest  ⦄ : L.Any.Any ((_≡ honest) ∘ honestyOf) parties₀
     ⦃ genesisBlockSlot   ⦄ : genesisBlock .slot ≡ 0
     ⦃ genesisHonesty     ⦄ : honestyOf (genesisBlock .pid) ≡ honest
 

@@ -12,11 +12,25 @@ open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Data.List.Properties.Ext using (foldr-preservesʳ')
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (Unique-resp-↭)
-open import Data.List.Relation.Binary.Permutation.Propositional using (↭-refl; ↭-trans)
+open import Data.List.Relation.Binary.Permutation.Propositional using (↭-refl; ↭-sym; ↭-trans)
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 
 opaque
 
   unfolding honestMsgsDelivery honestBlockMaking
+
+  execOrderPreservation-≡-broadcastMsgᶜ : ∀ (msg : Message) (ϕ : DelayMap) (N : GlobalState) →
+    N .execOrder ≡ broadcastMsgᶜ msg ϕ N .execOrder
+  execOrderPreservation-≡-broadcastMsgᶜ msg ϕ N = refl
+
+  execOrderPreservation-≡-broadcastMsgsᶜ : ∀ (mϕs : List (Message × DelayMap)) (N : GlobalState) →
+    N .execOrder ≡ broadcastMsgsᶜ mϕs N .execOrder
+  execOrderPreservation-≡-broadcastMsgsᶜ mϕs N = foldr-preservesʳ'
+    {P = λ N′ → N .execOrder ≡ N′ .execOrder}
+    (λ (msg , ϕ) {N′} eoN≡eoN′ → trans eoN≡eoN′ (execOrderPreservation-≡-broadcastMsgᶜ msg ϕ N′))
+    refl
+    mϕs
 
   execOrderPreservation-broadcastMsgᶜ : ∀ (msg : Message) (ϕ : DelayMap) (N : GlobalState) →
     N .execOrder ↭ broadcastMsgᶜ msg ϕ N .execOrder
@@ -65,3 +79,11 @@ execOrderPreservation-↭ = RTC.fold (_↭_ on execOrder) (λ N↝N″ eoN″↭
 
 execOrderUniqueness : ∀ {N : GlobalState} → N₀ ↝⋆ N → Unique (N .execOrder)
 execOrderUniqueness N₀↝⋆N = Unique-resp-↭ (execOrderPreservation-↭ N₀↝⋆N) parties₀Uniqueness
+
+execOrder-↭-parties₀ : ∀ {N : GlobalState} → N₀ ↝⋆ N → N .execOrder ↭ parties₀
+execOrder-↭-parties₀ = execOrder-↭-parties₀′ ∘ Star⇒Starʳ
+  where
+    open Starʳ
+    execOrder-↭-parties₀′ : ∀ {N : GlobalState} → N₀ ↝⋆ʳ N → N .execOrder ↭ parties₀
+    execOrder-↭-parties₀′ εʳ        = _↭_.refl
+    execOrder-↭-parties₀′ (π* ◅ʳ π) = ↭-trans (↭-sym $ execOrderPreservation-↭-↝ π) (execOrder-↭-parties₀′ π*)
