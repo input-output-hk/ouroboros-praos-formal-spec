@@ -9,12 +9,19 @@ module Properties.Base.LocalState
   where
 
 open import Protocol.Prelude
+open import Protocol.Message ⦃ params ⦄
+open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Function.Bundles using (_⇔_)
 
 opaque
 
   unfolding honestMsgsDelivery honestBlockMaking
+
+  localStatePreservation-broadcastMsgsᶜ : ∀ {N : GlobalState} {mds : List (Message × DelayMap)} →
+    broadcastMsgsᶜ mds N .states ≡ N .states
+  localStatePreservation-broadcastMsgsᶜ {_} {[]} = refl
+  localStatePreservation-broadcastMsgsᶜ {N} {md ∷ mds} rewrite localStatePreservation-broadcastMsgsᶜ {N} {mds} = refl
 
   localStatePreservation-∉-↑∗ : ∀ {N N′ : GlobalState} {ps : List Party} {p : Party} →
     p ∉ ps → _ ⊢ N —[ ps ]↑→∗ N′ → N′ .states ⁉ p ≡ N .states ⁉ p

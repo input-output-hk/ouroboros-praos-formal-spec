@@ -1,3 +1,5 @@
+{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
+
 open import Protocol.Prelude using (Default)
 open import Protocol.Params using (Params)
 open import Protocol.Crypto using (Hashable)
@@ -66,5 +68,8 @@ record TreeType (T : Type) : Type₁ where
   bestChainSlotBounded : ∀ (t : T) (sl : Slot) → L.All.All ((_≤ sl) ∘ slot) (bestChain sl t)
   bestChainSlotBounded t sl = L.All.tabulate $
     λ {b} b∈best → L.Mem.∈-filter⁻ _ {xs = allBlocks t} (selfContained t sl b∈best) .proj₂
+
+  allBlocksBuildTree-++ : ∀ (bs bs′ : List Block) → allBlocks (buildTree (bs ++ bs′)) ≡ˢ allBlocks (buildTree bs) ++ allBlocks (buildTree bs′)
+  allBlocksBuildTree-++ = {!!}
 
 open TreeType ⦃ ... ⦄ public

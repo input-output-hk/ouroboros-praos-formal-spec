@@ -47,3 +47,17 @@ honestGlobalTreeInHonestLocalTree⁺ : ∀ {N N′ : GlobalState} {p : Party} {l
   → N′ .states ⁉ p ≡ just ls
   → allBlocks (honestTree N) ⊆ˢ allBlocks (ls .tree)
 honestGlobalTreeInHonestLocalTree⁺ = {!!}
+
+honestGlobalTreeBlocksMonotonicity : ∀ {N N′ : GlobalState} →
+    N₀ ↝⋆ N
+  → N ↝ N′
+  → allBlocks (honestTree N) ⊆ˢ allBlocks (honestTree N′)
+honestGlobalTreeBlocksMonotonicity = {!!}
+
+honestGlobalTreeBlocksPreservation : ∀ {N N′ : GlobalState} {pg : Progress} →
+    N ↝⋆ N′
+  → N .progress ≡ pg
+  → N′ .progress ≡ pg
+  → N .clock ≡ N′ .clock
+  → allBlocks (honestTree N) ≡ˢ allBlocks (honestTree N′)
+honestGlobalTreeBlocksPreservation = {!!}

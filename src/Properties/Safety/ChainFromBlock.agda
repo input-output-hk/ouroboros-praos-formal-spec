@@ -15,7 +15,9 @@ open import Properties.Base.Trees ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ForgingFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.CollisionFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.BlockHistory ⦃ params ⦄ ⦃ assumptions ⦄
+open import Prelude.AssocList.Properties.Ext using (set-⁉; set-⁉-¬)
 open import Protocol.Prelude
+open import Protocol.BaseTypes
 open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
 open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
@@ -25,6 +27,7 @@ open import Protocol.TreeType ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗)
 open import Data.Nat.Properties.Ext using (pred[n]<n {- ; suc-≢-injective -})
+open import Data.Maybe.Properties.Ext using (≡just⇒Is-just)
 open import Data.List.Ext using (ι)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-findᵇ⁻; ∈-∷-≢⁻; x∈x∷xs; ∈-∷⁻ {- ; ; ;  -})
 open import Data.List.Properties.Ext using (Px-findᵇ⁻; ∷≢[]; []≢∷ʳ; ≢[]⇒∷ {- filter-∘-comm; filter-∘-×; ; ; ; ; filter-acceptʳ; filter-rejectʳ; foldr-preservesʳ' -})
@@ -37,6 +40,7 @@ open import Relation.Binary.PropositionalEquality.Properties.Ext using (=/=⇔�
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Data.List.Relation.Unary.Unique.Propositional.Properties using (Unique[x∷xs]⇒x∉xs)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (Any-resp-↭)
 open import Function.Bundles
 open import Relation.Binary.PropositionalEquality using (≢-sym)
 open import Class.DecEq.WithK using (≟-refl)
@@ -72,14 +76,6 @@ cfbInBlockListIsSubset : ∀ {b : Block} {bs : List Block} {c : Chain} →
   → c ⊆ˢ gbs
   → chainFromBlock b bs ≡ b ∷ c
 cfbInBlockListIsSubset = {!!}
-
-cfbInHonestTree : ∀ {N : GlobalState} {b : Block} →
-    N₀ ↝⋆ N
-  → ForgingFree N
-  → CollisionFree N
-  → b ∈ honestBlockHistory N
-  → chainFromBlock b (blockHistory N) ⊆ˢ allBlocks (honestTree N)
-cfbInHonestTree = {!!}
 
 {- Traversing a chain `c` from the tip to the genesis block and calculating
    the length of the "chain from block" of each block `b` is equal to a countdown
@@ -485,3 +481,443 @@ cfbHbhPres {N} {N′} {b} N₀↝⋆N′ N′↝N ffN cfN b∈hbhN hbhPres = sub
 
     cfbhN : BlockListCollisionFree (blockHistory N)
     cfbhN = BlockListCollisionFree-∷ {blockHistory N} {genesisBlock} cfN
+
+opaque
+
+  unfolding honestBlockMaking corruptBlockMaking
+
+  cfbInHonestTree : ∀ {N : GlobalState} →
+      N₀ ↝⋆ N
+    → ForgingFree N
+    → CollisionFree N
+    → L.All.All (λ b → chainFromBlock b (blockHistory N) ⊆ˢ allBlocks (honestTree N)) (honestBlockHistory N)
+  cfbInHonestTree = cfbInHonestTreeʳ ∘ Star⇒Starʳ
+      where
+        open RTC; open Starʳ
+
+        cfbInHonestTreeʳ : ∀ {N : GlobalState} →
+            N₀ ↝⋆ʳ N
+          → ForgingFree N
+          → CollisionFree N
+          → L.All.All (λ b → chainFromBlock b (blockHistory N) ⊆ˢ allBlocks (honestTree N)) (honestBlockHistory N)
+        cfbInHonestTreeʳ εʳ ffN cfN = L.All.All.[]
+        cfbInHonestTreeʳ {N} N₀↝⋆ʳN@(_◅ʳ_ {j = N′} N₀↝⋆ʳN′ N′↝N) ffN cfN
+          with
+            ih ← cfbInHonestTreeʳ N₀↝⋆ʳN′ (ForgingFreePrev (N′↝N ◅ ε) ffN) (CollisionFreePrev (N′↝N ◅ ε) cfN)
+          | N′↝N
+        ... | deliverMsgs {N′} {N″} N′Ready N′—[eoN′]↓→∗N″ = L.All.tabulate goal
+          where
+            N′↝⋆N : N′ ↝⋆ N
+            N′↝⋆N = N′↝N ◅ ε
+
+            ffN′ : ForgingFree N′
+            ffN′ = ForgingFreePrev N′↝⋆N ffN
+
+            cfN′ : CollisionFree N′
+            cfN′ = CollisionFreePrev N′↝⋆N cfN
+
+            N₀↝⋆N′ : N₀ ↝⋆ N′
+            N₀↝⋆N′ = Starʳ⇒Star N₀↝⋆ʳN′
+
+            hbhPres : honestBlockHistory N′ ≡ˢ honestBlockHistory N
+            hbhPres = honestBlockHistoryPreservation-↓∗ N₀↝⋆N′ N′—[eoN′]↓→∗N″ ffN N′Ready
+
+            goal : ∀ {b} → b ∈ honestBlockHistory N → chainFromBlock b (blockHistory N) ⊆ˢ allBlocks (honestTree N)
+            goal {b} b∈hbhN = begin
+              chainFromBlock b (blockHistory N)  ≡⟨ cfbHbhPres N₀↝⋆N′ N′↝N ffN cfN b∈hbhN hbhPres ⟨
+              chainFromBlock b (blockHistory N′) ⊆⟨ L.All.lookup ih b∈hbhN′ ⟩
+              allBlocks (honestTree N′)          ⊆⟨ honestGlobalTreeBlocksMonotonicity N₀↝⋆N′ N′↝N ⟩
+              allBlocks (honestTree N)           ∎
+              where
+                open L.SubS.⊆-Reasoning Block
+
+                b∈hbhN′ : b ∈ honestBlockHistory N′
+                b∈hbhN′ = ≡ˢ⇒⊆×⊇ hbhPres .proj₂ b∈hbhN
+
+        ... | makeBlock {N′} {N″} N′MsgsDelivered N′—[eoN′]↑→∗N″ = L.All.tabulate goal
+          where
+            N₀↝⋆N : N₀ ↝⋆ N
+            N₀↝⋆N = Starʳ⇒Star N₀↝⋆ʳN
+
+            N′↝⋆N : N′ ↝⋆ N
+            N′↝⋆N = N′↝N ◅ ε
+
+            N₀↝⋆N′ : N₀ ↝⋆ N′
+            N₀↝⋆N′ = Starʳ⇒Star N₀↝⋆ʳN′
+
+            ffN′ : ForgingFree N′
+            ffN′ = ForgingFreePrev (N′↝N ◅ ε) ffN
+
+            N″↷↑N″[bM] : N″ ↷↑ record N″ { progress = blockMade }
+            N″↷↑N″[bM] = progress↑ ↷↑-refl
+
+            ih′ : ∀ {b} → b ∈ honestBlockHistory N′ → chainFromBlock b (blockHistory N′) ⊆ˢ allBlocks (honestTree N′)
+            ih′ = L.All.lookup ih
+
+            uniqEoN′ : Unique (N′ .execOrder)
+            uniqEoN′ = execOrderUniqueness N₀↝⋆N′
+
+            goal : ∀ {b} → b ∈ honestBlockHistory N → chainFromBlock b (blockHistory N) ⊆ˢ allBlocks (honestTree N)
+            goal {b} b∈hbhN = goal* (N′ .execOrder) N″↷↑N″[bM] cfN b∈hbhN uniqEoN′ (—[]→∗⇒—[]→∗ʳ N′—[eoN′]↑→∗N″)
+              where
+                goal* : ∀ {N*} ps →
+                    N* ↷↑ N
+                  → CollisionFree N*
+                  → b ∈ honestBlockHistory N*
+                  → Unique ps
+                  → _ ⊢ N′ —[ ps ]↑→∗ʳ N*
+                  → chainFromBlock b (blockHistory N*) ⊆ˢ allBlocks (honestTree N*)
+                goal* {N*} [] _ _ b∈hbhN* _ [] = ih′ b∈hbhN*
+                goal* {N*} [] _ _ _ _ (_∷ʳ_ {eq = eq} _ _) = contradiction eq []≢∷ʳ
+                goal* {N*} (p ∷ ps) prfN cfN* b∈hbhN* p∷psUniq (_∷ʳ_ {is = ps′} {i = p′} {s′ = N‴} {eq = eq} ts⋆ ts) = step ts
+                  where
+                    cfN‴ : CollisionFree N‴
+                    cfN‴ = CollisionFreePrev-↑ ts cfN*
+
+                    ps′∷ʳp′Uniq : Unique (ps′ L.∷ʳ p′)
+                    ps′∷ʳp′Uniq = subst Unique eq p∷psUniq
+
+                    p′∉ps′ : p′ ∉ ps′
+                    p′∉ps′ = Unique[xs∷ʳx]⇒x∉xs ps′∷ʳp′Uniq
+
+                    ps′Uniq : Unique ps′
+                    ps′Uniq = headʳ ps′∷ʳp′Uniq
+
+                    ih* : b ∈ honestBlockHistory N‴ → chainFromBlock b (blockHistory N‴) ⊆ˢ allBlocks (honestTree N‴)
+                    ih* b∈hbhN‴ = goal* {N‴} ps′ (blockMaking↑ ts prfN) cfN‴ b∈hbhN‴ ps′Uniq ts⋆
+
+                    step : _ ⊢ N‴ —[ p′ ]↑→ N* → chainFromBlock b (blockHistory N*) ⊆ˢ allBlocks (honestTree N*)
+                    step (unknownParty↑ _) = ih* b∈hbhN*
+                    step (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
+                    ... | ⁇ (yes isWinner) rewrite lsπ = step′
+                      where
+                        lsN′ : N′ .states ⁉ p′ ≡ just ls
+                        lsN′ rewrite sym $ localStatePreservation-∉-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆) = lsπ
+
+                        best : Chain
+                        best = bestChain (N‴ .clock ∸ 1) (ls .tree)
+
+                        nb : Block
+                        nb = mkBlock (hash (tip best)) (N‴ .clock) (txSelection (N‴ .clock) p′) p′
+
+                        b∈nb+hbhN‴ : b ∈ nb ∷ honestBlockHistory N‴
+                        b∈nb+hbhN‴ rewrite hp′π = b∈hbhN*
+
+                        N‴⁺ : GlobalState
+                        N‴⁺ = updateLocalState p′ (addBlock ls nb) N‴
+
+                        tnb : Tree
+                        tnb = extendTree (ls .tree) nb
+
+                        blocksN‴⁺≡p′ : blocks N‴⁺ p′ ≡ allBlocks tnb
+                        blocksN‴⁺≡p′ rewrite set-⁉ (N‴ .states) p′ (addBlock ls nb) = refl
+
+                        blocksN‴⁺≢p′ : ∀ {p°} → p° ≢ p′ → blocks N‴ p° ≡ blocks N‴⁺ p°
+                        blocksN‴⁺≢p′ {p°} p°≢p′ rewrite lsπ | set-⁉-¬ (N‴ .states) p′ p° (addBlock ls nb) (≢-sym p°≢p′) = refl
+
+                        step′ : chainFromBlock b (nb ∷ blockHistory N‴) ⊆ˢ allBlocks (honestTree N‴⁺)
+                        step′
+                          with ∈-∷⁻ b∈nb+hbhN‴ | b ≟ nb
+                        ... | inj₁ b≡nb            | no b≢nb  = contradiction b≡nb b≢nb
+                        ... | inj₂ b∈hbhN‴         | no _     =
+                          let open L.SubS.⊆-Reasoning Block in begin
+                            chainFromBlock b (nb ∷ blockHistory N‴)  ≡⟨ cfbbhN‴≡cfb[nb+bhN‴] ⟨
+                            chainFromBlock b (blockHistory N‴)       ⊆⟨ ih* b∈hbhN‴ ⟩
+                            allBlocks (honestTree N‴)                ⊆⟨ step″ {N‴ .execOrder} ⟩
+                            allBlocks (honestTree N‴⁺)               ∎
+                          where
+                            cfbbhN‴≡cfb[nb+bhN‴] : chainFromBlock b (blockHistory N‴) ≡ chainFromBlock b (nb ∷ blockHistory N‴)
+                            cfbbhN‴≡cfb[nb+bhN‴] = subsetCfbPreservation blcf[nb+bhN‴] bhN‴⊆nb+bhN‴ cfbhN‴≢[]
+                              where
+                                bhN‴⊆nb+bhN‴ : blockHistory N‴ ⊆ˢ nb ∷ blockHistory N‴
+                                bhN‴⊆nb+bhN‴  = L.SubS.xs⊆x∷xs _ _
+
+                                blcf[nb+bhN‴] : BlockListCollisionFree (nb ∷ blockHistory N‴)
+                                blcf[nb+bhN‴] = BlockListCollisionFree-∷ {nb ∷ blockHistory N‴} {genesisBlock} cfN*
+
+                                cfbhN‴≢[] : chainFromBlock b (blockHistory N‴) ≢ []
+                                cfbhN‴≢[] = ✓⇒≢[] cfbhN‴✓
+                                  where
+                                    cfbhN‴✓ : chainFromBlock b (blockHistory N‴) ✓
+                                    cfbhN‴✓ = L.All.lookup
+                                      (honestBlockCfb✓-↑∗
+                                        N₀↝⋆N′ N′↝⋆N ffN (—[]→∗ʳ⇒—[]→∗ ts⋆) (blockMaking↑ ts prfN) ps′Uniq cfN‴)
+                                      b∈hbhN‴
+
+                            open import Function.Reasoning
+
+                            step″ : ∀ {ps°} →
+                              allBlocks (honestTree record N‴ {execOrder = ps°})
+                              ⊆ˢ
+                              allBlocks (honestTree record N‴⁺ {execOrder = ps°})
+                            step″ {[]} = L.SubS.⊆-refl
+                            step″ {p° ∷ ps°} with honestyOf p° in hp°
+                            ... | corrupt = step″ {ps°}
+                            ... | honest rewrite hp° with p° ≟ p′
+                            ... |  yes p°≡p′
+                              rewrite
+                                p°≡p′
+                              | localStatePreservation-∉-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆)
+                              | lsN′
+                              | blocksN‴⁺≡p′ =
+                              let open L.SubS.⊆-Reasoning Block in begin
+                                allBlocks (buildTree (allBlocks (ls .tree)
+                                ++
+                                (L.concatMap (blocks N‴) $ L.filter ¿ Honest ¿¹ ps°)))
+                                  ⊆⟨ ≡ˢ⇒⊆×⊇ (allBlocksBuildTree-++ (allBlocks (ls .tree)) _) .proj₁ ⟩
+                                allBlocks (buildTree (allBlocks (ls .tree)))
+                                ++
+                                allBlocks (buildTree (L.concatMap (blocks N‴) $ L.filter ¿ Honest ¿¹ ps°))
+                                  ⊆⟨ L.SubS.++⁺ bks[tls]⊆bks[tnb] (step″ {ps°}) ⟩
+                                allBlocks (buildTree (allBlocks tnb))
+                                ++
+                                allBlocks (buildTree (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°))
+                                  ≡⟨ cong (λ ◆ →
+                                       allBlocks (buildTree ◆)
+                                       ++
+                                       allBlocks (buildTree (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°)))
+                                       (sym blocksN‴⁺≡p′) ⟩
+                                allBlocks (buildTree (blocks N‴⁺ p′))
+                                ++
+                                allBlocks (buildTree (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°))
+                                  ⊆⟨ ≡ˢ⇒⊆×⊇ (allBlocksBuildTree-++ (blocks N‴⁺ p′) _) .proj₂ ⟩
+                                allBlocks (buildTree (blocks N‴⁺ p′ ++ (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°)))
+                                ∎
+                                where
+                                  bks[tls]⊆bks[tnb] :
+                                    allBlocks (buildTree (allBlocks (tree ls)))
+                                    ⊆ˢ
+                                    allBlocks (buildTree (allBlocks tnb))
+                                  bks[tls]⊆bks[tnb] = let open L.SubS.⊆-Reasoning Block in begin
+                                    allBlocks (buildTree (allBlocks (tree ls))) ⊆⟨ ≡ˢ⇒⊆×⊇ (buildTreeUsesAllBlocks _) .proj₁ ⟩
+                                    genesisBlock ∷ allBlocks (ls .tree)         ⊆⟨ L.SubS.∷⁺ʳ _ $
+                                      begin
+                                        allBlocks (ls .tree)                    ⊆⟨ L.SubS.xs⊆xs++ys _ _ ⟩
+                                        allBlocks (ls .tree) ++ [ nb ]          ⊆⟨ ≡ˢ⇒⊆×⊇ (extendable _ _) .proj₂ ⟩
+                                        allBlocks tnb                           ∎
+                                                                                 ⟩
+                                    genesisBlock ∷ allBlocks tnb                ⊆⟨ ≡ˢ⇒⊆×⊇ (buildTreeUsesAllBlocks _) .proj₂ ⟩
+                                    allBlocks (buildTree (allBlocks tnb))       ∎
+                            ... |  no p°≢p′ = let open L.SubS.⊆-Reasoning Block in begin
+                                allBlocks (buildTree (blocks N‴ p° ++ (L.concatMap (blocks N‴) $ L.filter ¿ Honest ¿¹ ps°)))
+                                  ⊆⟨ ≡ˢ⇒⊆×⊇ (allBlocksBuildTree-++ (blocks N‴ p°) _) .proj₁ ⟩
+                                allBlocks (buildTree (blocks N‴ p°))
+                                ++
+                                allBlocks (buildTree (L.concatMap (blocks N‴) $ L.filter ¿ Honest ¿¹ ps°))
+                                  ⊆⟨ L.SubS.++⁺
+                                      (L.SubS.⊆-reflexive $ cong (allBlocks ∘ buildTree) $ blocksN‴⁺≢p′ p°≢p′)
+                                      (step″ {ps°})
+                                   ⟩
+                                allBlocks (buildTree (blocks N‴⁺ p°))
+                                ++
+                                allBlocks (buildTree (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°))
+                                  ⊆⟨ ≡ˢ⇒⊆×⊇ (allBlocksBuildTree-++ (blocks N‴⁺ p°) _) .proj₂ ⟩
+                                allBlocks (buildTree (blocks N‴⁺ p° ++ (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°)))
+                                ∎
+                        ... | _                    | yes b≡nb rewrite b≡nb
+                               with chainFromNewBlock N₀↝⋆N′ ts⋆ isWinner p′∉ps′ lsπ hp′π cfN*
+                        ... |    cfb≡nb∷best , _ rewrite cfb≡nb∷best = step″ p′∈eoN‴
+                          where
+                            p′∈eoN‴ : p′ ∈ N‴ .execOrder
+                            p′∈eoN‴ = Any-resp-↭
+                              (execOrderPreservation-↭-↑∗ (—[]→∗ʳ⇒—[]→∗ ts⋆))
+                              (hasState⇒∈execOrder N₀↝⋆N′ (≡just⇒Is-just lsN′))
+
+                            step″ : ∀ {ps°} → p′ ∈ ps° → nb ∷ best ⊆ˢ allBlocks (honestTree record N‴⁺ {execOrder = ps°})
+                            step″ {p° ∷ ps°} p′∈p°∷ps° with ∈-∷⁻ p′∈p°∷ps°
+                            ... | inj₁ p′≡p° rewrite sym p′≡p° | hp′π = let open L.SubS.⊆-Reasoning Block in begin
+                              nb ∷ best
+                                ⊆⟨ ( λ {b°} b°∈nb+best →
+                                   b°∈bks[tnb] b°∈nb+best ∶
+                                b° ∈ allBlocks tnb
+                                  |> inj₁ ∶
+                                b° ∈ allBlocks tnb ⊎ b° ∈ (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°)
+                                  |> L.Mem.++-∈⇔ {xs = allBlocks tnb} .Equivalence.from ∶
+                                b° ∈ allBlocks tnb ++ (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°)
+                                  |> inj₂ ∶
+                                b° ∈ [ genesisBlock ]
+                                ⊎
+                                b° ∈ allBlocks tnb ++ (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°)
+                                  |> L.Mem.++-∈⇔ {xs = [ genesisBlock ]} .Equivalence.from ∶
+                                b° ∈ genesisBlock ∷ (allBlocks tnb ++ (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°)) )
+                                 ⟩
+                              genesisBlock ∷ (allBlocks tnb ++ (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°))
+                                ≡⟨ cong
+                                    (λ ◆ → genesisBlock ∷ (◆ ++ (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°)))
+                                    (sym blocksN‴⁺≡p′)
+                                 ⟩
+                              genesisBlock ∷ (blocks N‴⁺ p′ ++ (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°))
+                                ⊆⟨ ≡ˢ⇒⊆×⊇ (buildTreeUsesAllBlocks _) .proj₂ ⟩
+                              allBlocks (buildTree (blocks N‴⁺ p′ ++ (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°)))
+                              ∎
+                              where
+                                open import Function.Reasoning
+
+                                b°∈bks[tnb] : ∀ {b°} → b° ∈ nb ∷ best → b° ∈ allBlocks tnb
+                                b°∈bks[tnb] {b°} b°∈nb+best =
+                                    (case ∈-∷⁻ b°∈nb+best of λ where
+                                      (inj₁ b°≡nb)   → inj₂ $ subst (_∈ [ nb ]) (sym b°≡nb) (here refl)
+                                      (inj₂ b°∈best) → inj₁ $
+                                          b°∈best ∶
+                                        b° ∈ best
+                                          |> selfContained (ls .tree) (N‴ .clock ∸ 1) ∶
+                                        b° ∈ filter ((_≤? N‴ .clock ∸ 1) ∘ slot) (allBlocks (ls .tree))
+                                          |> L.SubS.filter-⊆ _ _ ∶
+                                        b° ∈ allBlocks (ls .tree))
+                                    ∶
+                                  b° ∈ allBlocks (ls .tree) ⊎ b° ∈ [ nb ]
+                                    |> L.Mem.++-∈⇔ .Equivalence.from ∶
+                                  b° ∈ allBlocks (ls .tree) ++ [ nb ]
+                                    |> ≡ˢ⇒⊆×⊇ (extendable _ _) .proj₂ ∶
+                                  b° ∈ allBlocks tnb
+                            ... | inj₂ p′∈ps° = let open L.SubS.⊆-Reasoning Block in begin
+                              nb ∷ best
+                                ⊆⟨ step″ {ps°} p′∈ps° ⟩
+                              allBlocks (honestTree record N‴⁺ {execOrder = ps°})
+                                ⊆⟨ bks[ps°]⊆bks[p°+ps°] ⟩
+                              allBlocks (honestTree record N‴⁺ {execOrder = p° ∷ ps°})
+                              ∎
+                              where
+                                open import Function.Reasoning
+
+                                bks[ps°]⊆bks[p°+ps°] :
+                                  allBlocks (honestTree record N‴⁺ {execOrder = ps°})
+                                  ⊆ˢ
+                                  allBlocks (honestTree record N‴⁺ {execOrder = p° ∷ ps°})
+                                bks[ps°]⊆bks[p°+ps°] with honestyOf p°
+                                ... | corrupt = L.SubS.⊆-refl
+                                ... | honest = let open L.SubS.⊆-Reasoning Block in begin
+                                  allBlocks (honestTree record N‴⁺ {execOrder = ps°})
+                                    ⊆⟨ ≡ˢ⇒⊆×⊇ (buildTreeUsesAllBlocks _) .proj₁ ⟩
+                                  genesisBlock ∷ (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°)
+                                    ⊆⟨ ( λ {b⁺} b⁺∈gb+bks[ps°] →
+                                         b⁺∈gb+bks[ps°] ∶
+                                       b⁺ ∈ genesisBlock ∷ (L.concatMap (blocks N‴⁺) $ L.filter ¿ Honest ¿¹ ps°)
+                                         |> ≡ˢ⇒⊆×⊇ (buildTreeUsesAllBlocks _) .proj₂ ∶
+                                       b⁺ ∈ allBlocks (honestTree record N‴⁺ {execOrder = ps°})
+                                         |> inj₂ ∶
+                                       b⁺ ∈ allBlocks (buildTree (blocks N‴⁺ p°))
+                                       ⊎
+                                       b⁺ ∈ allBlocks (honestTree record N‴⁺ {execOrder = ps°})
+                                         |> L.Mem.++-∈⇔ {xs = allBlocks (buildTree (blocks N‴⁺ p°))} .Equivalence.from ∶
+                                       b⁺ ∈ allBlocks (buildTree (blocks N‴⁺ p°))
+                                            ++
+                                            allBlocks (honestTree record N‴⁺ {execOrder = ps°})
+                                       )
+                                     ⟩
+                                  allBlocks (buildTree (blocks N‴⁺ p°))
+                                  ++
+                                  allBlocks (honestTree record N‴⁺ {execOrder = ps°})
+                                    ⊆⟨ ≡ˢ⇒⊆×⊇ (allBlocksBuildTree-++ (blocks N‴⁺ p°) _) .proj₂ ⟩
+                                  allBlocks (buildTree (blocks N‴⁺ p° ++ _))
+                                  ∎
+                    ... | ⁇ (no ¬isWinner) = let open L.SubS.⊆-Reasoning Block in begin
+                      chainFromBlock b (blockHistory N‴)                 ⊆⟨ ih* b∈hbhN* ⟩
+                      allBlocks (honestTree N‴)                          ⊆⟨ step″ {N‴ .execOrder} ⟩
+                      allBlocks (honestTree (updateLocalState p′ ls N‴)) ∎
+                      where
+                        N‴⁺ : GlobalState
+                        N‴⁺ = updateLocalState p′ ls N‴
+
+                        step″ : ∀ {ps°} →
+                          allBlocks (honestTree record N‴ {execOrder = ps°})
+                          ⊆ˢ
+                          allBlocks (honestTree record N‴⁺ {execOrder = ps°})
+                        step″ {[]} = L.SubS.⊆-refl
+                        step″ {p° ∷ ps°} with honestyOf p° in hp°
+                        ... | corrupt rewrite eq = step″ {ps°}
+                        ... | honest rewrite hp° = let open L.SubS.⊆-Reasoning Block in begin
+                          allBlocks (buildTree (blocks N‴ p° ++ (L.concatMap (blocks N‴) $ L.filter ¿ Honest ¿¹ ps°)))
+                            ⊆⟨ ≡ˢ⇒⊆×⊇ (allBlocksBuildTree-++ (blocks N‴ p°) _) .proj₁ ⟩
+                          allBlocks (buildTree (blocks N‴ p°))
+                          ++
+                          allBlocks (honestTree record N‴ {execOrder = ps°})
+                            ≡⟨ cong (λ ◆ →
+                              allBlocks (buildTree ◆)
+                              ++
+                              allBlocks (honestTree record N‴ {execOrder = ps°})) (sym eqBlocks)
+                             ⟩
+                          allBlocks (buildTree (blocks N‴⁺ p°))
+                          ++
+                          allBlocks (honestTree record N‴ {execOrder = ps°})
+                            ⊆⟨ L.SubS.++⁺ʳ _ (step″ {ps°}) ⟩
+                          allBlocks (buildTree (blocks N‴⁺ p°))
+                          ++
+                          allBlocks (honestTree record N‴⁺ {execOrder = ps°})
+                            ⊆⟨ ≡ˢ⇒⊆×⊇ (allBlocksBuildTree-++ (blocks N‴⁺ p°) _) .proj₂ ⟩
+                          allBlocks (buildTree (blocks N‴⁺ p° ++ _))
+                          ∎
+                          where
+                            eqBlocks : blocks N‴⁺ p° ≡ blocks N‴ p°
+                            eqBlocks with p° ≟ p′
+                            ... | yes eq rewrite eq | lsπ | set-⁉   (N‴ .states) p′    ls             = refl
+                            ... | no neq rewrite      lsπ | set-⁉-¬ (N‴ .states) p′ p° ls (≢-sym neq) = refl
+
+                    step (corruptParty↑ _ _) = step′
+                      where
+                        mds : List (Message × DelayMap)
+                        mds = makeBlockᶜ (N‴ .clock) (N‴ .history) (N‴ .messages) (N‴ .advState).proj₁
+
+                        sub : L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N‴
+                        sub = ffN .proj₂ (blockMaking↑ ts prfN)
+
+                        hbhPres : honestBlockHistory N‴ ≡ˢ honestBlockHistory (broadcastMsgsᶜ mds N‴)
+                        hbhPres = honestBlockHistoryPreservation-broadcastMsgsᶜ {N‴} {mds} sub
+
+                        b∈hbhN‴ : b ∈ honestBlockHistory N‴
+                        b∈hbhN‴ = ≡ˢ⇒⊆×⊇ hbhPres .proj₂ b∈hbhN*
+
+                        step′ :
+                          chainFromBlock b (blockHistory (broadcastMsgsᶜ mds N‴))
+                          ⊆ˢ
+                          allBlocks (honestTree (broadcastMsgsᶜ mds N‴))
+                        step′ = begin
+                          chainFromBlock b (blockHistory (broadcastMsgsᶜ mds N‴)) ≡⟨ cfbhN‴≡cfbhBcN‴ ⟨
+                          chainFromBlock b (blockHistory N‴)                      ⊆⟨ ih* b∈hbhN‴ ⟩
+                          allBlocks (honestTree N‴)                               ⊆⟨ step″ ⟩
+                          allBlocks (honestTree (broadcastMsgsᶜ mds N‴))          ∎
+                          where
+                            open L.SubS.⊆-Reasoning Block
+
+                            cfbhN‴≡cfbhBcN‴ :
+                              chainFromBlock b (blockHistory N‴)
+                              ≡
+                              chainFromBlock b (blockHistory (broadcastMsgsᶜ mds N‴))
+                            cfbhN‴≡cfbhBcN‴ = subsetCfbPreservation blcfbhBcN‴ bhN‴⊆bhBcN‴ cfbhN‴≢[]
+                              where
+                                blcfbhBcN‴ : BlockListCollisionFree (blockHistory (broadcastMsgsᶜ mds N‴))
+                                blcfbhBcN‴ = BlockListCollisionFree-∷ {blockHistory (broadcastMsgsᶜ mds N‴)} {genesisBlock} cfN*
+
+                                bhN‴⊆bhBcN‴ : blockHistory N‴ ⊆ˢ blockHistory (broadcastMsgsᶜ mds N‴)
+                                bhN‴⊆bhBcN‴ = blockHistoryPreservation-broadcastMsgsᶜ mds N‴
+
+                                cfbhN‴≢[] : chainFromBlock b (blockHistory N‴) ≢ []
+                                cfbhN‴≢[] = ✓⇒≢[] cfbhN‴✓
+                                  where
+                                    cfbhN‴✓ : chainFromBlock b (blockHistory N‴) ✓
+                                    cfbhN‴✓ = L.All.lookup
+                                      (honestBlockCfb✓-↑∗
+                                        N₀↝⋆N′ N′↝⋆N ffN (—[]→∗ʳ⇒—[]→∗ ts⋆) (blockMaking↑ ts prfN) ps′Uniq cfN‴)
+                                      b∈hbhN‴
+
+                            step″ : allBlocks (honestTree N‴) ⊆ˢ allBlocks (honestTree (broadcastMsgsᶜ mds N‴))
+                            step″
+                              rewrite
+                                localStatePreservation-broadcastMsgsᶜ {N‴} {mds}
+                              | sym $ execOrderPreservation-≡-broadcastMsgsᶜ mds N‴
+                              = L.SubS.⊆-refl
+
+        ... | advanceRound   _            = ih
+        ... | permuteMsgs    _            = ih
+        ... | permuteParties {N′} {ps} _  = L.All.map [cfb⊆htN′]⋐[htN′⊆htN′ps] ih
+          where
+            open import Relation.Unary renaming (_⊆_ to _⋐_)
+
+            [cfb⊆htN′]⋐[htN′⊆htN′ps] :
+              (λ b → chainFromBlock b (blockHistory N′) ⊆ˢ allBlocks (honestTree N′))
+              ⋐
+              (λ b → chainFromBlock b (blockHistory N′) ⊆ˢ allBlocks (honestTree record N′ {execOrder = ps}))
+            [cfb⊆htN′]⋐[htN′⊆htN′ps] {b} cfb⊆htN′ = L.SubS.⊆-trans cfb⊆htN′ htN′⊆htN′ps
+              where
+                htN′⊆htN′ps : allBlocks (honestTree N′) ⊆ˢ allBlocks (honestTree record N′ {execOrder = ps})
+                htN′⊆htN′ps = ≡ˢ⇒⊆×⊇ (honestGlobalTreeBlocksPreservation (N′↝N ◅ ε) refl refl refl) .proj₁

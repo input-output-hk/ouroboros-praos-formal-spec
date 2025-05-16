@@ -53,3 +53,6 @@ module _ ⦃ _ : DecEq K ⦄ where
     set-⁉ m k v with k ∈ᵐ? m
     ... | yes p  = {!!}
     ... | no ¬p  = {!!}
+
+    set-⁉-¬ : ∀ (m : AssocList K V) (k k′ : K) (v : V) → k ≢ k′ → set k v m ⁉ k′ ≡ m ⁉ k′
+    set-⁉-¬ = {!!}

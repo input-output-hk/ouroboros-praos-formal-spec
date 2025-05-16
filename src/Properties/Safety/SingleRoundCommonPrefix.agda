@@ -567,7 +567,7 @@ adversaryHasAdvantage {N} N₀↝⋆N ffN cfN {p} {ls} hp lsp {c} {sl} c⊆fgb�
                                                     cfb[sb]Nᴿ✓ = L.All.lookup (L.All.tabulate $ λ {b} → honestBlockCfb✓ N₀↝⋆Nᴿ ffNᴿ cfNᴿ) sb∈hbhNᴿ
 
                                         cfb[sb]⊆ht : chainFromBlock sb (blockHistory Nᴿ) ⊆ˢ allBlocks (honestTree Nᴿ)
-                                        cfb[sb]⊆ht = cfbInHonestTree N₀↝⋆Nᴿ ffNᴿ cfNᴿ sb∈hbhNᴿ
+                                        cfb[sb]⊆ht = L.All.lookup (cfbInHonestTree N₀↝⋆Nᴿ ffNᴿ cfNᴿ) sb∈hbhNᴿ
 
                                         ht⊆lt : allBlocks (honestTree Nᴿ) ⊆ˢ allBlocks (ls .tree)
                                         ht⊆lt = honestGlobalTreeInHonestLocalTree⁺ N₀↝⋆Nᴿ hp NᴿReady Nᴿ↝⁺N lsp
