@@ -6,19 +6,23 @@ open import Data.Nat using (ℕ; zero; suc; _+_; _∸_; _≤_; _<_; s≤s; z≤n
 open import Data.Nat.Properties using (+-identityʳ; +-suc; ≤⇒≯; m≤n⇒m<n∨m≡n; +-cancelˡ-≡; ≤-refl; m<m+n; <⇒≤)
 open import Data.Bool using (Bool; true; false)
 open import Relation.Binary.PropositionalEquality using (refl; _≡_; _≢_; module ≡-Reasoning)
-open import Data.List using (List; []; [_]; _∷_; _∷ʳ_; _++_; map; filter; length; updateAt; _[_]%=_; lookup; findᵇ; find; upTo; downFrom; reverse; foldr)
-open import Data.List.Ext using (ι)
-open import Data.List.Properties using (∷ʳ-injective; filter-++; filter-accept; filter-reject; ++-identityʳ; unfold-reverse; ++-cancelˡ; ∷-injectiveˡ; ∷-injectiveʳ; reverse-selfInverse; length-map; length-downFrom; length-reverse)
-open import Data.List.Membership.Propositional using (_∈_)
-open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻)
+open import Data.List using (List; []; [_]; _∷_; _∷ʳ_; _++_; map; filter; length; updateAt; _[_]%=_; lookup; findᵇ; find; upTo; downFrom; reverse; foldr; deduplicate)
+open import Data.List.Ext using (ι; count; undup)
+open import Data.List.Properties using (∷ʳ-injective; filter-++; filter-accept; filter-reject; ++-identityʳ; unfold-reverse; ++-cancelˡ; ∷-injectiveˡ; ∷-injectiveʳ; reverse-selfInverse; length-map; length-downFrom; length-reverse; filter-all; filter-none)
+open import Data.List.Membership.Propositional using (_∈_; _∉_)
+open import Data.List.Membership.Propositional.Properties using (∈-deduplicate⁻)
+open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; ∉-filter⁺)
 open import Data.List.Relation.Unary.Any using (here; there)
-open import Data.List.Relation.Unary.All using (All)
-open import Relation.Unary using (Pred; Decidable)
+open import Data.List.Relation.Unary.All using (All; tabulate) renaming (map to mapA)
+open import Data.List.Relation.Unary.All.Properties.Ext using (All-∁∅)
+open import Relation.Unary using (Pred; Decidable; ∅; Empty)
+open import Relation.Unary.Properties using (_∩?_)
 open import Relation.Nullary.Negation using (¬_; contradiction; contraposition)
-open import Relation.Nullary.Decidable.Core using (does; yes; no; _×-dec_)
+open import Relation.Nullary.Decidable.Core using (does; yes; no; _×-dec_; ¬?)
+open import Data.List.Relation.Unary.All.Properties.Core using (¬Any⇒All¬)
 open import Level using (Level)
 open import Function.Base using (_∘_; _$_; _∋_)
-open import Relation.Binary.PropositionalEquality using (_≡_; _≗_; sym; cong; subst)
+open import Relation.Binary.PropositionalEquality using (_≡_; _≗_; sym; cong; subst; module ≡-Reasoning)
 open import Data.Fin using (Fin; cast) renaming (zero to fzero; suc to fsuc)
 open import Data.Fin.Properties using (subst-is-cast)
 open import Data.Fin.Properties.Ext using (suc-≢-injective)
@@ -44,6 +48,12 @@ foldr-preservesʳ' pres Pe (_ ∷ xs) = pres _ (foldr-preservesʳ' pres Pe xs)
 []≢∷ʳ {xs = []} ()
 []≢∷ʳ {xs = _ ∷ _} ()
 
+filter-∅ : ∀ {ℓ} {A : Set ℓ} (∅? : Decidable ∅) (xs : List A) → filter ∅? xs ≡ []
+filter-∅ ∅? = filter-none ∅? ∘ All-∁∅
+
+filter-Empty : ∀ {ℓ ℓ′} {A : Set ℓ} {P : Pred A ℓ′} (P? : Decidable P) → Empty P → ∀ (xs : List A) → filter P? xs ≡ []
+filter-Empty {P = P} P? P≡∅ xs = filter-none P? {xs = xs} $ tabulate λ {x} _ → P≡∅ x
+
 filter-∘-comm : (P? : Decidable P) (Q? : Decidable Q) → filter P? ∘ filter Q? ≗ filter Q? ∘ filter P?
 filter-∘-comm P? Q? [] = refl
 filter-∘-comm P? Q? (x ∷ xs) with ih ← filter-∘-comm P? Q? xs | does (P? x) in eqp | does (Q? x) in eqq
@@ -52,13 +62,19 @@ filter-∘-comm P? Q? (x ∷ xs) with ih ← filter-∘-comm P? Q? xs | does (P?
 ... | false | true  rewrite eqp | eqq | ih = refl
 ... | false | false rewrite eqp | eqq | ih = refl
 
-filter-∘-× : (P? : Decidable P) (Q? : Decidable Q) → filter (λ x → P? x ×-dec Q? x) ≗ filter P? ∘ filter Q?
+filter-∘-× : (P? : Decidable P) (Q? : Decidable Q) → filter (P? ∩? Q?) ≗ filter P? ∘ filter Q?
 filter-∘-× P? Q? [] = refl
 filter-∘-× P? Q? (x ∷ xs) with ih ← filter-∘-× P? Q? xs | does (P? x) in eqp | does (Q? x) in eqq
 ... | true  | true  rewrite eqp | eqq | ih = refl
 ... | true  | false rewrite eqp | eqq | ih = refl
 ... | false | true  rewrite eqp | eqq | ih = refl
 ... | false | false rewrite eqp | eqq | ih = refl
+
+filter-deduplicate-comm : ∀ ⦃ _ : DecEq A ⦄ {ℓ} {P : Pred A ℓ} {P? : Decidable P} → filter P? ∘ deduplicate _≟_ ≗ deduplicate  _≟_ ∘ filter P?
+filter-deduplicate-comm [] = refl
+filter-deduplicate-comm {P? = P?} (x ∷ xs) with P? x
+... | yes Px rewrite filter-∘-comm P? (¬? ∘ _≟_ x) (deduplicate _≟_ xs) | filter-deduplicate-comm {P? = P?} xs = refl
+... | no ¬Px rewrite filter-∘-comm P? (¬? ∘ _≟_ x) (deduplicate _≟_ xs) | filter-deduplicate-comm {P? = P?} xs = filter-all _ (¬Any⇒All¬ _ $ contraposition (∈-deduplicate⁻ _ _) (∉-filter⁺ xs ¬Px))
 
 length-updateAt : ∀ xs k (f : A → A) → length (updateAt xs k f) ≡ length xs
 length-updateAt (x ∷ xs) fzero    f = refl
@@ -133,6 +149,16 @@ module _ (P? : Decidable P) where
 ++-injective {xs = x ∷ xs} {ys = ys} {zs = z ∷ zs} {ws = ws} p q with ++-injective {xs = xs} {ys = ys} {zs = zs} {ws = ws} (+-cancelˡ-≡ 1 _ _ p) (∷-injectiveʳ q)
 ... | p1 , p2 rewrite ∷-injectiveˡ q | p1 = refl , p2
 
+-- NOTE: Good to have, but not needed for now.
+{--
+module _ ⦃ _ : DecEq A ⦄ where
+
+  open import Data.List.Membership.DecPropositional (_≟_ {A = A}) using (_∈?_)
+
+  deduplicate-++ : ∀ (xs ys : List A) → deduplicate _≟_ (xs ++ ys) ≡ deduplicate _≟_ xs ++ filter (_∈? xs) (deduplicate _≟_ ys)
+  deduplicate-++ = {!!}
+--}
+
 ------------------------------------------------------------------------
 -- ι
 
@@ -182,3 +208,44 @@ module _ (P? : Decidable P) where
   | length-reverse (map (_+ n) (downFrom m))
   | length-map (_+ n) (downFrom m)
   | length-downFrom m = refl
+
+------------------------------------------------------------------------
+-- count
+
+open import Data.Product.Base using (proj₂)
+open import Relation.Unary using (∁)
+open import Relation.Nullary.Decidable.Core using (yes; no)
+open import Relation.Nullary.Decidable using (dec-yes)
+open import Data.List.Properties using (length-++)
+open import Data.Nat.Properties.Ext using (suc≗+1)
+
+module _ (P? : Decidable P) where
+
+  opaque
+
+    unfolding count
+
+    count-accept-∷ : ∀ {x xs} → P x → count P? (x ∷ xs) ≡ suc (count P? xs)
+    count-accept-∷ {x} {xs} Px rewrite filter-accept P? {x} {xs} Px = refl
+
+    count-reject-∷ : ∀ {x xs} → ¬ P x → count P? (x ∷ xs) ≡ count P? xs
+    count-reject-∷ {x} {xs} ¬Px rewrite filter-reject P? {x} {xs} ¬Px = refl
+
+    count-accept-∷ʳ : ∀ {x xs} → P x → count P? (xs ∷ʳ x) ≡ suc (count P? xs)
+    count-accept-∷ʳ {x} {xs} Px rewrite filter-++ P? xs [ x ] with P? x
+    ... | yes _ rewrite length-++ (filter P? xs) {[ x ]} = sym $ suc≗+1 (count P? xs)
+    ... | no ¬Px = contradiction Px ¬Px
+
+    count-reject-∷ʳ : ∀ {x xs} → ¬ P x → count P? (xs ∷ʳ x) ≡ count P? xs
+    count-reject-∷ʳ {x} {xs} ¬Px rewrite filter-++ P? xs [ x ] with P? x
+    ... | yes Px = contradiction Px ¬Px
+    ... | no _ rewrite ++-identityʳ (filter P? xs) = refl
+
+    count-Empty : Empty P → ∀ xs → count P? xs ≡ 0
+    count-Empty P≡∅ xs rewrite filter-Empty P? P≡∅ xs = refl
+
+    count-none : ∀ {xs} → count P? xs ≡ 0 → All (∁ P) xs
+    count-none {[]} _ = All.[]
+    count-none {x ∷ xs} p with P? x
+    ... | yes Px = contradiction p λ ()
+    ... | no ¬Px = ¬Px All.∷ count-none {xs} p

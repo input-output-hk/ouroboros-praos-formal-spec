@@ -96,7 +96,7 @@ commonPrefix {N₁} {N₂} {k} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ {p₁
         N₀↝⋆N′ : N₀ ↝⋆ N′
         N₀↝⋆N′ = N₀↝⋆N₁ ◅◅ Starʳ⇒Star N₁↝⋆ʳN′
 
-        Is-just-lsp₂N′ : M.Is-just (N′ .states ⁉ p₂)
+        Is-just-lsp₂N′ : p₂ hasStateIn N′
         Is-just-lsp₂N′ = L.All.lookup (allPartiesHaveLocalState N₀↝⋆N′) p₂∈N′
           where
             p₂∈N′ : p₂ ∈ N′ .execOrder

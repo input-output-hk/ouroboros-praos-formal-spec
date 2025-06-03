@@ -10,15 +10,49 @@ module Properties.Base.SuperBlocks
 
 open import Protocol.Prelude
 open import Protocol.BaseTypes using (Slot; Honesty)
+open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
 open import Protocol.Block ⦃ params ⦄
+open import Protocol.Chain ⦃ params ⦄
+open import Protocol.TreeType ⦃ params ⦄
+open import Protocol.Message ⦃ params ⦄
+open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ForgingFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.CollisionFree ⦃ params ⦄ ⦃ assumptions ⦄
-open import Data.List.Ext using (ι)
-open import Data.List.Properties.Ext using (filter-∘-comm; filter-∘-×; ∈-ι⁺)
+open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.BlockHistory ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
+open import Prelude.STS
+open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[∷ʳ]→∗-split; —[[]]→∗ʳ⇒≡)
+open import Function.Bundles using (_⇔_; mk⇔; Equivalence)
+open import Function.Properties.Equivalence using (⇔-isEquivalence)
+open import Function.Properties.Equivalence.Ext using (≡⇒⇔)
+open import Relation.Unary using (_≐′_; Empty) renaming (_⊆′_ to _⋐′_; _⊇′_ to _⋑′_)
+open import Relation.Unary.Properties using (≐′⇒≐)
+open import Relation.Binary.Structures using (IsEquivalence)
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
+open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness)
+open import Data.List.Properties using (filter-≐)
+open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻)
+open import Data.List.Ext using (ι; undup; count)
+open import Data.List.Properties.Ext using (filter-∘-comm; filter-∘-×; ∈-ι⁺; filter-deduplicate-comm; filter-Empty; count-accept-∷ʳ; count-reject-∷ʳ; count-accept-∷; count-reject-∷; count-Empty; count-none)
+open import Data.List.Properties.Undup using (count-undup)
+open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
+open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs)
+open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (∷⊆⇒∈)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (↭-length)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭)
+
+HonestWinnerAt : Slot → Party → Type _
+HonestWinnerAt sl p = winner p sl × Honest p
+
+HonestWinnerAt? : Decidable² HonestWinnerAt
+HonestWinnerAt? = ¿ HonestWinnerAt ¿²
 
 SuperSlot : Pred Slot 0ℓ
-SuperSlot sl = length (filter (λ p → ¿ winner p sl × Honest p ¿) parties₀) ≡ 1
+SuperSlot sl = length (filter (HonestWinnerAt? sl) parties₀) ≡ 1
 
 SuperBlock : Pred Block 0ℓ
 SuperBlock b = Honest (b .pid) × SuperSlot (b .slot)
@@ -109,3 +143,498 @@ superBlocks⊆honestBlockHistory N rewrite superBlocksAltDef N = begin
   filter ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N)                       ⊆⟨ L.SubS.filter-⊆ _ _ ⟩
   honestBlockHistory N ∎
   where open L.SubS.⊆-Reasoning _
+
+opaque
+
+  unfolding honestBlockMaking corruptBlockMaking count
+
+  open IsEquivalence {ℓ = 0ℓ} ⇔-isEquivalence renaming (refl to ⇔-refl; sym to ⇔-sym; trans to ⇔-trans)
+
+  superBlockOneness :  ∀ {N : GlobalState} →
+      N₀ ↝⋆ N
+    → ForgingFree N
+    → N .progress ≡ blockMade
+    → (length (superBlocksInRange N (N .clock) (1 + N .clock)) ≡ 1) ⇔ SuperSlot (N .clock)
+  superBlockOneness = superBlockOnenessʳ ∘ Star⇒Starʳ
+    where
+      open RTC; open Starʳ
+
+      superBlockOnenessʳ :  ∀ {N : GlobalState} →
+          N₀ ↝⋆ʳ N
+        → ForgingFree N
+        → N .progress ≡ blockMade
+        → (length (superBlocksInRange N (N .clock) (1 + N .clock)) ≡ 1) ⇔ SuperSlot (N .clock)
+      superBlockOnenessʳ {N} (_◅ʳ_ {j = N′} N₀↝⋆ʳN′ N′↝N) ffN NBlockMade = goal N′↝N
+        where
+          N₀↝⋆N′ : N₀ ↝⋆ N′
+          N₀↝⋆N′ = Starʳ⇒Star N₀↝⋆ʳN′
+
+          ffN′ : ForgingFree N′
+          ffN′ = ForgingFreePrev (N′↝N ◅ ε) ffN
+
+          ih :
+              N′ .progress ≡ blockMade
+            →
+              (length (superBlocksInRange N′ (N′ .clock) (1 + N′ .clock)) ≡ 1)
+              ⇔
+              SuperSlot (N′ .clock)
+          ih = superBlockOnenessʳ N₀↝⋆ʳN′ ffN′
+
+          goal :
+              N′ ↝ N
+            →
+              (length (superBlocksInRange N (N .clock) (1 + N .clock)) ≡ 1)
+              ⇔
+              SuperSlot (N .clock)
+          goal (makeBlock {N′ = N″} N′MsgsDelivered N′—[eoN′]↑→∗N″) = subst₂ _⇔_ (sym onesb≡onehw) (sym ss≡onehw) makeBlockGoal
+            where
+              ss≡onehw :
+                SuperSlot (N .clock)
+                ≡
+                (length (filter (HonestWinnerAt? (N′ .clock)) (N′ .execOrder)) ≡ 1)
+              ss≡onehw rewrite
+                   clockPreservation-↑∗ N′—[eoN′]↑→∗N″
+                 | ↭-length $ filter-↭ (HonestWinnerAt? (N′ .clock)) (execOrderPreservation-↭ N₀↝⋆N′)
+                 = refl
+
+              sb≐onehw :
+                (λ b → (N′ .clock ≤ b .slot × b .slot < 1 + N′ .clock) × SuperBlock b)
+                ≐′
+                (λ b → b .slot ≡ N′ .clock × Honest (b .pid) × length (filter (HonestWinnerAt? (N′ .clock)) (N′ .execOrder)) ≡ 1)
+              sb≐onehw = ⊆π , ⊇π
+                where
+                  bₜ≡N′ₜ : ∀ {b} → N′ .clock ≤ b .slot × b .slot < 1 + N′ .clock → b .slot ≡ N′ .clock
+                  bₜ≡N′ₜ (N′ₜ≤bₜ , bₜ<1+N′ₜ) = sym $ Nat.≤-antisym N′ₜ≤bₜ (Nat.≤-pred bₜ<1+N′ₜ)
+
+                  ⊆π :
+                    (λ b → (N′ .clock ≤ b .slot × b .slot < 1 + N′ .clock) × SuperBlock b)
+                    ⋐′
+                    (λ b → b .slot ≡ N′ .clock × Honest (b .pid) × length (filter (HonestWinnerAt? (N′ .clock)) (N′ .execOrder)) ≡ 1)
+                  ⊆π b ((N′ₜ≤bₜ , bₜ<1+N′ₜ) , sbb)
+                    rewrite bₜ≡N′ₜ {b} (N′ₜ≤bₜ , bₜ<1+N′ₜ) =
+                        refl
+                      , sbb .proj₁
+                      , ≡⇒⇔ ss≡onehw .Equivalence.to (subst _ (sym $ clockPreservation-↑∗ N′—[eoN′]↑→∗N″) (sbb .proj₂))
+
+                  ⊇π :
+                    (λ b → (N′ .clock ≤ b .slot × b .slot < 1 + N′ .clock) × SuperBlock b)
+                    ⋑′
+                    (λ b → b .slot ≡ N′ .clock × Honest (b .pid) × length (filter (HonestWinnerAt? (N′ .clock)) (N′ .execOrder)) ≡ 1)
+                  ⊇π b (N′ₜ≤bₜ , bₜ<1+N′ₜ , sbb)
+                    rewrite N′ₜ≤bₜ =
+                        (Nat.≤-refl , Nat.≤-refl)
+                      , bₜ<1+N′ₜ
+                      , (subst _ (clockPreservation-↑∗ N′—[eoN′]↑→∗N″) $ ≡⇒⇔ ss≡onehw .Equivalence.from sbb)
+
+              onesb≡onehw :
+                (length (superBlocksInRange N (N .clock) (1 + N .clock)) ≡ 1)
+                ≡
+                (length (
+                  filter (λ b → ¿
+                      b .slot ≡ N′ .clock
+                    × HonestBlock b
+                    × length (filter (HonestWinnerAt? (N′ .clock)) (N′ .execOrder)) ≡ 1 ¿)
+                    (L.deduplicate _≟_ (blockHistory N))) ≡ 1)
+              onesb≡onehw
+                rewrite
+                  clockPreservation-↑∗ N′—[eoN′]↑→∗N″
+                | sym $ filter-deduplicate-comm {P? = ¿ SuperBlock ¿¹} (blockHistory N)
+                | sym $ filter-∘-× (λ b → ¿ N′ .clock ≤ b .slot × b .slot < 1 + N′ .clock ¿) ¿ SuperBlock ¿¹ (L.deduplicate _≟_ (blockHistory N))
+                | filter-≐ (λ b → ¿ N′ .clock ≤ b .slot × b .slot < 1 + N′ .clock ¿ ×-dec ¿ SuperBlock ¿¹ b) _ (≐′⇒≐ sb≐onehw) (L.deduplicate _≟_ (blockHistory N))
+                = refl
+
+              N″↷↑N″[bM] : N″ ↷↑ record N″ { progress = blockMade }
+              N″↷↑N″[bM] = progress↑ (↷↑-refl)
+
+              N′Uniq : Unique (N′ .execOrder)
+              N′Uniq = execOrderUniqueness N₀↝⋆N′
+
+              N′AllLs : L.All.All (_hasStateIn N′) (N′ .execOrder)
+              N′AllLs = allPartiesHaveLocalState N₀↝⋆N′
+
+              makeBlockGoal :
+                count
+                  (λ b → ¿
+                      b .slot ≡ N′ .clock
+                    × HonestBlock b
+                    × count (HonestWinnerAt? (N′ .clock)) (N′ .execOrder) ≡ 1 ¿)
+                  (L.deduplicate _≟_ (blockHistory N)) ≡ 1
+                ⇔
+                count (HonestWinnerAt? (N′ .clock)) (N′ .execOrder) ≡ 1
+              makeBlockGoal =
+                  makeBlockGoal* (reverseView (N′ .execOrder)) N″↷↑N″[bM] N′Uniq N′AllLs (—[]→∗⇒—[]→∗ʳ N′—[eoN′]↑→∗N″)
+                where
+                  open import Data.List.Reverse
+
+                  makeBlockGoal* : ∀ {N* ps} →
+                      Reverse ps
+                    → N* ↷↑ N
+                    → Unique ps
+                    → L.All.All (_hasStateIn N′) ps
+                    → _ ⊢ N′ —[ ps ]↑→∗ʳ N*
+                    →
+                      count
+                        (λ b → ¿
+                            b .slot ≡ N′ .clock
+                          × HonestBlock b
+                          × count (HonestWinnerAt? (N′ .clock)) ps ≡ 1 ¿)
+                        (L.deduplicate _≟_ (blockHistory N*)) ≡ 1
+                      ⇔
+                      count (HonestWinnerAt? (N′ .clock)) ps ≡ 1
+                  makeBlockGoal* {N* = N*} [] _ _ _ _ = goal-[]
+                    where
+                      P : Pred Block 0ℓ
+                      P = λ b → slot b ≡ clock N′ × HonestBlock b × length {A = Block} [] ≡ 1
+
+                      EmptyP : Empty P
+                      EmptyP _ (_ , _ , 0≡1) = contradiction 0≡1 λ ()
+
+                      goal-[] :
+                        count ¿ P ¿¹ (L.deduplicate _≟_ (blockHistory N*)) ≡ 1
+                        ⇔
+                        length {A = Block} [] ≡ 1
+                      goal-[] rewrite filter-Empty ¿ P ¿¹ EmptyP (L.deduplicate _≟_ (blockHistory N*)) = ⇔-refl
+                  makeBlockGoal* {N* = N*} (ps′ ∶ ps′r ∶ʳ p′) N*↷↑N ps′∷ʳp′Uniq ps′∷ʳp′AllLs ts*
+                    with —[∷ʳ]→∗-split (—[]→∗ʳ⇒—[]→∗ ts*)
+                  ... | N‴ , ts⁺′ , ts = goal-∷ʳ ts
+                    where
+                      ts⁺ : _ ⊢ N′ —[ ps′ ]↑→∗ʳ N‴
+                      ts⁺ = —[]→∗⇒—[]→∗ʳ ts⁺′
+
+                      ps′Uniq : Unique ps′
+                      ps′Uniq = headʳ ps′∷ʳp′Uniq
+
+                      p′∉ps′ : p′ ∉ ps′
+                      p′∉ps′ = Unique[xs∷ʳx]⇒x∉xs ps′∷ʳp′Uniq
+
+                      ps′AllLs : L.All.All (_hasStateIn N′) ps′
+                      ps′AllLs = L.All.∷ʳ⁻ ps′∷ʳp′AllLs .proj₁
+
+                      p′HasLs : p′ hasStateIn N′
+                      p′HasLs = L.All.∷ʳ⁻ ps′∷ʳp′AllLs .proj₂
+
+                      P : Pred Block 0ℓ
+                      P = λ b →
+                              b .slot ≡ N′ .clock
+                            × HonestBlock b
+                            × count (HonestWinnerAt? (N′ .clock)) ps′ ≡ 1
+
+                      ih* :
+                        count ¿ P ¿¹ (L.deduplicate _≟_ (blockHistory N‴)) ≡ 1
+                        ⇔
+                        count (HonestWinnerAt? (N′ .clock)) ps′ ≡ 1
+                      ih* = makeBlockGoal* {N* = N‴} ps′r (blockMaking↑ ts N*↷↑N) ps′Uniq ps′AllLs ts⁺
+
+                      goal-∷ʳ : _ ⊢ N‴ —[ p′ ]↑→ N* →
+                        count
+                          (λ b → ¿
+                               b .slot ≡ N′ .clock
+                             × HonestBlock b
+                             × count (HonestWinnerAt? (N′ .clock)) (ps′ L.∷ʳ p′) ≡ 1 ¿)
+                        (L.deduplicate _≟_ (blockHistory N*)) ≡ 1
+                        ⇔
+                        count (HonestWinnerAt? (N′ .clock)) (ps′ L.∷ʳ p′) ≡ 1
+                      goal-∷ʳ ts
+                        with HonestWinnerAt? (N′ .clock) p′
+                      ... | yes hwp′@(wp′ , hp′)
+                        rewrite
+                          count-accept-∷ʳ (HonestWinnerAt? (N′ .clock)) {xs = ps′} hwp′
+                          = goal-∷ʳ-hwp′ ts
+                        where
+                          p′HasLsInN* : p′ hasStateIn N*
+                          p′HasLsInN* = hasState⇔-↑∗ ts⁺′ ts .Equivalence.to p′HasLs
+
+                          ls′ : LocalState
+                          ls′ = M.to-witness p′HasLsInN*
+
+                          ls′π : N* .states ⁉ p′ ≡ just ls′
+                          ls′π = Is-just⇒to-witness p′HasLsInN*
+
+                          wp′N‴ : winner p′ (N‴ .clock)
+                          wp′N‴ = subst (winner p′) (sym $ clockPreservation-↑∗ ts⁺′) wp′
+
+                          goal-∷ʳ-hwp′ : _ ⊢ N‴ —[ p′ ]↑→ N* →
+                            count
+                              (λ b → ¿
+                                   b .slot ≡ N′ .clock
+                                 × HonestBlock b
+                                 × 1 + count (HonestWinnerAt? (N′ .clock)) ps′ ≡ 1 ¿)
+                            (L.deduplicate _≟_ (blockHistory N*)) ≡ 1
+                            ⇔
+                            1 + count (HonestWinnerAt? (N′ .clock)) ps′ ≡ 1
+                          goal-∷ʳ-hwp′ ts with count (HonestWinnerAt? (N′ .clock)) ps′ in cnthw≡
+                          ... | suc n = goal-∷ʳ-hwp′-sn
+                            where
+                              P′ : Pred Block 0ℓ
+                              P′ = λ b → b .slot ≡ N′ .clock × Honest (b .pid) × 1 + suc n ≡ 1
+
+                              EmptyP′ : Empty P′
+                              EmptyP′ _ (_ , _ , ssn≡1) = contradiction ssn≡1 λ ()
+
+                              goal-∷ʳ-hwp′-sn :
+                                count ¿ P′ ¿¹ (L.deduplicate _≟_ (blockHistory N*)) ≡ 1
+                                ⇔
+                                1 + suc n ≡ 1
+                              goal-∷ʳ-hwp′-sn
+                                rewrite
+                                  count-Empty ¿ P′ ¿¹ EmptyP′ (L.deduplicate _≟_ (blockHistory N*))
+                                = mk⇔ (λ ()) λ ()
+                          ... | 0 with ts
+                          ... |   unknownParty↑ ls′≡◇ = contradiction ls′≡◇ ls′≢◇
+                            where
+                              ls′≢◇ : N* .states ⁉ p′ ≢ nothing
+                              ls′≢◇ rewrite ls′π = flip contradiction λ ()
+                          ... |   honestParty↑ {ls = ls} lsπ hp′π
+                                rewrite
+                                  sym $ count-undup ¿ (λ b → b .slot ≡ N′ .clock × HonestBlock b × 1 ≡ 1) ¿¹ (blockHistory N*)
+                                | dec-yes ¿ winner p′ (N‴ .clock) ¿ wp′N‴ .proj₂
+                                | clockPreservation-↑∗ ts⁺′
+                                = goal-∷ʳ-hwp′-0-h
+                            where
+                              P′ : Pred Block 0ℓ
+                              P′ = λ b → b .slot ≡ N′ .clock × HonestBlock b × 1 ≡ 1
+
+                              cnt≡0 : count ¿ P′ ¿¹ (undup (blockHistory N‴)) ≡ 0
+                              cnt≡0 = cnt≡0* (reverseView ps′) ¬hwps′ (blockMaking↑ ts N*↷↑N) ts⁺
+                                where
+                                  ¬hwps′ : L.All.All (¬_ ∘  HonestWinnerAt (N′ .clock)) ps′
+                                  ¬hwps′ = count-none (HonestWinnerAt? (N′ .clock)) cnthw≡
+
+                                  cnt≡0* : ∀ {N⁺ ps⁺} →
+                                      Reverse ps⁺
+                                    → L.All.All (¬_ ∘  HonestWinnerAt (N′ .clock)) ps⁺
+                                    → N⁺ ↷↑ N
+                                    → _ ⊢ N′ —[ ps⁺ ]↑→∗ʳ N⁺
+                                    → count ¿ P′ ¿¹ (undup (blockHistory N⁺)) ≡ 0
+                                  cnt≡0* {N⁺} [] _ _ ts⁺ = cnt≡0*-[]* {bs† = blockHistory N⁺} nphb
+                                    where
+                                      nphb : L.All.All ((_< N′ .clock) ∘ slot) (L.filter ¿ HonestBlock ¿¹ (blockHistory N⁺))
+                                      nphb rewrite sym $ —[[]]→∗ʳ⇒≡ ts⁺ = noPrematureHonestBlocksAt↓ N₀↝⋆N′ ffN′ N′MsgsDelivered
+
+                                      cnt≡0*-[]* : ∀ {bs†} →
+                                          L.All.All ((_< N′ .clock) ∘ slot) (L.filter ¿ HonestBlock ¿¹ bs†)
+                                        → count ¿ P′ ¿¹ (undup bs†) ≡ 0
+                                      cnt≡0*-[]* {[]} _ = refl
+                                      cnt≡0*-[]* {b† ∷ bs†} π with ¿ HonestBlock b† ¿
+                                      ... | yes hb† with ¿ b† ∈ bs† ¿
+                                      ... |   yes b†∈bs† = cnt≡0*-[]* {bs†} (L.All.tail π)
+                                      ... |   no  b†∉bs† with b† .slot ≟ N′ .clock
+                                      ... |     yes b†ₜ≡N′ₜ = contradiction (subst (_< N′ .clock) b†ₜ≡N′ₜ b†ₜ<N′ₜ) (Nat.<-irrefl refl)
+                                        where
+                                          b†ₜ<N′ₜ : b† .slot < N′ .clock
+                                          b†ₜ<N′ₜ rewrite hb† = L.All.head π
+                                      ... |     no  b†ₜ≢N′ₜ
+                                                  rewrite
+                                                    count-reject-∷ ¿ P′ ¿¹ {x = b†} {xs = undup bs†}
+                                                      (flip contradiction b†ₜ≢N′ₜ ∘ proj₁)
+                                                  = cnt≡0*-[]* {bs†} (L.All.tail π)
+                                      cnt≡0*-[]* {b† ∷ bs†} π
+                                          | no ¬hb† with ¿ b† ∈ bs† ¿
+                                      ... |   yes b†∈bs† = cnt≡0*-[]* {bs†} π
+                                      ... |   no  b†∉bs†
+                                                rewrite
+                                                 count-reject-∷ ¿ P′ ¿¹ {x = b†} {xs = undup bs†}
+                                                   (flip contradiction ¬hb† ∘ proj₁ ∘ proj₂)
+                                                = cnt≡0*-[]* {bs†} π
+                                  cnt≡0* {N⁺} (ps⁺ ∶ rps⁺ ∶ʳ p⁺) ¬hw[ps⁺+p⁺] N⁺↷↑N ts⁺
+                                    with —[∷ʳ]→∗-split (—[]→∗ʳ⇒—[]→∗ ts⁺)
+                                  ... | N† , ts†′ , ts = cnt≡0*-∷ʳ ts
+                                    where
+                                      ts† : _ ⊢ N′ —[ ps⁺ ]↑→∗ʳ N†
+                                      ts† = —[]→∗⇒—[]→∗ʳ ts†′
+
+                                      ¬hwps⁺ : L.All.All (¬_ ∘ HonestWinnerAt (N′ .clock)) ps⁺
+                                      ¬hwps⁺ = L.All.∷ʳ⁻ ¬hw[ps⁺+p⁺] .proj₁
+
+                                      ¬hwp⁺ : ¬ HonestWinnerAt (N′ .clock) p⁺
+                                      ¬hwp⁺ = L.All.∷ʳ⁻ ¬hw[ps⁺+p⁺] .proj₂
+
+                                      ih⁺ : count ¿ P′ ¿¹ (undup (blockHistory N†)) ≡ 0
+                                      ih⁺ = cnt≡0* {N†} rps⁺ ¬hwps⁺ (blockMaking↑ ts N⁺↷↑N) ts†
+
+                                      cnt≡0*-∷ʳ :
+                                           _ ⊢ N† —[ p⁺ ]↑→ N⁺
+                                        → count ¿ P′ ¿¹ (undup (blockHistory N⁺)) ≡ 0
+                                      cnt≡0*-∷ʳ (unknownParty↑ _) = ih⁺
+                                      cnt≡0*-∷ʳ (honestParty↑ {ls = ls} lsπ hp⁺π) = cnt≡0*-∷ʳ-h
+                                        where
+                                          eqMakeBlockʰ :
+                                            makeBlockʰ (N† .clock) (txSelection (N† .clock) p⁺) p⁺ ls
+                                            ≡
+                                            makeBlockʰ (N′ .clock) (txSelection (N′ .clock) p⁺) p⁺ ls
+                                          eqMakeBlockʰ rewrite sym $ clockPreservation-↑∗ ts†′ = refl
+
+                                          ¬wp⁺ : ¬ winner p⁺ (N′ .clock)
+                                          ¬wp⁺ rewrite clockPreservation-↑ ts = ¬[p×q]×q⇒¬p ¬hwp⁺ hp⁺π
+
+                                          cnt≡0*-∷ʳ-h : count ¿ P′ ¿¹ (undup (blockHistory (honestBlockMaking p⁺ ls N†))) ≡ 0
+                                          cnt≡0*-∷ʳ-h rewrite eqMakeBlockʰ | dec-no (winnerᵈ .dec) ¬wp⁺ = ih⁺
+                                      cnt≡0*-∷ʳ (corruptParty↑ _ _) = cnt≡0*-∷ʳ-c
+                                        where
+                                          mds : List (Message × DelayMap)
+                                          mds = makeBlockᶜ (N′ .clock) (N† .history) (N† .messages) (N† .advState) .proj₁
+
+                                          eqMakeBlockᶜ :
+                                            makeBlockᶜ (N† .clock) (N† .history) (N† .messages) (N† .advState) .proj₁
+                                            ≡
+                                            mds
+                                          eqMakeBlockᶜ rewrite sym $ clockPreservation-↑∗ ts†′ = refl
+
+                                          sub : L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N†
+                                          sub rewrite sym eqMakeBlockᶜ = ffN .proj₂ (blockMaking↑ ts N⁺↷↑N)
+
+                                          cnt≡0*-∷ʳ-c : count ¿ P′ ¿¹ (undup (blockHistory (corruptBlockMaking p⁺ N†))) ≡ 0
+                                          cnt≡0*-∷ʳ-c
+                                            rewrite
+                                              eqMakeBlockᶜ
+                                            | sym $ count-undup ¿ P′ ¿¹ (blockHistory (broadcastMsgsᶜ mds N†))
+                                            | sym $ count-undup ¿ P′ ¿¹ (blockHistory N†)
+                                            = cnt≡0*-∷ʳ-c-* {mds} sub
+                                            where
+                                              cnt≡0*-∷ʳ-c-* : ∀ {mds} →
+                                                L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N†
+                                                →
+                                                count ¿ P′ ¿¹ (undup (blockHistory (broadcastMsgsᶜ mds N†))) ≡ 0
+                                              cnt≡0*-∷ʳ-c-* {[]} _ = ih⁺
+                                              cnt≡0*-∷ʳ-c-* {(m , _) ∷ mds} sub
+                                                with bᵐ ← projBlock m
+                                                  | ¿ HonestBlock bᵐ ¿ | ¿ bᵐ ∈ blockHistory (broadcastMsgsᶜ mds N†) ¿
+                                              ... | yes hbᵐ  | yes bᵐ∈bhN†ᶜ = cnt≡0*-∷ʳ-c-* {mds} sub′
+                                                where
+                                                   sub′ : L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N†
+                                                   sub′ = L.SubS.⊆-trans (L.SubS.xs⊆x∷xs _ bᵐ) sub
+                                              ... | yes hbᵐ  | no  bᵐ∉bhN†ᶜ = contradiction bᵐ∈bhN†ᶜ bᵐ∉bhN†ᶜ
+                                                where
+                                                  bᵐ∈bhN† : bᵐ ∈ blockHistory N†
+                                                  bᵐ∈bhN† = L.SubS.filter-⊆ ¿ HonestBlock ¿¹ (blockHistory N†) $ ∷⊆⇒∈ sub
+
+                                                  bᵐ∈bhN†ᶜ : bᵐ ∈ blockHistory (broadcastMsgsᶜ mds N†)
+                                                  bᵐ∈bhN†ᶜ = blockHistoryPreservation-broadcastMsgsᶜ mds N† bᵐ∈bhN†
+                                              ... | no _     | yes bᵐ∈bhN†ᶜ = cnt≡0*-∷ʳ-c-* {mds} sub
+                                              ... | no ¬hbᵐ  | no  bᵐ∉bhN†ᶜ
+                                                rewrite
+                                                  count-reject-∷ ¿ P′ ¿¹ {x = bᵐ} {xs = undup (blockHistory (broadcastMsgsᶜ mds N†))}
+                                                    λ where (_ , hbᵐ , _) → contradiction hbᵐ ¬hbᵐ
+                                                = cnt≡0*-∷ʳ-c-* {mds} sub
+
+                              best : Chain
+                              best = bestChain (N′ .clock  ∸ 1) (ls .tree)
+
+                              nb : Block
+                              nb = mkBlock (hash (tip best)) (N′ .clock) (txSelection (N′ .clock) p′) p′
+
+                              goal-∷ʳ-hwp′-0-h :
+                                count ¿ P′ ¿¹ (undup (nb ∷ blockHistory N‴)) ≡ 1
+                                ⇔
+                                1 ≡ 1
+                              goal-∷ʳ-hwp′-0-h with ¿ nb ∈ blockHistory N‴ ¿
+                              ... | yes nb∈bhN‴ = goal-∷ʳ-hwp′-0-h-* cnt≡0 nb∈bhN‴
+                                where
+                                  goal-∷ʳ-hwp′-0-h-* : ∀ {bs*} →
+                                      count ¿ P′ ¿¹ (undup bs*) ≡ 0
+                                    → nb ∈ bs*
+                                    → count ¿ P′ ¿¹ (undup bs*) ≡ 1
+                                      ⇔
+                                      1 ≡ 1
+                                  goal-∷ʳ-hwp′-0-h-* {[]} cnt≡0 nb∈[] = contradiction nb∈[] λ ()
+                                  goal-∷ʳ-hwp′-0-h-* {b* ∷ bs*} cnt≡0 nb∈b*∷bs* with ∈-∷⁻ nb∈b*∷bs*
+                                  ... | inj₂ nb∈bs* with ¿ b* ∈ bs* ¿
+                                  ... |   yes b*∈bs* = goal-∷ʳ-hwp′-0-h-* {bs*} cnt≡0 nb∈bs*
+                                  ... |   no  b*∉bs* with ¿ P′ b* ¿
+                                  ... |     yes P′b*
+                                              rewrite
+                                                count-accept-∷ ¿ P′ ¿¹ {x = b*} {xs = undup bs*} P′b*
+                                              = contradiction cnt≡0 λ ()
+                                  ... |     no ¬P′b* with ¬-distrib-×-dec ¬P′b*
+                                  ... |       inj₁ b*ₜ≢N′ₜ
+                                                rewrite count-reject-∷ ¿ P′ ¿¹ {x = b*} {xs = undup bs*}
+                                                  (flip contradiction b*ₜ≢N′ₜ ∘ proj₁)
+                                                = goal-∷ʳ-hwp′-0-h-* {bs*} cnt≡0 nb∈bs*
+                                  ... |       inj₂ ¬hb*
+                                                rewrite count-reject-∷ ¿ P′ ¿¹ {x = b*} {xs = undup bs*}
+                                                  (flip contradiction ¬hb* ∘ proj₂)
+                                                = goal-∷ʳ-hwp′-0-h-* {bs*} cnt≡0 nb∈bs*
+                                  goal-∷ʳ-hwp′-0-h-* {b* ∷ bs*} cnt≡0 nb∈b*∷bs*
+                                      | inj₁ nb≡b* rewrite sym nb≡b* with ¿ nb ∈ bs* ¿
+                                  ... |   yes nb∈bs* = goal-∷ʳ-hwp′-0-h-* {bs*} cnt≡0 nb∈bs*
+                                  ... |   no  nb∉bs* = contradiction cnt≡0 λ ()
+                              ... | no nb∉bhN‴
+                                rewrite
+                                  dec-no ¿ nb ∈ blockHistory N‴ ¿ nb∉bhN‴
+                                | count-accept-∷ ¿ P′ ¿¹ {x = nb} {xs = undup (blockHistory N‴)} (refl , hp′ , refl)
+                                | cnt≡0
+                                = ⇔-refl
+                          ... |   corruptParty↑ _ cp′π = contradiction hp′ $ corrupt⇒¬honest cp′π
+                      ... | no ¬hwp′ rewrite count-reject-∷ʳ (HonestWinnerAt? (N′ .clock)) {xs = ps′} ¬hwp′
+                          with ts
+                      ... |   unknownParty↑ _ = ih*
+                      ... |   honestParty↑ {ls = ls} lsπ hp′π = ⇔-trans goal-∷ʳ-h¬wp′ ih*
+                        where
+                          eqMakeBlockʰ :
+                            makeBlockʰ (N‴ .clock) (txSelection (N‴ .clock) p′) p′ ls
+                            ≡
+                            makeBlockʰ (N′ .clock) (txSelection (N′ .clock) p′) p′ ls
+                          eqMakeBlockʰ rewrite sym $ clockPreservation-↑∗ ts⁺′ = refl
+
+                          ¬wp′ : ¬ winner p′ (N′ .clock)
+                          ¬wp′ rewrite clockPreservation-↑ ts = ¬[p×q]×q⇒¬p ¬hwp′ hp′π
+
+                          goal-∷ʳ-h¬wp′ :
+                            count ¿ P ¿¹ (L.deduplicate _≟_ (blockHistory (honestBlockMaking p′ ls N‴))) ≡ 1
+                            ⇔
+                            count ¿ P ¿¹ (L.deduplicate _≟_ (blockHistory N‴)) ≡ 1
+                          goal-∷ʳ-h¬wp′ rewrite eqMakeBlockʰ | dec-no (winnerᵈ .dec) ¬wp′ = ⇔-refl
+                      ... |   corruptParty↑ _ _ = ⇔-trans goal-∷ʳ-c¬wp′ ih*
+                        where
+                          mds : List (Message × DelayMap)
+                          mds = makeBlockᶜ (N′ .clock) (N‴ .history) (N‴ .messages) (N‴ .advState) .proj₁
+
+                          eqMakeBlockᶜ :
+                            makeBlockᶜ (N‴ .clock) (N‴ .history) (N‴ .messages) (N‴ .advState) .proj₁
+                            ≡
+                            mds
+                          eqMakeBlockᶜ rewrite sym $ clockPreservation-↑∗ ts⁺′ = refl
+
+                          sub : L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N‴
+                          sub rewrite sym eqMakeBlockᶜ = ffN .proj₂ (blockMaking↑ ts N*↷↑N)
+
+                          goal-∷ʳ-c¬wp′ :
+                            count ¿ P ¿¹ (L.deduplicate _≟_ (blockHistory (corruptBlockMaking p′ N‴))) ≡ 1
+                            ⇔
+                            count ¿ P ¿¹ (L.deduplicate _≟_ (blockHistory N‴)) ≡ 1
+                          goal-∷ʳ-c¬wp′
+                            rewrite
+                              eqMakeBlockᶜ
+                            | sym $ count-undup ¿ P ¿¹ (blockHistory (broadcastMsgsᶜ mds N‴))
+                            | sym $ count-undup ¿ P ¿¹ (blockHistory N‴)
+                            = goal-∷ʳ-c¬wp′-* {mds} sub
+                            where
+                              goal-∷ʳ-c¬wp′-* : ∀ {mds} →
+                                L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N‴
+                                →
+                                count ¿ P ¿¹ (undup (blockHistory (broadcastMsgsᶜ mds N‴))) ≡ 1
+                                ⇔
+                                count ¿ P ¿¹ (undup (blockHistory N‴)) ≡ 1
+                              goal-∷ʳ-c¬wp′-* {[]} _ = ⇔-refl
+                              goal-∷ʳ-c¬wp′-* {(m , _) ∷ mds} sub
+                                with bᵐ ← projBlock m
+                                  | ¿ HonestBlock bᵐ ¿ | ¿ bᵐ ∈ blockHistory (broadcastMsgsᶜ mds N‴) ¿
+                              ... | yes hbᵐ  | yes bᵐ∈bhN‴ᶜ = goal-∷ʳ-c¬wp′-* {mds} sub′
+                                where
+                                   sub′ : L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N‴
+                                   sub′ = L.SubS.⊆-trans (L.SubS.xs⊆x∷xs _ bᵐ) sub
+                              ... | yes hbᵐ  | no  bᵐ∉bhN‴ᶜ = contradiction bᵐ∈bhN‴ᶜ bᵐ∉bhN‴ᶜ
+                                where
+                                  bᵐ∈bhN‴ : bᵐ ∈ blockHistory N‴
+                                  bᵐ∈bhN‴ = L.SubS.filter-⊆ ¿ HonestBlock ¿¹ (blockHistory N‴) $ ∷⊆⇒∈ sub
+
+                                  bᵐ∈bhN‴ᶜ : bᵐ ∈ blockHistory (broadcastMsgsᶜ mds N‴)
+                                  bᵐ∈bhN‴ᶜ = blockHistoryPreservation-broadcastMsgsᶜ mds N‴ bᵐ∈bhN‴
+                              ... | no _     | yes bᵐ∈bhN‴ᶜ = goal-∷ʳ-c¬wp′-* {mds} sub
+                              ... | no ¬hbᵐ  | no  bᵐ∉bhN‴ᶜ
+                                rewrite
+                                  count-reject-∷ ¿ P ¿¹ {x = bᵐ} {xs = undup (blockHistory (broadcastMsgsᶜ mds N‴))}
+                                    λ where (_ , hbᵐ , _) → contradiction hbᵐ ¬hbᵐ
+                                  = goal-∷ʳ-c¬wp′-* {mds} sub
+          goal (permuteParties _) = ih NBlockMade
+          goal (permuteMsgs    _) = ih NBlockMade

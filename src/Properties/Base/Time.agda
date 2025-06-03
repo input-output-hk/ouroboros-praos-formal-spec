@@ -9,9 +9,12 @@ module Properties.Base.Time
   where
 
 open import Protocol.Prelude
+open import Protocol.Block ⦃ params ⦄
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
+open import Properties.Base.ForgingFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
+open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_)
 open import Data.List.Properties.Ext using (foldr-preservesʳ')
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ)
@@ -104,3 +107,32 @@ rewindToReady = {!!}
   → N .progress ≡ msgsDelivered
   → ∃[ N′ ] N₀ ↝⋆ N′ × N′ ↝⋆⟨ 0 ⟩ N × N′ .progress ≡ ready
 ∃ReadyBeforeMsgsDelivered = {!!}
+
+noPrematureHonestBlocksAtReady : ∀ {N : GlobalState} →
+    N₀ ↝⋆ N
+  → ForgingFree N
+  → N .progress ≡ ready
+  → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
+noPrematureHonestBlocksAtReady = {!!}
+
+noPrematureHonestBlocksAt↓ : ∀ {N : GlobalState} →
+    N₀ ↝⋆ N
+  → ForgingFree N
+  → N .progress ≡ msgsDelivered
+  → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
+noPrematureHonestBlocksAt↓ = {!!}
+
+noPrematureHonestBlocks : ∀ {N : GlobalState} →
+    N₀ ↝⋆ N
+  → ForgingFree N
+  → L.All.All ((_≤ N .clock) ∘ slot) (honestBlockHistory N)
+noPrematureHonestBlocks = {!!}
+
+honestBlocksBelowSlotPreservation : ∀ {N N′ : GlobalState} →
+    N₀ ↝⋆ N
+  → N ↝⋆ N′
+  → ForgingFree N′
+  → filter ((_<? N .clock) ∘ slot) (honestBlockHistory N)
+    ≡ˢ
+    filter ((_<? N .clock) ∘ slot) (honestBlockHistory N′)
+honestBlocksBelowSlotPreservation = {!!}
