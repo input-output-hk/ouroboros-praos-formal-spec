@@ -29,3 +29,22 @@ open import Prelude.STS public
 dec-de-morgan₂ : ∀ {P Q : Type} → ⦃ P ⁇ ⦄ → ¬ P ⊎ ¬ Q → ¬ (P × Q)
 dec-de-morgan₂ (inj₁ ¬p) (p , _) = ¬p p
 dec-de-morgan₂ (inj₂ ¬q) (_ , q) = ¬q q
+
+¬-×-comm : ∀ {P Q : Type} → ¬ (P × Q) → ¬ (Q × P)
+¬-×-comm ¬[p×q] q×p = ¬[p×q] $ ×-comm _ _ .Inverse.to q×p
+  where
+    open import Data.Product.Algebra using (×-comm)
+    open import Function.Bundles using (Inverse)
+
+¬-distrib-×-dec : ∀ {P Q : Type} → ⦃ P ⁇ ⦄ → ¬ (P × Q) → ¬ P ⊎ ¬ Q
+¬-distrib-×-dec {P} ¬[p×q] with ¿ P ¿
+... | yes p = inj₂ λ q → ¬[p×q] (p , q)
+... | no ¬p = inj₁ ¬p
+
+¬[p×q]×p⇒¬q : ∀ {P Q : Type} → ⦃ P ⁇ ⦄ → ¬ (P × Q) → P → ¬ Q
+¬[p×q]×p⇒¬q ¬[p×q] p with ¬-distrib-×-dec ¬[p×q]
+... | inj₁ ¬p = contradiction p ¬p
+... | inj₂ ¬q = ¬q
+
+¬[p×q]×q⇒¬p : ∀ {P Q : Type} → ⦃ Q ⁇ ⦄ → ¬ (P × Q) → Q → ¬ P
+¬[p×q]×q⇒¬p = ¬[p×q]×p⇒¬q ∘ ¬-×-comm

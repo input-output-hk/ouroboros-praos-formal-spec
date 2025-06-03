@@ -55,35 +55,6 @@ open import Function.Bundles
   → c ≡ c′
 ≡tips⇒≡chains = {!!}
 
-noPrematureHonestBlocksAtReady : ∀ {N : GlobalState} →
-    N₀ ↝⋆ N
-  → ForgingFree N
-  → N .progress ≡ ready
-  → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
-noPrematureHonestBlocksAtReady = {!!}
-
-noPrematureHonestBlocksAt↓ : ∀ {N : GlobalState} →
-    N₀ ↝⋆ N
-  → ForgingFree N
-  → N .progress ≡ msgsDelivered
-  → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
-noPrematureHonestBlocksAt↓ = {!!}
-
-noPrematureHonestBlocks : ∀ {N : GlobalState} →
-    N₀ ↝⋆ N
-  → ForgingFree N
-  → L.All.All ((_≤ N .clock) ∘ slot) (honestBlockHistory N)
-noPrematureHonestBlocks = {!!}
-
-honestBlocksBelowSlotPreservation : ∀ {N N′ : GlobalState} →
-    N₀ ↝⋆ N
-  → N ↝⋆ N′
-  → ForgingFree N′
-  → filter ((_<? N .clock) ∘ slot) (honestBlockHistory N)
-    ≡ˢ
-    filter ((_<? N .clock) ∘ slot) (honestBlockHistory N′)
-honestBlocksBelowSlotPreservation = {!!}
-
 opaque
 
   unfolding honestBlockMaking corruptBlockMaking
@@ -1010,7 +981,7 @@ opaque
                       eoSb = trans (sym $ ↭-length (filter-↭ _ (execOrderPreservation-↭ N₀↝⋆N′))) sbHasSuperSlot
 
                       makeBlockGoal-sbₜ≡Nₜ : ∀ {N*} ps →
-                          L.All.All (M.Is-just ∘ (N′ .states ⁉_)) ps
+                          L.All.All (_hasStateIn N′) ps
                         → length (filter (λ p → ¿ winner p (sb .slot) × Honest p ¿) ps) ≡ 1
                         → N* ↷↑ N
                         → CollisionFree N*
@@ -1037,10 +1008,10 @@ opaque
                           ps′∷ʳp′Sb : length (filter (λ p → ¿ winner p (sb .slot) × Honest p ¿) (ps′ L.∷ʳ p′)) ≡ 1
                           ps′∷ʳp′Sb = subst (λ ◆ → length (filter (λ p → ¿ winner p (sb .slot) × Honest p ¿) ◆) ≡ 1) eq p∷psSb
 
-                          ps′∷ʳp′Lss : L.All.All (M.Is-just ∘ (N′ .states ⁉_)) (ps′ L.∷ʳ p′)
-                          ps′∷ʳp′Lss = subst (L.All.All (M.Is-just ∘ (N′ .states ⁉_))) eq p∷psLss
+                          ps′∷ʳp′Lss : L.All.All (_hasStateIn N′) (ps′ L.∷ʳ p′)
+                          ps′∷ʳp′Lss = subst (L.All.All (_hasStateIn N′)) eq p∷psLss
 
-                          ps′Lss : L.All.All (M.Is-just ∘ (N′ .states ⁉_)) ps′
+                          ps′Lss : L.All.All (_hasStateIn N′) ps′
                           ps′Lss = L.All.∷ʳ⁻ ps′∷ʳp′Lss .proj₁
 
                           N‴ₜ≡N′ₜ : N‴ .clock ≡ N′ .clock
@@ -1118,7 +1089,7 @@ opaque
                               hbhN′≡hbhN‴ = hbhN′≡hbhN‴† ps′ ps′Lss ps′Uniq (blockMaking↑ ts prfN) ps′Sb ts⋆
                                 where
                                   hbhN′≡hbhN‴† : ∀ {N**} ps′ →
-                                      L.All.All (M.Is-just ∘ (N′ .states ⁉_)) ps′
+                                      L.All.All (_hasStateIn N′) ps′
                                     → Unique ps′
                                     → N** ↷↑ N
                                     → length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) ps′) ≡ 0
@@ -1136,10 +1107,10 @@ opaque
                                       p″∉ps″ : p″ ∉ ps″
                                       p″∉ps″ = Unique[xs∷ʳx]⇒x∉xs ps″∷ʳp″Uniq
 
-                                      ps″∷ʳp″Lss : L.All.All (M.Is-just ∘ (N′ .states ⁉_)) (ps″ L.∷ʳ p″)
-                                      ps″∷ʳp″Lss = subst (L.All.All (M.Is-just ∘ (N′ .states ⁉_))) eq p∷psLss
+                                      ps″∷ʳp″Lss : L.All.All (_hasStateIn N′) (ps″ L.∷ʳ p″)
+                                      ps″∷ʳp″Lss = subst (L.All.All (_hasStateIn N′)) eq p∷psLss
 
-                                      ps″Lss : L.All.All (M.Is-just ∘ (N′ .states ⁉_)) ps″
+                                      ps″Lss : L.All.All (_hasStateIn N′) ps″
                                       ps″Lss = L.All.∷ʳ⁻ ps″∷ʳp″Lss .proj₁
 
                                       ps″∷ʳp″Sb : length (filter (λ p → ¿ winner p (N′ .clock) × Honest p ¿) (ps″ L.∷ʳ p″)) ≡ 0

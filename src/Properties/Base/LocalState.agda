@@ -14,6 +14,9 @@ open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Function.Bundles using (_⇔_)
 
+_hasStateIn_ : REL Party GlobalState 0ℓ
+p hasStateIn N = M.Is-just (N .states ⁉ p)
+
 opaque
 
   unfolding honestMsgsDelivery honestBlockMaking
@@ -24,8 +27,16 @@ opaque
   localStatePreservation-broadcastMsgsᶜ {N} {md ∷ mds} rewrite localStatePreservation-broadcastMsgsᶜ {N} {mds} = refl
 
   localStatePreservation-∉-↑∗ : ∀ {N N′ : GlobalState} {ps : List Party} {p : Party} →
-    p ∉ ps → _ ⊢ N —[ ps ]↑→∗ N′ → N′ .states ⁉ p ≡ N .states ⁉ p
+      p ∉ ps
+    → _ ⊢ N —[ ps ]↑→∗ N′
+    → N′ .states ⁉ p ≡ N .states ⁉ p
   localStatePreservation-∉-↑∗ = {!!}
+
+  hasState⇔-↑∗ : ∀ {N N′ N″ : GlobalState} {ps : List Party} {p : Party} →
+      _ ⊢ N —[ ps ]↑→∗ N′
+    → _ ⊢ N′ —[ p ]↑→ N″
+    → p hasStateIn N ⇔ p hasStateIn N″
+  hasState⇔-↑∗ = {!!}
 
   localStatePreservation-∈-↑∗ : ∀ {N N′ N″ : GlobalState} {p : Party} →
       N₀ ↝⋆ N
@@ -42,23 +53,23 @@ opaque
   localStatePreservation-↓∗ = {!!}
 
   localStatePrev-↓ :  ∀ {N N′ : GlobalState} {p : Party} →
-      M.Is-just (N′ .states ⁉ p)
+      p hasStateIn N′
     → _ ⊢ N —[ p ]↓→ N′
-    → M.Is-just (N .states ⁉ p)
+    → p hasStateIn N
   localStatePrev-↓ = {!!}
 
 allPartiesHaveLocalState : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
-  → L.All.All (M.Is-just ∘ (N .states ⁉_)) (N .execOrder)
+  → L.All.All (_hasStateIn N) (N .execOrder)
 allPartiesHaveLocalState = {!!}
 
 hasState⇔∈parties₀ : ∀ {N : GlobalState} {p : Party} →
     N₀ ↝⋆ N
-  → M.Is-just (N .states ⁉ p) ⇔ p ∈ parties₀
+  → p hasStateIn N ⇔ p ∈ parties₀
 hasState⇔∈parties₀ = {!!}
 
 hasState⇒∈execOrder : ∀ {N : GlobalState} {p : Party} →
     N₀ ↝⋆ N
-  → M.Is-just (N .states ⁉ p)
+  → p hasStateIn N
   → p ∈ N .execOrder
 hasState⇒∈execOrder = {!!}
