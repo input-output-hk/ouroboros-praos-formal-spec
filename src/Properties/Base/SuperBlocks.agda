@@ -28,22 +28,25 @@ open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→�
 open import Function.Bundles using (_⇔_; mk⇔; Equivalence)
 open import Function.Properties.Equivalence using (⇔-isEquivalence)
 open import Function.Properties.Equivalence.Ext using (≡⇒⇔)
-open import Relation.Unary using (_≐′_; Empty) renaming (_⊆′_ to _⋐′_; _⊇′_ to _⋑′_)
+open import Function.Related.Propositional as Related
+open import Relation.Unary using (_≐′_; Empty) renaming (_⊆′_ to _⋐′_; _⊇′_ to _⋑′_; _⊆_ to _⋐_)
 open import Relation.Unary.Properties using (≐′⇒≐)
 open import Relation.Binary.Structures using (IsEquivalence)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness)
-open import Data.List.Properties using (filter-≐)
-open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻)
+open import Data.List.Properties using (filter-≐; filter-reject; filter-accept; length-++)
+open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; x∈x∷xs)
 open import Data.List.Ext using (ι; undup; count)
-open import Data.List.Properties.Ext using (filter-∘-comm; filter-∘-×; ∈-ι⁺; filter-deduplicate-comm; filter-Empty; count-accept-∷ʳ; count-reject-∷ʳ; count-accept-∷; count-reject-∷; count-Empty; count-none)
+open import Data.List.Properties.Ext using (filter-∘-comm; filter-∘-×; ∈-ι⁺; filter-deduplicate-comm; filter-Empty; count-accept-∷ʳ; count-reject-∷ʳ; count-accept-∷; count-reject-∷; count-Empty; count-none; ≢[]⇒∷)
 open import Data.List.Properties.Undup using (count-undup)
 open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
-open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs)
+open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs; Unique-≡ˢ-#≡)
+open import Data.List.Relation.Unary.Unique.DecPropositional.Properties (_≟_ {A = Block}) using (deduplicate-!)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (∷⊆⇒∈)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (↭-length)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭)
+open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊆×⊇; filter-cong; deduplicate-id; deduplicate-cong)
 
 HonestWinnerAt : Slot → Party → Type _
 HonestWinnerAt sl p = winner p sl × Honest p
@@ -122,13 +125,36 @@ slotsInRange-∈ {sl₁} {sl₂} {sl} sl₁≤sl sl<sl₂ = ∈-ι⁺ sl₁≤sl
     sl₁ + (sl₂ ∸ sl₁) ∎
   where open Nat.≤-Reasoning
 
-superSlots≡superBlocks : ∀ {N : GlobalState} {sl₁ sl₂ : Slot} →
+emptySlotsInRange : ∀ {sl₁ sl₂ : Slot} →
+    sl₁ ≥ sl₂
+  → slotsInRange sl₁ sl₂ ≡ []
+emptySlotsInRange sl₁≥sl₂ rewrite Nat.m≤n⇒m∸n≡0 sl₁≥sl₂ = refl
+
+blocksInRangeSplit : ∀ (bs : List Block) {sl₁ sl₂ sl : Slot} →
+    sl₁ ≤ sl
+  → sl ≤ sl₂
+  → filter (λ b → ¿ sl₁ ≤ b .slot × b .slot < sl₂ ¿) bs
+    ↭
+    filter (λ b → ¿ sl₁ ≤ b .slot × b .slot < sl ¿) bs
+    ++
+    filter (λ b → ¿ sl ≤ b .slot × b .slot < sl₂ ¿) bs
+blocksInRangeSplit = {!!}
+
+superBlocksPreservation-↓∗ : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
-  → ForgingFree N
-  → 0 < sl₁
-  → sl₂ ≤ N .clock
-  → length (superSlotsInRange sl₁ sl₂) ≡ length (superBlocksInRange N sl₁ sl₂)
-superSlots≡superBlocks = {!!}
+  → _ ⊢ N —[ N .execOrder ]↓→∗ N′
+  → ForgingFree record N′ { progress = msgsDelivered }
+  → N .progress ≡ ready
+  → superBlocks N ≡ˢ superBlocks N′
+superBlocksPreservation-↓∗ {N} {N′} N₀↝⋆N N—[ps]↓→∗N′ ffN′ NReady {b} = begin
+  b ∈ superBlocks N
+    ≡⟨ cong (b ∈_) (superBlocksAltDef N) ⟩
+  b ∈ (L.deduplicate _≟_ $ filter ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N))
+    ∼⟨ deduplicate-cong $ filter-cong $ honestBlockHistoryPreservation-↓∗ N₀↝⋆N  N—[ps]↓→∗N′ ffN′ NReady ⟩
+  b ∈ (L.deduplicate _≟_ $ filter ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N′))
+    ≡⟨ cong (b ∈_) (sym $ superBlocksAltDef N′) ⟩
+  b ∈ superBlocks N′ ∎
+  where open Related.EquationalReasoning
 
 superBlockPositionsUniqueness : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
@@ -638,3 +664,269 @@ opaque
                                   = goal-∷ʳ-c¬wp′-* {mds} sub
           goal (permuteParties _) = ih NBlockMade
           goal (permuteMsgs    _) = ih NBlockMade
+
+superSlots≡superBlocks : ∀ {N : GlobalState} {sl₁ sl₂ : Slot} →
+    N₀ ↝⋆ N
+  → ForgingFree N
+  → 0 < sl₁
+  → sl₂ ≤ N .clock
+  → length (superSlotsInRange sl₁ sl₂) ≡ length (superBlocksInRange N sl₁ sl₂)
+superSlots≡superBlocks = superSlots≡superBlocksʳ ∘ Star⇒Starʳ
+    where
+      open RTC; open Starʳ
+
+      superSlots≡superBlocksʳ :  ∀ {N : GlobalState} {sl₁ sl₂ : Slot} →
+          N₀ ↝⋆ʳ N
+        → ForgingFree N
+        → 0 < sl₁
+        → sl₂ ≤ N .clock
+        → length (superSlotsInRange sl₁ sl₂) ≡ length (superBlocksInRange N sl₁ sl₂)
+      superSlots≡superBlocksʳ {N} {sl₁} {sl₂} εʳ ffN 0<sl₁ sl₂≤1
+        with sl₁
+      ... | 0 = contradiction 0<sl₁ (Nat.<-irrefl refl)
+      ... | suc sl₁′
+          with sl₂
+      ...   | 0 = refl
+      ...   | suc sl₂′ rewrite Nat.n≤0⇒n≡0 $ Nat.≤-pred sl₂≤1 | Nat.0∸n≡0 sl₁′ = refl
+      superSlots≡superBlocksʳ {N} {sl₁} {sl₂} (_◅ʳ_ {j = N′} N₀↝⋆ʳN′ N′↝N) ffN 0<sl₁ sl₂≤Nₜ = goal N′↝N
+        where
+          N₀↝⋆N′ : N₀ ↝⋆ N′
+          N₀↝⋆N′ = Starʳ⇒Star N₀↝⋆ʳN′
+
+          ffN′ : ForgingFree N′
+          ffN′ = ForgingFreePrev (N′↝N ◅ ε) ffN
+
+          ih : sl₂ ≤ N′ .clock → length (superSlotsInRange sl₁ sl₂) ≡ length (superBlocksInRange N′ sl₁ sl₂)
+          ih = superSlots≡superBlocksʳ {N′} {sl₁} {sl₂} N₀↝⋆ʳN′ ffN′ 0<sl₁
+
+          P : Pred Block 0ℓ
+          P = λ b → sl₁ ≤ b .slot × b .slot < sl₂
+
+          goal : N′ ↝ N → length (superSlotsInRange sl₁ sl₂) ≡ length (superBlocksInRange N sl₁ sl₂)
+          goal (deliverMsgs {N′ = N″} N′Ready N′—[eoN′]↓→∗N″) = let open ≡-Reasoning in begin
+            length (superSlotsInRange sl₁ sl₂)
+              ≡⟨ ih sl₂≤N′ₜ ⟩
+            length (superBlocksInRange N′ sl₁ sl₂)
+              ≡⟨ cong length $ filter-deduplicate-comm {P? = ¿ P ¿¹} (filter ¿ SuperBlock ¿¹ (blockHistory N′)) ⟩
+            length (L.deduplicate  _≟_ (filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N′))))
+              ≡⟨ Unique-≡ˢ-#≡
+                   (deduplicate-! $ filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N′))) eq .Equivalence.to
+                   (deduplicate-! $ filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N))) ⟩
+            length (L.deduplicate  _≟_ (filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N))))
+              ≡⟨ cong length $ sym $ filter-deduplicate-comm {P? = ¿ P ¿¹} (filter ¿ SuperBlock ¿¹ (blockHistory N)) ⟩
+            length (superBlocksInRange N sl₁ sl₂)
+            ∎
+            where
+              sl₂≤N′ₜ : sl₂ ≤ N′ .clock
+              sl₂≤N′ₜ rewrite clockPreservation-↓∗ N′—[eoN′]↓→∗N″ = sl₂≤Nₜ
+
+              eq :
+                L.deduplicate _≟_ (filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N′)))
+                ≡ˢ
+                L.deduplicate _≟_ (filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N)))
+              eq {b} = begin
+                b ∈ L.deduplicate _≟_ (filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N′)))
+                  ≡⟨ cong (b ∈_) $ filter-deduplicate-comm {P? = ¿ P ¿¹} (filter ¿ SuperBlock ¿¹ (blockHistory N′)) ⟨
+                b ∈ filter ¿ P ¿¹ (superBlocks N′)
+                ∼⟨ filter-cong $ superBlocksPreservation-↓∗ N₀↝⋆N′ N′—[eoN′]↓→∗N″ ffN N′Ready ⟩
+                b ∈ filter ¿ P ¿¹ (superBlocks N)
+                  ≡⟨ cong (b ∈_) $ filter-deduplicate-comm {P? = ¿ P ¿¹} (filter ¿ SuperBlock ¿¹ (blockHistory N)) ⟩
+                b ∈ L.deduplicate _≟_ (filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N)))
+                ∎
+                where open Related.EquationalReasoning
+
+          goal (makeBlock {N′ = N″} N′MsgsDelivered N′—[eoN′]↑→∗N″) = let open ≡-Reasoning in begin
+            length (superSlotsInRange sl₁ sl₂)
+              ≡⟨ ih sl₂≤N′ₜ ⟩
+            length (superBlocksInRange N′ sl₁ sl₂)
+              ≡⟨ cong length $ filter-deduplicate-comm {P? = ¿ P ¿¹} (filter ¿ SuperBlock ¿¹ (blockHistory N′)) ⟩
+            length (L.deduplicate  _≟_ (filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N′))))
+              ≡⟨ Unique-≡ˢ-#≡
+                   (deduplicate-! $ filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N′))) eq .Equivalence.to
+                   (deduplicate-! $ filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N))) ⟩
+            length (L.deduplicate  _≟_ (filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N))))
+              ≡⟨ cong length $ sym $ filter-deduplicate-comm {P? = ¿ P ¿¹} (filter ¿ SuperBlock ¿¹ (blockHistory N)) ⟩
+            length (superBlocksInRange N sl₁ sl₂) ∎
+            where
+              sl₂≤N′ₜ : sl₂ ≤ N′ .clock
+              sl₂≤N′ₜ rewrite clockPreservation-↑∗ N′—[eoN′]↑→∗N″ = sl₂≤Nₜ
+
+              N′↝⋆N : N′ ↝⋆ N
+              N′↝⋆N = Starʳ⇒Star (εʳ ◅ʳ N′↝N)
+
+              eq :
+                L.deduplicate _≟_ (filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N′)))
+                ≡ˢ
+                L.deduplicate _≟_ (filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N)))
+              eq {b} = begin
+                b ∈ L.deduplicate _≟_ (filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N′)))
+                  ∼⟨ deduplicate-id _ ⟩
+                b ∈ filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N′))
+                  ≡⟨ cong ((b ∈_) ∘ filter ¿ P ¿¹) $ filter-∘-× ¿ HonestBlock ¿¹ ¿ SuperSlot ∘ slot ¿¹ (blockHistory N′) ⟩
+                b ∈ filter ¿ P ¿¹ (filter ¿ HonestBlock ¿¹ (filter ¿ SuperSlot ∘ slot ¿¹ (blockHistory N′)))
+                  ≡⟨ cong ((b ∈_) ∘ filter ¿ P ¿¹) $ filter-∘-comm ¿ HonestBlock ¿¹ ¿ SuperSlot ∘ slot ¿¹ (blockHistory N′) ⟩
+                b ∈ filter ¿ P ¿¹ (filter ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N′))
+                  ≡⟨ cong (b ∈_) $ filter-∘-comm ¿ P ¿¹ ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N′) ⟩
+                b ∈ filter ¿ SuperSlot ∘ slot ¿¹ (filter ¿ P ¿¹ (honestBlockHistory N′))
+                  ∼⟨ filter-cong f<PN′⇔f<PN ⟩
+                b ∈ filter ¿ SuperSlot ∘ slot ¿¹ (filter ¿ P ¿¹ (honestBlockHistory N))
+                  ≡⟨ cong (b ∈_) $ filter-∘-comm ¿ P ¿¹ ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N) ⟨
+                b ∈ filter ¿ P ¿¹ (filter ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N))
+                  ≡⟨ cong ((b ∈_) ∘ filter ¿ P ¿¹) $ filter-∘-comm ¿ HonestBlock ¿¹ ¿ SuperSlot ∘ slot ¿¹ (blockHistory N) ⟨
+                b ∈ filter ¿ P ¿¹ (filter ¿ HonestBlock ¿¹ (filter ¿ SuperSlot ∘ slot ¿¹ (blockHistory N)))
+                  ≡⟨ cong ((b ∈_) ∘ filter ¿ P ¿¹) $ filter-∘-× ¿ HonestBlock ¿¹ ¿ SuperSlot ∘ slot ¿¹ (blockHistory N) ⟨
+                b ∈ filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N))
+                  ∼⟨ SK-sym $ deduplicate-id _ ⟩
+                b ∈ L.deduplicate _≟_ (filter ¿ P ¿¹ (filter ¿ SuperBlock ¿¹ (blockHistory N)))
+                ∎
+                where
+                  open Related.EquationalReasoning
+
+                  P⋐<N′ₜ : P ⋐ ((_< N′ .clock) ∘ slot)
+                  P⋐<N′ₜ {b} (sl₁≤bₜ , bₜ<sl₂) = Nat.<-≤-trans bₜ<sl₂ sl₂≤N′ₜ
+
+                  f<PN′⇔f<PN : ∀ {b} →
+                    b ∈ filter ¿ P ¿¹ (honestBlockHistory N′)
+                    ⇔
+                    b ∈ filter ¿ P ¿¹ (honestBlockHistory N)
+                  f<PN′⇔f<PN {b} with ¿ P b ¿
+                  ... | yes Pb = mk⇔ to from
+                    where
+                      f<N′ₜN′≡ˢf<N′ₜN :
+                        filter ((_<? N′ .clock) ∘ slot) (honestBlockHistory N′)
+                        ≡ˢ
+                        filter ((_<? N′ .clock) ∘ slot) (honestBlockHistory N)
+                      f<N′ₜN′≡ˢf<N′ₜN = honestBlocksBelowSlotPreservation N₀↝⋆N′ N′↝⋆N ffN
+
+                      to :
+                        b ∈ filter ¿ P ¿¹ (honestBlockHistory N′)
+                        →
+                        b ∈ filter ¿ P ¿¹ (honestBlockHistory N)
+                      to b∈fPN′ with L.Mem.∈-filter⁻ ¿ P ¿¹ {xs = honestBlockHistory N′} b∈fPN′
+                      ... | b∈hbhN′ , _ with L.Mem.∈-filter⁻ ((_<? N′ .clock) ∘ slot) {xs = honestBlockHistory N} b∈f<N′ₜN
+                        where
+                          b∈f<N′ₜN′ : b ∈ filter ((_<? N′ .clock) ∘ slot) (honestBlockHistory N′)
+                          b∈f<N′ₜN′ = L.Mem.∈-filter⁺ ((_<? N′ .clock) ∘ slot) b∈hbhN′ (P⋐<N′ₜ {b} Pb)
+
+                          b∈f<N′ₜN : b ∈ filter ((_<? N′ .clock) ∘ slot) (honestBlockHistory N)
+                          b∈f<N′ₜN = ≡ˢ⇒⊆×⊇ f<N′ₜN′≡ˢf<N′ₜN .proj₁ b∈f<N′ₜN′
+                      ...   | b∈hbhN , _ = L.Mem.∈-filter⁺ ¿ P ¿¹ b∈hbhN Pb
+
+                      from :
+                        b ∈ filter ¿ P ¿¹ (honestBlockHistory N)
+                        →
+                        b ∈ filter ¿ P ¿¹ (honestBlockHistory N′)
+                      from b∈fPN with L.Mem.∈-filter⁻ ¿ P ¿¹ {xs = honestBlockHistory N} b∈fPN
+                      ... | b∈hbhN , _ with L.Mem.∈-filter⁻ ((_<? N′ .clock) ∘ slot) {xs = honestBlockHistory N′} b∈f<N′ₜN′
+                        where
+                          b∈f<N′ₜN : b ∈ filter ((_<? N′ .clock) ∘ slot) (honestBlockHistory N)
+                          b∈f<N′ₜN = L.Mem.∈-filter⁺ ((_<? N′ .clock) ∘ slot) b∈hbhN (P⋐<N′ₜ {b} Pb)
+
+                          b∈f<N′ₜN′ : b ∈ filter ((_<? N′ .clock) ∘ slot) (honestBlockHistory N′)
+                          b∈f<N′ₜN′ = ≡ˢ⇒⊆×⊇ f<N′ₜN′≡ˢf<N′ₜN .proj₂ b∈f<N′ₜN
+                      ...   | b∈hbhN′ , _ = L.Mem.∈-filter⁺ ¿ P ¿¹ b∈hbhN′ Pb
+                  ... | no ¬Pb = mk⇔ to from
+                    where
+                      to :
+                        b ∈ filter ¿ P ¿¹ (honestBlockHistory N′)
+                        →
+                        b ∈ filter ¿ P ¿¹ (honestBlockHistory N)
+                      to b∈fPN′ with L.Mem.∈-filter⁻ ¿ P ¿¹ {xs = honestBlockHistory N′} b∈fPN′
+                      ... | _ , Pb = contradiction Pb ¬Pb
+
+                      from :
+                        b ∈ filter ¿ P ¿¹ (honestBlockHistory N)
+                        →
+                        b ∈ filter ¿ P ¿¹ (honestBlockHistory N′)
+                      from b∈fPN with L.Mem.∈-filter⁻ ¿ P ¿¹ {xs = honestBlockHistory N} b∈fPN
+                      ... | _ , Pb = contradiction Pb ¬Pb
+
+          goal (advanceRound N′BlockMade) with Nat.m≤n⇒m<n∨m≡n sl₂≤Nₜ
+          ... | inj₁ sl₂<Nₜ = ih $ Nat.≤-pred sl₂<Nₜ
+          ... | inj₂ sl₂≡Nₜ rewrite sl₂≡Nₜ = goal-sl₂≡Nₜ
+            where
+              goal-sl₂≡Nₜ : length (superSlotsInRange sl₁ (1 + N′ .clock)) ≡ length (superBlocksInRange N sl₁ (1 + N′ .clock))
+              goal-sl₂≡Nₜ with sl₁ ≤? N′ .clock
+              ... | no sl₁≰N′ₜ rewrite emptySlotsInRange (Nat.≰⇒> sl₁≰N′ₜ) = subst ((0 ≡_) ∘ length) []≡sb[sl₁,1+N′ₜ] refl
+                where
+                  []≡sb[sl₁,1+N′ₜ] : [] ≡ superBlocksInRange N sl₁ (1 + N′ .clock)
+                  []≡sb[sl₁,1+N′ₜ] = []≡sb[sl₁,1+N′ₜ]* (superBlocks N)
+                    where
+                      P′? : Decidable¹ (λ b → sl₁ ≤ b .slot × b .slot < 1 + N′ .clock)
+                      P′? b = ¿ sl₁ ≤ b .slot × b .slot < 1 + N′ .clock ¿
+
+                      []≡sb[sl₁,1+N′ₜ]* : ∀ bs → [] ≡ filter P′? bs
+                      []≡sb[sl₁,1+N′ₜ]* [] = refl
+                      []≡sb[sl₁,1+N′ₜ]* (b ∷ bs) with P′? b
+                      ... | yes P′b@(sl₁≤bₜ , bₜ<1+N′ₜ) = contradiction sl₁≤N′ₜ sl₁≰N′ₜ
+                        where
+                          bₜ≤N′ₜ : b .slot ≤ N′ .clock
+                          bₜ≤N′ₜ = Nat.≤-pred bₜ<1+N′ₜ
+
+                          sl₁≤N′ₜ : sl₁ ≤ N′ .clock
+                          sl₁≤N′ₜ = Nat.≤-trans sl₁≤bₜ bₜ≤N′ₜ
+                      ... | no ¬P′b rewrite filter-reject P′? {b} {bs} ¬P′b = []≡sb[sl₁,1+N′ₜ]* bs
+              ... | yes sl₁≤N′ₜ = let open ≡-Reasoning in begin
+                length (superSlotsInRange sl₁ (1 + N′ .clock))
+                  ≡⟨ cong length $ slotsInRange-++ ¿ SuperSlot ¿¹ sl₁≤N′ₜ (Nat.n≤1+n (N′ .clock)) ⟩
+                length (superSlotsInRange sl₁ (N′ .clock) ++ superSlotsInRange (N′ .clock) (1 + N′ .clock))
+                  ≡⟨ length-++ (superSlotsInRange sl₁ (N′ .clock)) ⟩
+                length (superSlotsInRange sl₁ (N′ .clock)) + length (superSlotsInRange (N′ .clock) (1 + N′ .clock))
+                  ≡⟨ cong (_+ _) $ superSlots≡superBlocksʳ {N′} {sl₁} {N′ .clock} N₀↝⋆ʳN′ ffN′ 0<sl₁ Nat.≤-refl ⟩
+                length (superBlocksInRange N sl₁ (N′ .clock)) + length (superSlotsInRange (N′ .clock) (1 + N′ .clock))
+                  ≡⟨ cong (length (superBlocksInRange N sl₁ (N′ .clock)) +_) |ss|≡|sb|[N′ₜ,1+N′ₜ] ⟩
+                length (superBlocksInRange N sl₁ (N′ .clock)) + length (superBlocksInRange N (N′ .clock) (1 + N′ .clock))
+                  ≡⟨ length-++ (superBlocksInRange N sl₁ (N′ .clock)) ⟨
+                length (superBlocksInRange N sl₁ (N′ .clock) ++ superBlocksInRange N (N′ .clock) (1 + N′ .clock))
+                  ≡⟨ ↭-length sb[N′ₜ,1+N′ₜ]-split ⟨
+                length (superBlocksInRange N sl₁ (1 + N′ .clock))
+                  ∎
+                where
+                  sb[N′ₜ,1+N′ₜ]-split :
+                    superBlocksInRange N sl₁ (1 + N′ .clock)
+                    ↭
+                    superBlocksInRange N sl₁ (N′ .clock) ++ superBlocksInRange N (N′ .clock) (1 + N′ .clock)
+                  sb[N′ₜ,1+N′ₜ]-split = blocksInRangeSplit (superBlocks N) sl₁≤N′ₜ (Nat.n≤1+n (N′ .clock))
+
+                  ι≡[N′ₜ] : ι (N′ .clock) (suc (N′ .clock) ∸ N′ .clock) ≡ [ N′ .clock ]
+                  ι≡[N′ₜ] rewrite Nat.m+n∸n≡m 1 (N′ .clock) = refl
+
+                  |ss|≡|sb|[N′ₜ,1+N′ₜ] :
+                    length (superSlotsInRange (N′ .clock) (1 + N′ .clock))
+                    ≡
+                    length (superBlocksInRange N (N′ .clock) (1 + N′ .clock))
+                  |ss|≡|sb|[N′ₜ,1+N′ₜ] rewrite ι≡[N′ₜ] = |ss|≡|sb|[N′ₜ,1+N′ₜ]′
+                    where
+                      |ss|≡|sb|[N′ₜ,1+N′ₜ]′ :
+                        length (filter ¿ SuperSlot ¿¹ [ N′ .clock ])
+                        ≡
+                        length (superBlocksInRange N (N′ .clock) (1 + N′ .clock))
+                      |ss|≡|sb|[N′ₜ,1+N′ₜ]′ with ¿ SuperSlot (N′ .clock) ¿
+                      ... | yes ssN′ₜ
+                              rewrite
+                                filter-accept ¿ SuperSlot ¿¹ {xs = []} ssN′ₜ
+                              = sym $ superBlockOneness N₀↝⋆N′ ffN′ N′BlockMade .Equivalence.from ssN′ₜ
+                      ... | no ¬ssN′ₜ rewrite filter-reject ¿ SuperSlot ¿¹ {xs = []} ¬ssN′ₜ
+                        with superBlocksInRange N (N′ .clock) (1 + N′ .clock) ≟ []
+                      ...   | yes sbs≡[] rewrite sbs≡[] = refl
+                      ...   | no sbs≢[] = contradiction ssN′ₜ ¬ssN′ₜ
+                        where
+                          ssN′ₜ : SuperSlot (N′ .clock)
+                          ssN′ₜ
+                            with ≢[]⇒∷ sbs≢[]
+                          ... | sb , sbs′ , sbs≡sb∷sbs′
+                              with
+                                L.Mem.∈-filter⁻
+                                  (λ b → ¿ N′ .clock ≤ b .slot × b .slot < 1 + N′ .clock ¿)
+                                  {xs = superBlocks N}
+                                  (subst (sb ∈_) (sym sbs≡sb∷sbs′) (x∈x∷xs _))
+                          ... | sb∈sbsN , N′ₜ≤sbₜ , sbₜ<1+N′ₜ = subst SuperSlot sbₜ≡N′ₜ sssbₜ
+                            where
+                              sbₜ≡N′ₜ : sb. slot ≡ N′ .clock
+                              sbₜ≡N′ₜ = sym $ Nat.≤-antisym N′ₜ≤sbₜ (Nat.≤-pred sbₜ<1+N′ₜ)
+
+                              sssbₜ : SuperSlot (sb .slot)
+                              sssbₜ = ∈-superBlocks⁻ {N} sb∈sbsN .proj₂ .proj₂
+
+          goal (permuteParties _) = ih sl₂≤Nₜ
+          goal (permuteMsgs    _) = ih sl₂≤Nₜ
