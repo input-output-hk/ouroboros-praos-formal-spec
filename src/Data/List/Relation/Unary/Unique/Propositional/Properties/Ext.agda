@@ -1,10 +1,13 @@
+{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
+
 module Data.List.Relation.Unary.Unique.Propositional.Properties.Ext where
 
 open import Level using (Level)
 open import Function.Base using (_∘_; _∋_; _$_)
+open import Function.Bundles using (_⇔_)
 open import Relation.Nullary.Negation using (contradiction)
 open import Relation.Nullary.Decidable using (yes; no)
-open import Relation.Binary.PropositionalEquality using (_≢_; cong)
+open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; cong)
 open import Relation.Binary.PropositionalEquality.Properties using (setoid)
 open import Data.Empty using (⊥-elim)
 open import Data.Product.Base using (_×_; _,_; proj₁; proj₂)
@@ -26,6 +29,7 @@ open import Data.List.Relation.Binary.Permutation.Propositional.Properties using
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext
 open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (x∷xs⊈[]; ∷-⊆; ∷⊆⇒∈)
+open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_)
 
 private
   variable
@@ -57,3 +61,6 @@ Unique-⊆-#≤ {xs = x ∷ xs} {ys = ys} p q with ∈-∃↭ (x ∈ ys ∋ ∷�
     xs⊆zs {x′} x′∈xs with ∈-∷⁻ (x′ ∈ x ∷ zs ∋ ∈-resp-↭ ys↭x∷zs (x′ ∈ ys ∋ (xs ⊆ ys ∋ ∷-⊆ q) x′∈xs))
     ... | inj₁ x′≡x rewrite x′≡x = contradiction x′∈xs x∉xs
     ... | inj₂ x′∈zs = x′∈zs
+
+Unique-≡ˢ-#≡ : ∀ {A : Set} {xs ys : List A} → Unique xs → xs ≡ˢ ys → Unique ys ⇔ length xs ≡ length ys
+Unique-≡ˢ-#≡ = {!!}

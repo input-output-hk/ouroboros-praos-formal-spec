@@ -13,7 +13,7 @@ open import Relation.Binary.Definitions using (_Respects_)
 open import Relation.Binary.PropositionalEquality.Core using (_≡_; refl)
 open import Data.Product.Base using (_×_; _,_; proj₁; proj₂)
 open import Data.Bool using (Bool)
-open import Data.List.Base using (List; []; _∷_; filter; deduplicate; cartesianProduct; reverse)
+open import Data.List.Base using (List; []; _∷_; filter; deduplicate; cartesianProduct; reverse; length)
 open import Data.List.Relation.Unary.All using (All)
 open import Data.List.Relation.Unary.All.Properties using (anti-mono)
 open import Data.List.Relation.Unary.Any using (Any; here; there)
@@ -21,7 +21,7 @@ open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties using (filter⁺′; Any-resp-⊆)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (cartesianProduct-⊆-Mono; deduplicate⁺′)
 open import Data.List.Relation.Binary.BagAndSetEquality as BS hiding (set; Kind)
-open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (↭-reverse)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (↭-reverse; ↭-length)
 open import Data.List.Membership.Propositional.Properties using (∈-deduplicate⁻; ∈-deduplicate⁺)
 open import Class.DecEq using (DecEq; _≟_)
 
@@ -52,9 +52,14 @@ _≡ˢ_ = _∼[ BS.set ]_
 open import Relation.Unary using (Decidable) renaming (_⊆_ to _⋐_)
 import Relation.Binary.Definitions as B
 
+open import Relation.Unary using (_≐_)
+
+filter-cong₂ : ∀ {p q} {P : Pred A p} {Q : Pred A q} (P? : Decidable P) (Q? : Decidable Q) → P ≐ Q → xs ≡ˢ ys → filter P? xs ≡ˢ filter Q? ys
+filter-cong₂ P? Q? (P⋐Q , Q⋐P) xs≡ˢys with ≡ˢ⇒⊆×⊇ xs≡ˢys
+... | xs⊆ys , ys⊆xs = ⊆×⊇⇒≡ˢ (filter⁺′ P? Q? P⋐Q xs⊆ys) (filter⁺′ Q? P? Q⋐P ys⊆xs)
+
 filter-cong : ∀ {ℓ} {P : Pred A ℓ} {P? : Decidable P} → (filter P?) Preserves _≡ˢ_ ⟶ _≡ˢ_
-filter-cong {P = P} {P? = P?} xs≡ˢys with ≡ˢ⇒⊆×⊇ xs≡ˢys
-... | xs⊆ys , ys⊆xs = ⊆×⊇⇒≡ˢ (filter⁺′ P? P? id xs⊆ys) (filter⁺′ P? P? id ys⊆xs)
+filter-cong {P? = P?} = filter-cong₂ P? P? (id , id)
 
 deduplicate-cong : ∀ ⦃ _ : DecEq A ⦄ → (deduplicate {A = A} _≟_) Preserves _≡ˢ_ ⟶ _≡ˢ_
 deduplicate-cong xs≡ˢys with ≡ˢ⇒⊆×⊇ xs≡ˢys

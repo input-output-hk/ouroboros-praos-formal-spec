@@ -586,22 +586,6 @@ honestPosPreservation-↓∗ : ∀ {N N′ : GlobalState} {b : Block} →
   → blockPos b N ≡ blockPos b N′
 honestPosPreservation-↓∗ N₀↝⋆N N—[eoN′]↓→∗N′ ffN cfN′ b∈hbhN NReady = cong ∣_∣ $ honestCfbPreservation-↓∗ N₀↝⋆N N—[eoN′]↓→∗N′ ffN cfN′ b∈hbhN NReady
 
-superBlocksPreservation-↓∗ : ∀ {N N′ : GlobalState} →
-    N₀ ↝⋆ N
-  → _ ⊢ N —[ N .execOrder ]↓→∗ N′
-  → ForgingFree record N′ { progress = msgsDelivered }
-  → N .progress ≡ ready
-  → superBlocks N ≡ˢ superBlocks N′
-superBlocksPreservation-↓∗ {N} {N′} N₀↝⋆N N—[ps]↓→∗N′ ffN′ NReady {b} = begin
-  b ∈ superBlocks N
-    ≡⟨ cong (b ∈_) (superBlocksAltDef N) ⟩
-  b ∈ (L.deduplicate _≟_ $ filter ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N))
-    ∼⟨ deduplicate-cong $ filter-cong $ honestBlockHistoryPreservation-↓∗ N₀↝⋆N  N—[ps]↓→∗N′ ffN′ NReady ⟩
-  b ∈ (L.deduplicate _≟_ $ filter ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N′))
-    ≡⟨ cong (b ∈_) (sym $ superBlocksAltDef N′) ⟩
-  b ∈ superBlocks N′ ∎
-  where open Related.EquationalReasoning
-
 opaque
 
   unfolding honestBlockMaking corruptBlockMaking _✓
