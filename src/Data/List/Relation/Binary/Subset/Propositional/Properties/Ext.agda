@@ -6,7 +6,7 @@ open import Data.Sum.Base using (_⊎_; inj₁; inj₂)
 open import Data.Bool using (Bool)
 open import Data.List using (List; []; _∷_; _++_; cartesianProduct; filterᵇ; deduplicate)
 open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_; _⊈_)
-open import Data.List.Relation.Binary.Subset.Propositional.Properties using (⊆-trans; xs⊆x∷xs; filter⁺′; ∷⁺ʳ; xs⊆xs++ys; ∈-∷⁺ʳ; ⊆-respˡ-↭)
+open import Data.List.Relation.Binary.Subset.Propositional.Properties using (⊆-refl; ⊆-trans; xs⊆x∷xs; filter⁺′; ∷⁺ʳ; xs⊆xs++ys; ∈-∷⁺ʳ; ⊆-respˡ-↭)
 open import Data.List.Membership.Propositional using (_∈_; _∉_)
 open import Data.List.Membership.Propositional.Properties using (∈-cartesianProduct⁺; ∈-cartesianProduct⁻; ∈-deduplicate⁻; ∈-deduplicate⁺; ∈-++⁻; ∈-++⁺ˡ; ∈-++⁺ʳ)
 open import Data.List.Membership.Propositional.Properties.Ext using (x∈x∷xs)
@@ -51,6 +51,9 @@ x∷xs⊈[] p = contradiction (∷⊆⇒∈ p) λ ()
 ++-meet {xs = xs} xs⊆zs ys⊆zs {x} x∈xs++ys with ∈-++⁻ xs x∈xs++ys
 ... | inj₁ x∈xs = xs⊆zs x∈xs
 ... | inj₂ x∈ys = ys⊆zs x∈ys
+
+++-absorb : ∀ {a} {A : Set a} (xs : List A) → xs ++ xs ⊆ xs
+++-absorb _ = ++-meet ⊆-refl ⊆-refl
 
 cartesianProduct-⊆-Mono : ∀ {a b} {A : Set a} {B : Set b} {xs xs′ : List A} {ys ys′ : List B} → xs ⊆ xs′ → ys ⊆ ys′ → cartesianProduct xs ys ⊆ cartesianProduct xs′ ys′
 cartesianProduct-⊆-Mono {xs = xs} {xs′ = xs′} {ys = ys} {ys′ = ys′} xs⊆xs′ ys⊆ys′ {x , y} [x,y]∈xs×ys

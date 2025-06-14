@@ -814,7 +814,7 @@ opaque
                     ... | ⁇ (no ¬isWinner) = let open L.SubS.⊆-Reasoning Block in begin
                       chainFromBlock b (blockHistory N‴)                 ⊆⟨ ih* b∈hbhN* ⟩
                       allBlocks (honestTree N‴)                          ⊆⟨ step″ {N‴ .execOrder} ⟩
-                      allBlocks (honestTree (updateLocalState p′ ls N‴)) ∎
+                      allBlocks (honestTree N‴⁺)                         ∎
                       where
                         N‴⁺ : GlobalState
                         N‴⁺ = updateLocalState p′ ls N‴
