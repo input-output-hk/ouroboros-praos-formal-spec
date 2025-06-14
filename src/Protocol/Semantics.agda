@@ -41,7 +41,7 @@ processMsgsʰ : List Message → Slot → LocalState → ⊤ × LocalState
 processMsgsʰ msgs _ ls =
   _
   ,
-  L.foldr (λ where (newBlock b) ls′ → addBlock ls′ b) ls msgs
+  L.foldr (λ m ls′ → addBlock ls′ (projBlock m)) ls msgs
 
 makeBlockʰ : Slot → Txs → Party → LocalState → List Message × LocalState
 makeBlockʰ sl txs p ls =

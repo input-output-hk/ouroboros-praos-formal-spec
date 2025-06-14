@@ -9,6 +9,8 @@ module Properties.Base.Trees
   where
 
 open import Protocol.Prelude
+open import Protocol.Block ⦃ params ⦄ using (Block)
+open import Protocol.Chain ⦃ params ⦄ using (genesisBlock)
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.TreeType ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
@@ -61,3 +63,17 @@ honestGlobalTreeBlocksPreservation : ∀ {N N′ : GlobalState} {pg : Progress} 
   → N .clock ≡ N′ .clock
   → allBlocks (honestTree N) ≡ˢ allBlocks (honestTree N′)
 honestGlobalTreeBlocksPreservation = {!!}
+
+allGBsInHonestTree₀ :
+    L.All.All (_≡ genesisBlock) (allBlocks (honestTree N₀))
+allGBsInHonestTree₀ = {!!}
+
+honestGlobalTreeBlockInSomeHonestLocalTree :  ∀ {N : GlobalState} {b : Block} →
+    N₀ ↝⋆ N
+  → b ∈ allBlocks (honestTree N)
+  → ∃₂[ p , ls ]
+        N .states ⁉ p ≡ just ls
+      × b ∈ allBlocks (ls .tree)
+      × Honest p
+      × p ∈ N .execOrder
+honestGlobalTreeBlockInSomeHonestLocalTree = {!!}

@@ -9,19 +9,37 @@ module Properties.Base.BlockHistory
   where
 
 open import Properties.Base.ForgingFree ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.Trees ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
 open import Protocol.Prelude
 open import Protocol.BaseTypes
+open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
 open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.TreeType ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
-open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗)
-open import Data.List.Properties.Ext using (foldr-preservesʳ')
-open import Data.List.Membership.Propositional.Properties.Ext using (x∈x∷xs {-; ∈-∷⁻; ∈-findᵇ⁻; ∈-∷-≢⁻ -})
-open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_ ; ≡ˢ-refl; ≡ˢ⇒⊆×⊇; ⊆×⊇⇒≡ˢ; ≡ˢ-trans {-; ≡ˢ-sym; deduplicate-cong; filter-cong; All-resp-≡ˢ; Any-resp-≡ˢ; cartesianProduct-cong -})
+open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[[]]→∗ʳ⇒≡; —[∷ʳ]→∗-split)
+open import Prelude.AssocList.Properties.Ext using (set-⁉; set-⁉-¬)
+open import Data.List.Relation.Binary.SetEquality using (filter-cong)
+open import Data.List.Properties.Ext using (foldr-preservesʳ'; []≢∷ʳ)
+open import Data.List.Membership.Propositional.Properties.Ext using (x∈x∷xs)
+open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_ ; ≡ˢ-refl; ≡ˢ⇒⊆×⊇; ⊆×⊇⇒≡ˢ; ≡ˢ-trans)
+open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭; map⁺)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭)
+open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (∷-⊆; ∷⊆⇒∈; ⊆-++-comm; ++-absorb)
+open import Data.List.Relation.Binary.BagAndSetEquality using (∷-cong; concat-cong; map-cong; bag-=⇒; ↭⇒∼bag)
+open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-just)
+open import Relation.Unary using (∁) renaming (_⊆_ to _⋐_)
+open import Relation.Binary.PropositionalEquality using (≢-sym)
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
+open import Function.Base using (_|>_)
 open import Function.Bundles
+open import Function.Related.Propositional as Related
 
 historyPreservation-broadcastMsgᶜ : ∀ (msg : Message) (ϕ : DelayMap) (N : GlobalState) →
   N .history ⊆ˢ broadcastMsgᶜ msg ϕ N .history
@@ -186,12 +204,323 @@ honestGlobalTreeInBlockHistory : ∀ {N : GlobalState} →
   → allBlocks (honestTree N) ⊆ˢ genesisBlock ∷ blockHistory N
 honestGlobalTreeInBlockHistory = {!!}
 
-honestGlobalTreeButGBInBlockHistory : ∀ {N : GlobalState} →
-    N₀ ↝⋆ N
-  → filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N)) ⊆ˢ blockHistory N
-honestGlobalTreeButGBInBlockHistory = {!!}
-
 messages⊆history : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
   → map msg (N .messages) ⊆ˢ N .history
 messages⊆history = {!!}
+
+opaque
+
+  unfolding honestMsgsDelivery honestBlockMaking corruptBlockMaking
+
+  honestGlobalTreeButGBInBlockHistory : ∀ {N : GlobalState} →
+      N₀ ↝⋆ N
+    → filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N)) ⊆ˢ blockHistory N
+  honestGlobalTreeButGBInBlockHistory = honestGlobalTreeButGBInBlockHistoryʳ ∘ Star⇒Starʳ
+    where
+      open RTC; open Starʳ
+
+      honestGlobalTreeButGBInBlockHistoryʳ :  ∀ {N : GlobalState} →
+          N₀ ↝⋆ʳ N
+        → filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N)) ⊆ˢ blockHistory N
+      honestGlobalTreeButGBInBlockHistoryʳ εʳ = subst (_⊆ˢ []) (sym allGBs) L.SubS.⊆-refl
+        where
+          [≡gb]⋐[∁≢gb] : (_≡ genesisBlock) ⋐ ∁ (_≢ genesisBlock)
+          [≡gb]⋐[∁≢gb] = _|>_
+
+          allGBs : filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N₀)) ≡ []
+          allGBs = L.filter-none _ {xs = allBlocks _} $ L.All.map [≡gb]⋐[∁≢gb] allGBsInHonestTree₀
+      honestGlobalTreeButGBInBlockHistoryʳ {N} N₀↝⋆ʳN@(_◅ʳ_ {j = N′} N₀↝⋆ʳN′ N′↝N) = goal N′↝N
+        where
+          N₀↝⋆N : N₀ ↝⋆ N
+          N₀↝⋆N = Starʳ⇒Star N₀↝⋆ʳN
+
+          N₀↝⋆N′ : N₀ ↝⋆ N′
+          N₀↝⋆N′ = Starʳ⇒Star N₀↝⋆ʳN′
+
+          ih : filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N′)) ⊆ˢ blockHistory N′
+          ih = honestGlobalTreeButGBInBlockHistoryʳ N₀↝⋆ʳN′
+
+          goal : N′ ↝ N → filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N)) ⊆ˢ blockHistory N
+          goal (deliverMsgs {N′ = N″} N′Ready N′—[eoN′]↓→∗N″) = L.SubS.⊆-trans goal′ bhN′⊆bhN
+            where
+              bhN′⊆bhN : blockHistory N′ ⊆ˢ blockHistory N
+              bhN′⊆bhN = blockHistoryPreservation-↓∗ N′—[eoN′]↓→∗N″
+
+              goal′ : filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N)) ⊆ˢ blockHistory N′
+              goal′ {b} b∈≢gb[htN] with L.Mem.∈-filter⁻ ¿ _≢ genesisBlock ¿¹ {xs = allBlocks _} b∈≢gb[htN]
+              ... | b∈htN , b≢gb with honestGlobalTreeBlockInSomeHonestLocalTree N₀↝⋆N b∈htN
+              ... | p , ls , lspN , b∈lst , hp , p∈eoN = goal* 𝟘s⊆bhN′ b∈ls′+𝟘s
+                where
+                  hasLspN′ : p hasStateIn N′
+                  hasLspN′ = L.All.lookup (allPartiesHaveLocalState N₀↝⋆N′) p∈N′
+                    where
+                      p∈N : p ∈ N .execOrder
+                      p∈N = hasState⇒∈execOrder N₀↝⋆N (≡just⇒Is-just lspN)
+
+                      p∈N′ : p ∈ N′ .execOrder
+                      p∈N′ = ∈-resp-↭ (↭-sym (execOrderPreservation-↭-↝ N′↝N)) p∈N
+
+                  ls′ : LocalState
+                  ls′ = M.to-witness hasLspN′
+
+                  lspN′ : N′ .states ⁉ p ≡ just ls′
+                  lspN′ = Is-just⇒to-witness hasLspN′
+
+                  Nᵖ : GlobalState
+                  Nᵖ = honestMsgsDelivery p ls′ N′
+
+                  N′↝[p]↓Nᵖ : N′ ↝[ p ]↓ Nᵖ
+                  N′↝[p]↓Nᵖ = honestParty↓ lspN′ hp
+
+                  lspNᵖ : Nᵖ .states ⁉ p ≡ just ls
+                  lspNᵖ = trans (sym lspN≡lspNᵖ) lspN
+                    where
+                      lspN≡lspNᵖ : N .states ⁉ p ≡ Nᵖ .states ⁉ p
+                      lspN≡lspNᵖ = localStatePreservation-↓∗ N₀↝⋆N′ N′—[eoN′]↓→∗N″ N′↝[p]↓Nᵖ
+
+                  𝟘s : List Message
+                  𝟘s = L.map msg (immediateMsgs p N′)
+
+                  ls′+𝟘s : LocalState
+                  ls′+𝟘s = L.foldr (flip addBlock ∘ projBlock) ls′ 𝟘s
+
+                  ls≡ls′+𝟘s : ls ≡ ls′+𝟘s
+                  ls≡ls′+𝟘s = sym $ M.just-injective (trans (sym lspNᵖ≡ls′+𝟘s) lspNᵖ)
+                    where
+                      lspNᵖ≡ls′+𝟘s : Nᵖ .states ⁉ p ≡ just ls′+𝟘s
+                      lspNᵖ≡ls′+𝟘s rewrite set-⁉ (N′ .states) p ls′+𝟘s = refl
+
+                  b∈ls′+𝟘s : b ∈ allBlocks (ls′+𝟘s .tree)
+                  b∈ls′+𝟘s rewrite sym ls≡ls′+𝟘s = b∈lst
+
+                  𝟘s⊆bhN′ : 𝟘s ⊆ˢ history N′
+                  𝟘s⊆bhN′ = L.SubS.⊆-trans (L.SubS.map⁺ _ $ L.SubS.filter-⊆ _ _) (messages⊆history N₀↝⋆N′)
+
+                  goal* : ∀ {ms} →
+                      ms ⊆ˢ history N′
+                    → b ∈ allBlocks (L.foldr (flip addBlock ∘ projBlock) ls′ ms .tree)
+                    → b ∈ blockHistory N′
+                  goal* {[]} _ b∈t = ih $ L.Mem.∈-filter⁺ _ b∈htN′ b≢gb
+                    where
+                      b∈htN′ : b ∈ allBlocks (honestTree N′)
+                      b∈htN′ = honestLocalTreeInHonestGlobalTree N₀↝⋆N′ hp lspN′ b∈t
+                  goal* {m@(newBlock b′) ∷ ms} m∷ms⊆hN′ b∈tm∷ms = case L.Mem.∈-++⁻ (allBlocks _) b∈tms+b′ of λ where
+                      (inj₁ b∈tms)       → goal* {ms} ms⊆hN′ b∈tms
+                      (inj₂ (here b≡b′)) → b∈bhN′ b≡b′
+                    where
+                      m∈hN′ : m ∈ history N′
+                      m∈hN′ = ∷⊆⇒∈ m∷ms⊆hN′
+
+                      b∈bhN′ : b ≡ b′ → b ∈ blockHistory N′
+                      b∈bhN′ b≡b′ rewrite b≡b′ = L.Mem.∈-map⁺ _ m∈hN′
+
+                      ms⊆hN′ : ms ⊆ˢ history N′
+                      ms⊆hN′ = ∷-⊆ m∷ms⊆hN′
+
+                      b∈tms+b′ : b ∈ allBlocks (L.foldr (flip addBlock ∘ projBlock) ls′ ms .tree) ++ [ b′ ]
+                      b∈tms+b′ =
+                        b
+                          ∈⟨ b∈tm∷ms ⟩
+                        allBlocks (extendTree (L.foldr (flip addBlock ∘ projBlock) ls′ ms .tree) b′)
+                          ⊆⟨ ≡ˢ⇒⊆×⊇ (extendable _ _) .proj₁ ⟩
+                        allBlocks (L.foldr (flip addBlock ∘ projBlock) ls′ ms .tree) ++ [ b′ ] ∎
+                          where open L.SubS.⊆-Reasoning Block
+          goal (makeBlock {N′ = N″} N′MsgsDelivered N′—[eoN′]↑→∗N″) = goal* (—[]→∗⇒—[]→∗ʳ N′—[eoN′]↑→∗N″)
+            where
+              goal* : ∀ {N* ps} →
+                  _ ⊢ N′ —[ ps ]↑→∗ʳ N*
+                → filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N*)) ⊆ˢ blockHistory N*
+              goal* {N*} {[]} [] = ih
+              goal* {N*} {[]} (_∷ʳ_ {eq = eq} _ _) = contradiction eq []≢∷ʳ
+              goal* {N*} {p ∷ ps} (_∷ʳ_ {is = ps′} {i = p′} {s′ = N‴} {eq = eq} ts⋆ ts) = step ts
+                where
+                  ih* : filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N‴)) ⊆ˢ blockHistory N‴
+                  ih* = goal* {N‴} {ps′} ts⋆
+
+                  step : _ ⊢ N‴ —[ p′ ]↑→ N* → filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N*)) ⊆ˢ blockHistory N*
+                  step (unknownParty↑ _  ) = ih*
+                  step (corruptParty↑ _ _) = step′
+                    where
+                      mds : List (Message × DelayMap)
+                      mds = makeBlockᶜ (N‴ .clock) (N‴ .history) (N‴ .messages) (N‴ .advState).proj₁
+
+                      step′ :
+                        filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree (broadcastMsgsᶜ mds N‴)))
+                        ⊆ˢ
+                        blockHistory (broadcastMsgsᶜ mds N‴)
+                      step′
+                        rewrite
+                          localStatePreservation-broadcastMsgsᶜ {N‴} {mds}
+                        | sym $ execOrderPreservation-≡-broadcastMsgsᶜ mds N‴
+                          = L.SubS.⊆-trans ih* (step* {mds})
+                        where
+                          step* : ∀ {mds} → blockHistory N‴ ⊆ˢ blockHistory (broadcastMsgsᶜ mds N‴)
+                          step* {[]}      = L.SubS.⊆-refl
+                          step* {_ ∷ mds} = L.SubS.⊆-trans (step* {mds}) (L.SubS.xs⊆x∷xs _ _)
+                  step (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
+                  ... | ⁇ (no ¬isWinner)
+                    rewrite
+                      dec-no ¿ winner p′ (N‴ .clock) ¿ ¬isWinner
+                      = L.SubS.⊆-trans (L.SubS.filter⁺′ _ _ id (step* {N‴ .execOrder})) ih*
+                    where
+                      N‴⁺ : GlobalState
+                      N‴⁺ = updateLocalState p′ ls N‴
+
+                      open import Relation.Unary.Properties renaming (⊆-refl to ⋐-refl)
+
+                      step* : ∀ {ps*} →
+                        allBlocks (honestTree record N‴⁺ {execOrder = ps*})
+                        ⊆ˢ
+                        allBlocks (honestTree record N‴ {execOrder = ps*})
+                      step* {[]} = L.SubS.⊆-refl
+                      step* {p* ∷ ps*} with honestyOf p* in hp*
+                      ... | corrupt = step* {ps*}
+                      ... | honest rewrite hp* = let open L.SubS.⊆-Reasoning Block in begin
+                        allBlocks (buildTree (blocks N‴⁺ p* ++ L.concatMap (blocks N‴⁺) (L.filter ¿ Honest ¿¹ ps*)))
+                          ⊆⟨ ≡ˢ⇒⊆×⊇ (allBlocksBuildTree-++ (blocks N‴⁺ p*) _) .proj₁ ⟩
+                        allBlocks (buildTree (blocks N‴⁺ p*))
+                        ++
+                        allBlocks (honestTree record N‴⁺ {execOrder = ps*})
+                          ⊆⟨ L.SubS.++⁺ tbksN‴⁺⊆tbksN‴ (step* {ps*}) ⟩
+                        allBlocks (buildTree (blocks N‴ p*))
+                        ++
+                        allBlocks (honestTree record N‴ {execOrder = ps*})
+                          ⊆⟨ ≡ˢ⇒⊆×⊇ (allBlocksBuildTree-++ (blocks N‴ p*) _) .proj₂ ⟩
+                        allBlocks (buildTree (blocks N‴ p* ++ L.concatMap (blocks N‴) (L.filter ¿ Honest ¿¹ ps*)))
+                          ∎
+                        where
+                          eqBlocks : blocks N‴⁺ p* ≡ blocks N‴ p*
+                          eqBlocks with p* ≟ p′
+                          ... | yes eq rewrite eq | lsπ | set-⁉   (N‴ .states) p′    ls             = refl
+                          ... | no neq rewrite      lsπ | set-⁉-¬ (N‴ .states) p′ p* ls (≢-sym neq) = refl
+
+                          tbksN‴⁺⊆tbksN‴ : allBlocks (buildTree (blocks N‴⁺ p*)) ⊆ˢ allBlocks (buildTree (blocks N‴ p*))
+                          tbksN‴⁺⊆tbksN‴ rewrite eqBlocks = L.SubS.⊆-refl
+
+                  ... | ⁇ (yes isWinner) rewrite lsπ = let open L.SubS.⊆-Reasoning Block in begin
+                    filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N‴⁺))
+                      ⊆⟨ L.SubS.filter⁺′ _ _ id $ step* {N‴ .execOrder} ⟩
+                    filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N‴) ++ [ nb ])
+                      ≡⟨ L.filter-++ _ (allBlocks _) [ nb ] ⟩
+                    filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N‴)) ++ filter ¿ _≢ genesisBlock ¿¹ [ nb ]
+                      ⊆⟨ L.SubS.++⁺ˡ _ ih* ⟩
+                    blockHistory N‴ ++ filter ¿ _≢ genesisBlock ¿¹ [ nb ]
+                      ⊆⟨ ⊆-++-comm (blockHistory N‴) _ ⟩
+                    filter ¿ _≢ genesisBlock ¿¹ [ nb ] ++ blockHistory N‴
+                      ⊆⟨ L.SubS.++⁺ˡ (blockHistory N‴) $ L.SubS.filter-⊆ ¿ _≢ genesisBlock ¿¹ [ nb ] ⟩
+                    nb ∷ blockHistory N‴
+                      ∎
+                    where
+                      best : Chain
+                      best = bestChain (N‴ .clock ∸ 1) (ls .tree)
+
+                      nb : Block
+                      nb = mkBlock (hash (tip best)) (N‴ .clock) (txSelection (N‴ .clock) p′) p′
+
+                      N‴⁺ : GlobalState
+                      N‴⁺ = updateLocalState p′ (addBlock ls nb) N‴
+
+                      tnb : Tree
+                      tnb = extendTree (ls .tree) nb
+
+                      blocksN‴⁺≡p′ : blocks N‴⁺ p′ ≡ allBlocks tnb
+                      blocksN‴⁺≡p′ rewrite set-⁉ (N‴ .states) p′ (addBlock ls nb) = refl
+
+                      blocksN‴⁺≢p′ : ∀ {p*} → p* ≢ p′ → blocks N‴ p* ≡ blocks N‴⁺ p*
+                      blocksN‴⁺≢p′ {p*} p*≢p′ rewrite lsπ | set-⁉-¬ (N‴ .states) p′ p* (addBlock ls nb) (≢-sym p*≢p′) = refl
+
+                      step* : ∀ {ps*} →
+                        allBlocks (honestTree record N‴⁺ {execOrder = ps*})
+                        ⊆ˢ
+                        allBlocks (honestTree record N‴ {execOrder = ps*}) ++ [ nb ]
+                      step* {[]} = L.SubS.xs⊆xs++ys _ _
+                      step* {p* ∷ ps*} with honestyOf p* in hp*
+                      ... | corrupt = step* {ps*}
+                      ... | honest rewrite hp* = let open L.SubS.⊆-Reasoning Block in begin
+                        allBlocks (buildTree (blocks N‴⁺ p* ++ L.concatMap (blocks N‴⁺) (L.filter ¿ Honest ¿¹ ps*)))
+                          ⊆⟨ ≡ˢ⇒⊆×⊇ (allBlocksBuildTree-++ (blocks N‴⁺ p*) _) .proj₁ ⟩
+                        allBlocks (buildTree (blocks N‴⁺ p*))
+                        ++
+                        allBlocks (honestTree record N‴⁺ {execOrder = ps*})
+                          ⊆⟨ L.SubS.++⁺ tbksN‴⁺⊆tbksN‴+nb (step* {ps*}) ⟩
+                        (allBlocks (buildTree (blocks N‴ p*)) ++ [ nb ])
+                        ++
+                        allBlocks (honestTree record N‴ {execOrder = ps*}) ++ [ nb ]
+                          ⊆⟨ lemma {xs = allBlocks (buildTree (blocks N‴ p*))} {zs = [ nb ]} ⟩
+                        (allBlocks (buildTree (blocks N‴ p*)) ++ allBlocks (honestTree record N‴ {execOrder = ps*})) ++ [ nb ]
+                         ++ [ nb ]
+                          ⊆⟨ L.SubS.++⁺ˡ _ $ ≡ˢ⇒⊆×⊇ (allBlocksBuildTree-++ (blocks N‴ p*) _) .proj₂ ⟩
+                        allBlocks (buildTree (blocks N‴ p* ++ L.concatMap (blocks N‴) (L.filter ¿ Honest ¿¹ ps*))) ++ [ nb ] ++ [ nb ]
+                          ⊆⟨ L.SubS.++⁺ʳ _ $ ++-absorb [ nb ] ⟩
+                        allBlocks (buildTree (blocks N‴ p* ++ L.concatMap (blocks N‴) (L.filter ¿ Honest ¿¹ ps*))) ++ [ nb ]
+                          ∎
+                          where
+                            lemma : ∀ {A : Set} {xs ys zs : List A} → (xs ++ zs) ++ ys ++ zs ⊆ˢ (xs ++ ys) ++ zs ++ zs
+                            lemma {A} {xs} {ys} {zs} = let open L.SubS.⊆-Reasoning A in begin
+                              (xs ++ zs) ++ ys ++ zs   ≡⟨ L.++-assoc xs zs (ys ++ zs) ⟩
+                              xs ++ zs ++ ys ++ zs     ≡⟨ cong (xs ++_) $ L.++-assoc zs ys zs ⟨
+                              xs ++ (zs ++ ys) ++ zs   ⊆⟨ L.SubS.++⁺ʳ xs $ L.SubS.++⁺ˡ zs $ ⊆-++-comm zs ys ⟩
+                              xs ++ (ys ++ zs) ++ zs   ≡⟨ cong (xs ++_) $ L.++-assoc ys zs zs ⟩
+                              xs ++ ys ++ zs ++ zs     ≡⟨ L.++-assoc xs ys (zs ++ zs) ⟨
+                              (xs ++ ys) ++ zs ++ zs   ∎
+
+                            tbksN‴⁺⊆tbksN‴+nb : allBlocks (buildTree (blocks N‴⁺ p*)) ⊆ˢ allBlocks (buildTree (blocks N‴ p*)) ++ [ nb ]
+                            tbksN‴⁺⊆tbksN‴+nb  with p* ≟ p′
+                            ... | yes p*≡p′ rewrite p*≡p′ | lsπ | blocksN‴⁺≡p′ = let open L.SubS.⊆-Reasoning Block in begin
+                              allBlocks (buildTree (allBlocks tnb))
+                                ⊆⟨ ≡ˢ⇒⊆×⊇ (buildTreeUsesAllBlocks _) .proj₁ ⟩
+                              genesisBlock ∷ allBlocks tnb
+                                ⊆⟨ L.SubS.∷⁺ʳ _ $ ≡ˢ⇒⊆×⊇ (extendable _ _) .proj₁ ⟩
+                              genesisBlock ∷ allBlocks (ls .tree) ++ [ nb ]
+                                ⊆⟨ L.SubS.++⁺ˡ _ $ ≡ˢ⇒⊆×⊇ (buildTreeUsesAllBlocks _) .proj₂ ⟩
+                              allBlocks (buildTree (allBlocks (ls .tree))) ++ [ nb ]
+                                ∎
+                            ... | no p*≢p′ = let open L.SubS.⊆-Reasoning Block in begin
+                              allBlocks (buildTree (blocks N‴⁺ p*))
+                                ⊆⟨ L.SubS.⊆-reflexive $ cong (allBlocks ∘ buildTree) $ sym (blocksN‴⁺≢p′ p*≢p′) ⟩
+                              allBlocks (buildTree (blocks N‴ p*))
+                                ⊆⟨ L.SubS.xs⊆xs++ys _ _ ⟩
+                              allBlocks (buildTree (blocks N‴ p*)) ++ [ nb ]
+                                ∎
+
+          goal (advanceRound _) = honestGlobalTreeButGBInBlockHistoryʳ N₀↝⋆ʳN′
+
+          goal (permuteParties {parties = ps} eoN′↭ps) = let open L.SubS.⊆-Reasoning Block in begin
+            filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree Nps))
+              ⊆⟨ proj₁ $ ≡ˢ⇒⊆×⊇ (λ {b} → ∼-begin
+                b ∈ filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree Nps))
+                  ∼⟨ filter-cong (λ {b} → ∼-begin
+                    b ∈ allBlocks (honestTree Nps)
+                      ∼⟨ buildTreeUsesAllBlocks _ ⟩
+                    b ∈ genesisBlock ∷ (L.concatMap (blocks Nps) $ L.filter ¿ Honest ¿¹ ps)
+                      ∼⟨ ∷-cong refl (λ {b} → ∼-begin
+                          b ∈ (L.concatMap (blocks Nps) $ L.filter ¿ Honest ¿¹ ps)
+                            ∼⟨ concat-cong (λ {b} → ∼-begin
+                               b ∈ (L.map (blocks Nps) $ L.filter ¿ Honest ¿¹ ps)
+                                 ∼⟨ bag-=⇒ $ ↭⇒∼bag $ map⁺ _ $ filter-↭ _ $ ↭-sym eoN′↭ps ⟩
+                               b ∈ (L.map (blocks N′) $ L.filter ¿ Honest ¿¹ (N′ .execOrder))
+                                 ∼-∎
+                               ) ⟩
+                          b ∈ (L.concatMap (blocks N′) $ L.filter ¿ Honest ¿¹ (N′ .execOrder))
+                            ∼-∎
+                          ) ⟩
+                    b ∈ genesisBlock ∷ (L.concatMap (blocks N′) $ L.filter ¿ Honest ¿¹ (N′ .execOrder))
+                      ∼⟨ SK-sym $ buildTreeUsesAllBlocks _ ⟩
+                    b ∈ allBlocks (honestTree N′)
+                      ∼-∎ )
+                    ⟩
+                b ∈ filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N′))
+                  ∼-∎ )
+               ⟩
+            filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N′))
+              ⊆⟨ honestGlobalTreeButGBInBlockHistoryʳ N₀↝⋆ʳN′ ⟩
+            blockHistory Nps
+              ∎
+            where
+              open Related.EquationalReasoning renaming (begin_ to ∼-begin_; _∎ to _∼-∎)
+
+              Nps : GlobalState
+              Nps = record N′ { execOrder = ps }
+
+          goal (permuteMsgs _) = honestGlobalTreeButGBInBlockHistoryʳ N₀↝⋆ʳN′
