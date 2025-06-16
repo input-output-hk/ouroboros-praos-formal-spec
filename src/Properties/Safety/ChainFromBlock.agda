@@ -25,7 +25,7 @@ open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.TreeType ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
-open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗)
+open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[[]]→∗ʳ⇒≡; —[∷ʳ]→∗-split)
 open import Data.Nat.Properties.Ext using (pred[n]<n {- ; suc-≢-injective -})
 open import Data.Maybe.Properties.Ext using (≡just⇒Is-just)
 open import Data.List.Ext using (ι)
@@ -47,17 +47,6 @@ open import Class.DecEq.WithK using (≟-refl)
 
 cfb[gb]≡[gb] : ∀ {bs : List Block} → chainFromBlock genesisBlock bs ≡ [ genesisBlock ]
 cfb[gb]≡[gb] rewrite ≟-refl genesisBlock = refl
-
-honestBlockCfb✓-↑∗ : ∀ {N₁ N₂ N′ : GlobalState} {ps : List Party} →
-    N₀ ↝⋆ N₁
-  → N₁ ↝⋆ N₂
-  → ForgingFree N₂
-  → _ ⊢ N₁ —[ ps ]↑→∗ N′
-  → N′ ↷↑ N₂
-  → Unique ps
-  → CollisionFree N′
-  → L.All.All (λ b → chainFromBlock b (blockHistory N′) ✓) (honestBlockHistory N′)
-honestBlockCfb✓-↑∗ = {!!}
 
 cfbInBlockListIsSubset′ : ∀ {b : Block} {bs : List Block} {c : Chain} →
     BlockListCollisionFree bs
@@ -485,6 +474,105 @@ cfbHbhPres {N} {N′} {b} N₀↝⋆N′ N′↝N ffN cfN b∈hbhN hbhPres = sub
 opaque
 
   unfolding honestBlockMaking corruptBlockMaking
+
+  honestBlockCfb✓-↑∗ : ∀ {N₁ N₂ N′ : GlobalState} {ps : List Party} →
+      N₀ ↝⋆ N₁
+    → N₁ ↝⋆ N₂
+    → ForgingFree N₂
+    → _ ⊢ N₁ —[ ps ]↑→∗ N′
+    → N′ ↷↑ N₂
+    → Unique ps
+    → CollisionFree N′
+    → L.All.All (λ b → chainFromBlock b (blockHistory N′) ✓) (honestBlockHistory N′)
+  honestBlockCfb✓-↑∗ {N₁} {N₂} {N′} {ps} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ N₁—[ps]↑→∗N′ N′↷↑N₂ psUniq cfN′ = honestBlockCfb✓-↑∗ʳ (reverseView ps) N′↷↑N₂ psUniq cfN′ (—[]→∗⇒—[]→∗ʳ N₁—[ps]↑→∗N′)
+    where
+      open import Data.List.Reverse
+
+      honestBlockCfb✓-↑∗ʳ : ∀ {N* : GlobalState} {ps : List Party} →
+          Reverse ps
+        → N* ↷↑ N₂
+        → Unique ps
+        → CollisionFree N*
+        → _ ⊢ N₁ —[ ps ]↑→∗ʳ N*
+        → L.All.All (λ b → chainFromBlock b (blockHistory N*) ✓) (honestBlockHistory N*)
+      honestBlockCfb✓-↑∗ʳ {N* = N*} [] _ _ cfN* ts* rewrite —[[]]→∗ʳ⇒≡ ts* = L.All.tabulate $ honestBlockCfb✓ N₀↝⋆N₁ ffN₁ cfN*
+        where
+          ffN₁ : ForgingFree N*
+          ffN₁ = ForgingFreePrev N₁↝⋆N₂ ffN₂
+      honestBlockCfb✓-↑∗ʳ {N* = N*} (ps′ ∶ ps′r ∶ʳ p′) N*↷↑N₂ ps′∷ʳp′Uniq cfN* ts*
+        with —[∷ʳ]→∗-split (—[]→∗ʳ⇒—[]→∗ ts*)
+      ... | N‴ , ts⁺′ , ts = step ts
+        where
+          ts⁺ : _ ⊢ N₁ —[ ps′ ]↑→∗ʳ N‴
+          ts⁺ = —[]→∗⇒—[]→∗ʳ ts⁺′
+
+          cfN‴ : CollisionFree N‴
+          cfN‴ = CollisionFreePrev-↑ ts cfN*
+
+          ps′Uniq : Unique ps′
+          ps′Uniq = headʳ ps′∷ʳp′Uniq
+
+          p′∉ps′ : p′ ∉ ps′
+          p′∉ps′ = Unique[xs∷ʳx]⇒x∉xs ps′∷ʳp′Uniq
+
+          ih : L.All.All (λ b → chainFromBlock b (blockHistory N‴) ✓) (honestBlockHistory N‴)
+          ih = honestBlockCfb✓-↑∗ʳ ps′r (blockMaking↑ ts N*↷↑N₂) ps′Uniq cfN‴ ts⁺
+
+          step : _ ⊢ N‴ —[ p′ ]↑→ N* → L.All.All (λ b → chainFromBlock b (blockHistory N*) ✓) (honestBlockHistory N*)
+          step (unknownParty↑ _) = ih
+          step (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
+          ... | ⁇ (no ¬isWinner) = ih
+          ... | ⁇ (yes isWinner) rewrite hp′π = L.All.tabulate step-honestParty↑
+            where
+              best : Chain
+              best = bestChain (N‴ .clock  ∸ 1) (ls .tree)
+
+              nb : Block
+              nb = mkBlock (hash (tip best)) (N‴ .clock) (txSelection (N‴ .clock) p′) p′
+
+              bhπ : blockHistory N‴ ⊆ˢ nb ∷ blockHistory N‴
+              bhπ  = L.SubS.xs⊆x∷xs _ _
+
+              cfπ : BlockListCollisionFree (nb ∷ blockHistory N‴)
+              cfπ = BlockListCollisionFree-∷ {nb ∷ blockHistory N‴} {genesisBlock} cfN*
+
+              step-honestParty↑ : ∀ {b} →
+                  b ∈ nb ∷ honestBlockHistory N‴
+                → chainFromBlock b (nb ∷ blockHistory N‴) ✓
+              step-honestParty↑ {b} b∈nb∷hbhN‴ with ∈-∷⁻ b∈nb∷hbhN‴
+              ... | inj₂ b∈hbhN‴ = subsetCfb✓Preservation cfπ bhπ cfb✓π
+                where
+                  cfb✓π : chainFromBlock b (blockHistory N‴) ✓
+                  cfb✓π = L.All.lookup ih b∈hbhN‴
+              ... | inj₁ b≡nb rewrite b≡nb with chainFromNewBlock N₀↝⋆N₁ ts⁺ isWinner p′∉ps′ lsπ hp′π cfN*
+              ... |   cfbIsNb∷Best , nb∷best✓ = subst _✓ (sym cfbIsNb∷Best) nb∷best✓
+          step (corruptParty↑ _ _) = L.All.tabulate step-corruptParty↑
+            where
+              mds : List (Message × DelayMap)
+              mds = makeBlockᶜ (N‴ .clock) (N‴ .history) (N‴ .messages) (N‴ .advState) .proj₁
+
+              sub : L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N‴
+              sub = ffN₂ .proj₂ (blockMaking↑ ts N*↷↑N₂)
+
+              step-corruptParty↑ : ∀ {b} →
+                  b ∈ honestBlockHistory (broadcastMsgsᶜ mds N‴)
+                → chainFromBlock b (blockHistory (broadcastMsgsᶜ mds N‴)) ✓
+              step-corruptParty↑ {b} b∈hbhN‴ᶜ = subsetCfb✓Preservation cfπ bhπ cfb✓π
+                where
+                  bhπ : blockHistory N‴ ⊆ˢ blockHistory (broadcastMsgsᶜ mds N‴)
+                  bhπ  = blockHistoryPreservation-broadcastMsgsᶜ mds N‴
+
+                  cfπ : BlockListCollisionFree (blockHistory (broadcastMsgsᶜ mds N‴))
+                  cfπ = BlockListCollisionFree-∷ {blockHistory (broadcastMsgsᶜ mds N‴)} {genesisBlock} cfN*
+
+                  b∈hbhN‴ : b ∈ honestBlockHistory N‴
+                  b∈hbhN‴ = ≡ˢ⇒⊆×⊇ eqhs .proj₂ b∈hbhN‴ᶜ
+                    where
+                      eqhs : honestBlockHistory N‴ ≡ˢ honestBlockHistory (broadcastMsgsᶜ mds N‴)
+                      eqhs = honestBlockHistoryPreservation-broadcastMsgsᶜ {N‴} {mds} sub
+
+                  cfb✓π : chainFromBlock b (blockHistory N‴) ✓
+                  cfb✓π = L.All.lookup ih b∈hbhN‴
 
   cfbInHonestTree : ∀ {N : GlobalState} →
       N₀ ↝⋆ N
