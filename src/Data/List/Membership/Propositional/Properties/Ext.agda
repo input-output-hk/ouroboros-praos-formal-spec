@@ -4,7 +4,8 @@ open import Data.Maybe using (just)
 open import Data.Maybe.Properties using (just-injective)
 open import Data.Bool using (Bool; false; true)
 open import Data.Sum using (_⊎_; inj₁; inj₂)
-open import Data.List using (List; []; _∷_; findᵇ; filter; deduplicate)
+open import Data.Product using (_×_; _,_; proj₁; proj₂)
+open import Data.List using (List; []; _∷_; findᵇ; find; filter; deduplicate)
 open import Data.List.Ext using (undup)
 open import Data.List.Membership.Propositional using (_∈_; _∉_)
 open import Data.List.Relation.Unary.Any using (here; there)
@@ -24,10 +25,32 @@ x∈x∷xs xs = here refl
 ∈-∷⁻ (here px) = inj₁ px
 ∈-∷⁻ (there p) = inj₂ p
 
+open import Data.List.Relation.Unary.All.Properties.Core using (¬Any⇒All¬; All¬⇒¬Any)
+open import Data.List.Relation.Unary.All using (All; uncons)
+open import Function.Base using (_∘_)
+open import Relation.Binary.PropositionalEquality using (≢-sym)
+
+∉-∷⁻ : ∀ {a} {A : Set a} {xs : List A} {x y} → y ∉ x ∷ xs → (y ≢ x) × (y ∉ xs)
+∉-∷⁻ {_} {_} {xs} {x} {y} y∉x∷xs with uncons (¬Any⇒All¬ _ y∉x∷xs)
+... | y≢x , [≢y]xs = y≢x , All¬⇒¬Any [≢y]xs
+
+∈×∉⇒≢ : ∀ {a} {A : Set a} {xs : List A} {x x′} → x ∈ xs → x′ ∉ xs → x ≢ x′
+∈×∉⇒≢ {xs = x″ ∷ xs″} x∈x″∷xs″ x′∉x″∷xs″ with ∈-∷⁻ x∈x″∷xs″ | ∉-∷⁻ x′∉x″∷xs″
+... | inj₁ x≡x″  | x′≢x″ , _      rewrite x≡x″ = ≢-sym x′≢x″
+... | inj₂ x∈xs″ | _     , x′∉xs″              = ∈×∉⇒≢ x∈xs″ x′∉xs″
+
 ∈-findᵇ⁻ : ∀ {a} {A : Set a} ⦃ _ : DecEq A ⦄ {P : A → Bool} {xs : List A} {x : A} → findᵇ P xs ≡ just x → x ∈ xs
 ∈-findᵇ⁻ {P = P} {xs = x′ ∷ xs′} eqf with P x′
 ... | false = there (∈-findᵇ⁻ {xs = xs′} eqf)
 ... | true  = here (sym (just-injective eqf))
+
+module _ {a p} {A : Set a} ⦃ _ : DecEq A ⦄ {P : Pred A p} (P? : Decidable P) where
+
+  ∈-find⁻ : ∀ {xs : List A} {x : A} → find P? xs ≡ just x → x ∈ xs
+  ∈-find⁻ {xs = []} eqf = contradiction eqf λ ()
+  ∈-find⁻ {xs = x′ ∷ xs′} eqf with P? x′
+  ... | no  _ = there (∈-find⁻ {xs = xs′} eqf)
+  ... | yes _ = here (sym (just-injective eqf))
 
 ∈-∷-≢⁻ : ∀ {a} {A : Set a} {xs : List A} {x y : A} → y ∈ x ∷ xs → y ≢ x → y ∈ xs
 ∈-∷-≢⁻ y∈x∷xs y≢x with ∈-∷⁻ y∈x∷xs

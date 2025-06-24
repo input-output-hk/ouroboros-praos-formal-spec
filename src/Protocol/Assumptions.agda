@@ -48,6 +48,7 @@ record Assumptions : Type₁ where
     ⦃ parties₀HasHonest  ⦄ : L.Any.Any ((_≡ honest) ∘ honestyOf) parties₀
     ⦃ genesisBlockSlot   ⦄ : genesisBlock .slot ≡ 0
     ⦃ genesisHonesty     ⦄ : honestyOf (genesisBlock .pid) ≡ honest
+    ⦃ genesisWinner      ⦄ : winner (genesisBlock .pid) (genesisBlock .slot)
 
   Honest : Pred Party 0ℓ
   Honest p = honestyOf p ≡ honest

@@ -318,9 +318,9 @@ cfbStartsWithBlock : ∀ {b : Block} {bs : List Block} → chainFromBlock b bs �
 cfbStartsWithBlock {b} {bs} cfbbs≢[]
   with b == genesisBlock
 ... | true = [] , refl
-... | false with b .prev == hash genesisBlock
+... | false with ¿ b ⟵ genesisBlock ¿ᵇ
 ... |   true = [ genesisBlock ] , refl
-... |   false with L.findᵇ ((b .prev ==_) ∘ hash) bs in eqf
+... |   false with L.findᵇ (λ b″ → ¿ b ⟵ b″ ¿ᵇ) bs in eqf
 ... |     nothing = contradiction refl cfbbs≢[]
 ... |     just b′ with chainFromBlock b′ (L.filterᵇ (not ∘ (_== b′)) bs) in eqcfb
 ... |       [] = contradiction refl cfbbs≢[]

@@ -14,7 +14,7 @@ open import Data.Product.Base using (_×_; _,_; proj₁; proj₂)
 open import Data.Sum.Base using (inj₁; inj₂)
 open import Data.Nat.Base using (suc; _≤_; z≤n; s≤s; _+_)
 open import Data.Nat.Properties using (_≟_)
-open import Data.List.Base using (List; []; _∷_; _∷ʳ_; _++_; length)
+open import Data.List.Base using (List; []; _∷_; _∷ʳ_; _++_; length; map)
 open import Data.List.Membership.Propositional using (_∈_; _∉_)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻)
 open import Data.List.Relation.Unary.Any using (here; there)
@@ -30,13 +30,21 @@ open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext
 open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (x∷xs⊈[]; ∷-⊆; ∷⊆⇒∈)
 open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_)
+open import Function.Definitions using (Congruent)
 
 private
   variable
-    a : Level
+    a b : Level
     A : Set a
     x : A
     xs ys : List A
+
+-- TODO: Remove when upgrading to stdlib 2.3.
+module _ {A : Set a} {B : Set b} where
+
+  map⁻ : ∀ {f} → Congruent _≡_ _≡_ f →
+         ∀ {xs} → Unique (map f xs) → Unique xs
+  map⁻ = Setoid.map⁻ (setoid A) (setoid B)
 
 module _ {A : Set a} {xs ys} where
 
