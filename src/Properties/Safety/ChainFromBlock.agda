@@ -21,21 +21,25 @@ open import Protocol.BaseTypes
 open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
 open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
+open import Protocol.Chain.Properties ⦃ params ⦄ ⦃ assumptions ⦄ using ([gb+c]✓⇔c≡[]; [b]✓⇔b≡gb; ✓⇒Unique)
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.TreeType ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[[]]→∗ʳ⇒≡; —[∷ʳ]→∗-split)
-open import Data.Nat.Properties.Ext using (pred[n]<n {- ; suc-≢-injective -})
+open import Data.Bool.Properties using (T-≡)
+open import Data.Nat.Properties.Ext using (pred[n]<n)
 open import Data.Maybe.Properties.Ext using (≡just⇒Is-just)
 open import Data.List.Ext using (ι)
-open import Data.List.Membership.Propositional.Properties.Ext using (∈-findᵇ⁻; ∈-∷-≢⁻; x∈x∷xs; ∈-∷⁻ {- ; ; ;  -})
-open import Data.List.Properties.Ext using (Px-findᵇ⁻; ∷≢[]; []≢∷ʳ; ≢[]⇒∷ {- filter-∘-comm; filter-∘-×; ; ; ; ; filter-acceptʳ; filter-rejectʳ; foldr-preservesʳ' -})
-open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (filterᵇ-mono {- cartesianProduct-⊆-Mono; ; ∷-⊆; ∷-⊆⁺; ∷⊆⇒∈ -})
+open import Data.List.Membership.Propositional.Properties.Ext using (∈-findᵇ⁻; ∈-∷-≢⁻; x∈x∷xs; ∈-∷⁻; ∈×∉⇒≢)
+open import Data.List.Properties.Ext using (Px-findᵇ⁻; ∷≢[]; []≢∷ʳ; ≢[]⇒∷; find-∄)
+open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (filterᵇ-mono; ∷⊆⇒∈; ∷-⊆)
 open import Data.List.Relation.Unary.All.Properties.Ext using (cartesianProduct⁻)
 open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
-open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using ({- ++⁻; -} Unique[xs∷ʳx]⇒x∉xs)
-open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊆×⊇ {- ; ≡ˢ-refl; ≡ˢ-sym; ≡ˢ-trans; ; ⊆×⊇⇒≡ˢ; deduplicate-cong; filter-cong; All-resp-≡ˢ; Any-resp-≡ˢ; cartesianProduct-cong -})
+open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs)
+open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊆×⊇)
+open import Relation.Nullary.Decidable.Core using (T?; fromWitnessFalse)
+open import Relation.Unary using () renaming (_⊆_ to _⋐_)
 open import Relation.Binary.PropositionalEquality.Properties.Ext using (=/=⇔≢; ≡×≢⇒≢; ==⇔≡)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
@@ -55,6 +59,40 @@ cfbInBlockListIsSubset′ : ∀ {b : Block} {bs : List Block} {c : Chain} →
   → chainFromBlock b bs ≡ b ∷ c
 cfbInBlockListIsSubset′ = {!!}
 
+prevBlockUniqueness : ∀ {bs c : List Block} {b b₁ b₂ : Block} →
+  let
+    gbs : List Block
+    gbs = genesisBlock ∷ bs
+  in
+    BlockListCollisionFree gbs
+  → b₂ ∷ c ⊆ˢ gbs
+  → L.findᵇ (λ b′ → ¿ b ⟵ b′ ¿ᵇ) bs ≡ just b₁
+  → b ⟵ b₂
+  → b₁ ≡ b₂
+prevBlockUniqueness {bs} {c} {b} {b₁} {b₂} bcfgbs b₂+c⊆gbs eqf b⟵b₂ =
+  L.All.lookup
+    bcfgbs
+    (L.Mem.∈-cartesianProduct⁺ {xs = genesisBlock ∷ bs} (L.Mem.∈-++⁺ʳ _ b₁∈bs) b₂∈gbs)
+    hb₁≡hb₂
+  where
+    b₂∈gbs : b₂ ∈ genesisBlock ∷ bs
+    b₂∈gbs = ∷⊆⇒∈ b₂+c⊆gbs
+
+    b₁∈bs : b₁ ∈ bs
+    b₁∈bs = ∈-findᵇ⁻ eqf
+
+    hb₁≡hb₂ : hash b₁ ≡ hash b₂
+    hb₁≡hb₂ = trans hb₁≡bₚ b⟵b₂
+      where
+        hb₁≡bₚ : hash b₁ ≡ b .prev
+        hb₁≡bₚ = sym b⟵b₁
+          where
+            b⟵b₁ : b ⟵ b₁
+            b⟵b₁ = toWitness $ T-≡ .Equivalence.from b⟵b₁≡true
+              where
+                b⟵b₁≡true : ¿ b ⟵ b₁ ¿ᵇ ≡ true
+                b⟵b₁≡true = Px-findᵇ⁻ {P = λ b′ → ¿ b ⟵ b′ ¿ᵇ} {xs = bs} eqf
+
 cfbInBlockListIsSubset : ∀ {b : Block} {bs : List Block} {c : Chain} →
   let
     gbs : List Block
@@ -64,7 +102,121 @@ cfbInBlockListIsSubset : ∀ {b : Block} {bs : List Block} {c : Chain} →
   → (b ∷ c) ✓
   → c ⊆ˢ gbs
   → chainFromBlock b bs ≡ b ∷ c
-cfbInBlockListIsSubset = {!!}
+cfbInBlockListIsSubset {b} {bs} {c} bcfgbs [b+c]✓ c⊆gbs with b ≟ genesisBlock
+... | yes b≡gb rewrite b≡gb | [gb+c]✓⇔c≡[] .Equivalence.to [b+c]✓ = refl
+... | no b≢gb with b .prev ≟ hash genesisBlock
+...   | yes b⟵gb = cong (b ∷_) $ goal-b⟵gb c⊆gbs [b+c]✓
+  where
+    goal-b⟵gb : ∀ {c} → c ⊆ˢ genesisBlock ∷ bs → (b ∷ c) ✓ → [ genesisBlock ] ≡ c
+    goal-b⟵gb {[]} _ [b]✓ = contradiction ([b]✓⇔b≡gb .Equivalence.to [b]✓) b≢gb
+    goal-b⟵gb {b* ∷ c*} b*+c*⊆gbs [b+b*+c*]✓ with ✓-∷ .Equivalence.from [b+b*+c*]✓
+    ... | _ , b⟵b* , _ , [b*+c]✓ = subst₂ (((List Block ∋ [ genesisBlock ]) ≡_) ∘₂ _∷_) (sym b*≡gb) (sym c*≡[]) refl
+      where
+        b*≡gb : b* ≡ genesisBlock
+        b*≡gb  = sym $ L.All.lookup bcfgbs (L.Mem.∈-cartesianProduct⁺ (here {xs = bs} refl) b*∈gbs) hgb≡hb*
+          where
+            b*∈gbs : b* ∈ genesisBlock ∷ bs
+            b*∈gbs = ∷⊆⇒∈ b*+c*⊆gbs
+
+            hgb≡hb* : hash genesisBlock ≡ hash b*
+            hgb≡hb* = trans (sym b⟵gb) b⟵b*
+
+        c*≡[] : c* ≡ []
+        c*≡[] = [gb+c]✓⇔c≡[] .Equivalence.to [gb+c*]✓
+          where
+            [gb+c*]✓ : (genesisBlock ∷ c*) ✓
+            [gb+c*]✓ = subst ((_✓) ∘ (_∷ c*)) b*≡gb [b*+c]✓
+...   | no b↚gb with L.findᵇ (λ b″ → ¿ b ⟵ b″ ¿ᵇ) bs in eqf
+...     | nothing = goal-nothing c⊆gbs [b+c]✓
+  where
+    goal-nothing : ∀ {c} → c ⊆ˢ genesisBlock ∷ bs → (b ∷ c) ✓ → (Chain ∋ []) ≡ b ∷ c
+    goal-nothing {[]}      _         [b]✓ = contradiction ([b]✓⇔b≡gb .Equivalence.to [b]✓) b≢gb
+    goal-nothing {b* ∷ c*} b*+c*⊆gbs [b+b*+c*]✓ with ✓-∷ .Equivalence.from [b+b*+c*]✓
+    ... | _ , b⟵b* , _ , [b*+c*]✓ with ∈-∷⁻ $ ∷⊆⇒∈ b*+c*⊆gbs
+    ...   | inj₁ b*≡gb = contradiction b⟵gb b↚gb
+      where
+        b⟵gb : b ⟵ genesisBlock
+        b⟵gb rewrite sym b*≡gb = b⟵b*
+    ...   | inj₂ b*∈bs = contradiction (b* , b*∈bs , b⟵b*) ∄b″∈bs[b⟵b″]
+      where
+        ∄b″∈bs[b⟵b″] : ¬ (∃[ b″ ] b″ ∈ bs × b ⟵ b″)
+        ∄b″∈bs[b⟵b″] ∃b″∈bs[b⟵b″] =
+          contradiction
+            (L.Mem.Any↔ .Inverse.to ∃b″∈bs[b⟵b″])
+            λ Any[b⟵]bs → contradiction (L.Any.map [b⟵]⋐[Tb⟵?] Any[b⟵]bs) ¬Any[Tb⟵?]bs
+          where
+            ¬Any[Tb⟵?]bs : ¬ L.Any.Any (λ b″ → T ¿ b ⟵ b″ ¿ᵇ) bs
+            ¬Any[Tb⟵?]bs = find-∄ (T? ∘ (λ b″ → ¿ b ⟵ b″ ¿ᵇ)) eqf
+
+            [b⟵]⋐[Tb⟵?] : b ⟵_ ⋐ (λ b″ → T ¿ b ⟵ b″ ¿ᵇ)
+            [b⟵]⋐[Tb⟵?] {b′} b⟵b′ = fromWitness {a? = b .prev ≟ hash b′} b⟵b′
+...     | just b′ with chainFromBlock b′ (L.filterᵇ (not ∘ (_== b′)) bs) in eqcfb
+...       | [] = goal-cfb-[] c⊆gbs [b+c]✓
+  where
+    goal-cfb-[] : ∀ {c} → c ⊆ˢ genesisBlock ∷ bs → (b ∷ c) ✓ → (Chain ∋ []) ≡ b ∷ c
+    goal-cfb-[] {[]}      _         [b]✓ = contradiction ([b]✓⇔b≡gb .Equivalence.to [b]✓) b≢gb
+    goal-cfb-[] {b* ∷ c*} b*+c*⊆gbs [b+b*+c*]✓ with ✓-∷ .Equivalence.from [b+b*+c*]✓
+    ... | _ , b⟵b* , _ , [b*+c*]✓ = contradiction b′+c*≡[] λ ()
+      where
+        b*≡b′ : b′ ≡ b*
+        b*≡b′ = prevBlockUniqueness {b = b} bcfgbs b*+c*⊆gbs eqf b⟵b*
+
+        b′+c*≡[] : b′ ∷ c* ≡ (Chain ∋ [])
+        b′+c*≡[] =
+          trans
+            (sym (cfbInBlockListIsSubset {b′} {L.filterᵇ (not ∘ (_== b′)) bs} {c*} blcf[gb+fbs] [b′+c*]✓ c*⊆gb+fbs))
+            eqcfb
+          where
+            blcf[gb+fbs] : BlockListCollisionFree (genesisBlock ∷ L.filterᵇ (not ∘ (_== b′)) bs)
+            blcf[gb+fbs] = BlockListCollisionFree-⊆
+              (L.SubS.∷⁺ʳ {ys = bs} _ $ L.SubS.filter-⊆ (T? ∘ (not ∘ (_== b′))) _) bcfgbs
+
+            [b′+c*]✓ : (b′ ∷ c*) ✓
+            [b′+c*]✓ rewrite b*≡b′ = [b*+c*]✓
+
+            c*⊆gb+fbs : c* ⊆ˢ genesisBlock ∷ L.filterᵇ (not ∘ (_== b′)) bs
+            c*⊆gb+fbs {b″} b″∈c* rewrite b*≡b′ with ∈-∷⁻ $ ∷-⊆ b*+c*⊆gbs b″∈c*
+            ... | inj₁ b″≡gb = here b″≡gb
+            ... | inj₂ b″∈bs = there $ L.Mem.∈-filter⁺ _ b″∈bs (fromWitnessFalse b″≢b*)
+              where
+                b″≢b* : b″ ≢ b*
+                b″≢b* = ∈×∉⇒≢ b″∈c* b*∉c*
+                  where
+                    b*∉c* : b* ∉ c*
+                    b*∉c* = Unique[x∷xs]⇒x∉xs (✓⇒Unique [b*+c*]✓)
+...       | b′′ ∷ bs′′ = cong (b ∷_) (goal-cfb-∷ c⊆gbs [b+c]✓)
+  where
+    goal-cfb-∷ : ∀ {c} → c ⊆ˢ genesisBlock ∷ bs → (b ∷ c) ✓ → b′′ ∷ bs′′ ≡ c
+    goal-cfb-∷ {[]}      _         [b]✓ = contradiction ([b]✓⇔b≡gb .Equivalence.to [b]✓) b≢gb
+    goal-cfb-∷ {b* ∷ c*} b*+c*⊆gbs [b+b*+c*]✓ with ✓-∷ .Equivalence.from [b+b*+c*]✓
+    ... | _ , b⟵b* , _ , [b*+c*]✓ = sym $ subst (λ ◆ → ◆ ∷ c* ≡ b′′ ∷ bs′′) b′≡b* b′+c*≡b′′+bs′′
+      where
+        b′≡b* : b′ ≡ b*
+        b′≡b* = prevBlockUniqueness {b = b} bcfgbs b*+c*⊆gbs eqf b⟵b*
+
+        b′+c*≡b′′+bs′′ : b′ ∷ c* ≡ b′′ ∷ bs′′
+        b′+c*≡b′′+bs′′ =
+          trans
+            (sym (cfbInBlockListIsSubset {b′} {L.filterᵇ (not ∘ (_== b′)) bs} {c*} blcf[gb+fbs] [b′+c*]✓ c*⊆gb+fbs))
+            eqcfb
+          where
+            blcf[gb+fbs] : BlockListCollisionFree (genesisBlock ∷ L.filterᵇ (not ∘ (_== b′)) bs)
+            blcf[gb+fbs] = BlockListCollisionFree-⊆
+              (L.SubS.∷⁺ʳ {ys = bs} _ $ L.SubS.filter-⊆ (T? ∘ (not ∘ (_== b′))) _) bcfgbs
+
+            [b′+c*]✓ : (b′ ∷ c*) ✓
+            [b′+c*]✓ rewrite b′≡b* = [b*+c*]✓
+
+            c*⊆gb+fbs : c* ⊆ˢ genesisBlock ∷ L.filterᵇ (not ∘ (_== b′)) bs
+            c*⊆gb+fbs {b″} b″∈c* rewrite b′≡b* with ∈-∷⁻ $ ∷-⊆ b*+c*⊆gbs b″∈c*
+            ... | inj₁ b″≡gb = here b″≡gb
+            ... | inj₂ b″∈bs = there $ L.Mem.∈-filter⁺ _ b″∈bs (fromWitnessFalse b″≢b*)
+              where
+                b″≢b* : b″ ≢ b*
+                b″≢b* = ∈×∉⇒≢ b″∈c* b*∉c*
+                  where
+                    b*∉c* : b* ∉ c*
+                    b*∉c* = Unique[x∷xs]⇒x∉xs (✓⇒Unique [b*+c*]✓)
 
 {- Traversing a chain `c` from the tip to the genesis block and calculating
    the length of the "chain from block" of each block `b` is equal to a countdown
@@ -72,8 +224,8 @@ cfbInBlockListIsSubset = {!!}
    Example: Let `c` be bᴬ ← bᴰ ← bᴮ ← gb. Then:
      chainFromBlock bᴬ bs ≡ bᴬ ← bᴰ ← bᴮ ← gb ⇒ ∣ chainFromBlock bᴬ bs ∣ ≡ 4
      chainFromBlock bᴰ bs ≡      bᴰ ← bᴮ ← gb ⇒ ∣ chainFromBlock bᴰ bs ∣ ≡ 3
-     chainFromBlock bᴰ bs ≡           bᴮ ← gb ⇒ ∣ chainFromBlock bᴮ bs ∣ ≡ 2
-     chainFromBlock bᴰ bs ≡                gb ⇒ ∣ chainFromBlock gb bs ∣ ≡ 1
+     chainFromBlock bᴮ bs ≡           bᴮ ← gb ⇒ ∣ chainFromBlock bᴮ bs ∣ ≡ 2
+     chainFromBlock gb bs ≡                gb ⇒ ∣ chainFromBlock gb bs ∣ ≡ 1
 -}
 cfbLenghtsIsCountdown : ∀ {bs : List Block} {c : Chain} →
     BlockListCollisionFree bs

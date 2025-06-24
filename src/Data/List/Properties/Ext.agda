@@ -6,6 +6,7 @@ open import Data.Nat using (ℕ; zero; suc; _+_; _∸_; _≤_; _<_; s≤s; z≤n
 open import Data.Nat.Properties using (+-identityʳ; +-suc; ≤⇒≯; m≤n⇒m<n∨m≡n; +-cancelˡ-≡; ≤-refl; m<m+n; <⇒≤)
 open import Data.Bool using (Bool; true; false)
 open import Relation.Binary.PropositionalEquality using (refl; _≡_; _≢_; module ≡-Reasoning)
+open import Data.Maybe using (nothing)
 open import Data.List using (List; []; [_]; _∷_; _∷ʳ_; _++_; map; filter; length; updateAt; _[_]%=_; lookup; findᵇ; find; upTo; downFrom; reverse; foldr; deduplicate)
 open import Data.List.Ext using (ι; count; undup)
 open import Data.List.Properties using (∷ʳ-injective; filter-++; filter-accept; filter-reject; ++-identityʳ; unfold-reverse; ++-cancelˡ; ∷-injectiveˡ; ∷-injectiveʳ; reverse-selfInverse; length-map; length-downFrom; length-reverse; filter-all; filter-none)
@@ -116,9 +117,18 @@ Px-findᵇ⁻ {P = P} {xs = x′ ∷ xs′} {x = x} eqf with x ≟ x′
 ... | yes x≡x′ with P x′ in Px′
 ... |   false = Px-findᵇ⁻ {P = P} {xs = xs′} eqf
 ... |   true  = subst _ (sym x≡x′) Px′
-Px-findᵇ⁻ {P = P} {xs = x′ ∷ xs′} eqf | no x≢x′ with P x′
+Px-findᵇ⁻ {P = P} {xs = x′ ∷ xs′} eqf
+    | no x≢x′ with P x′
 ... |   false = Px-findᵇ⁻ {P = P} {xs = xs′} eqf
 ... |   true  = contradiction (just-injective eqf) (contraposition sym x≢x′)
+
+module _ {a p} {A : Set a} ⦃ _ : DecEq A ⦄ {P : Pred A p} (P? : Decidable P) where
+
+  Px-find⁻ : ∀ {xs : List A} {x : A} → find P? xs ≡ just x → P x
+  Px-find⁻ {xs = []} eqf = contradiction eqf λ ()
+  Px-find⁻ {xs = x′ ∷ xs′} eqf with P? x′
+  ... | yes Px′ = subst _ (just-injective eqf) Px′
+  ... | no ¬Px′ = Px-find⁻ {xs = xs′} eqf
 
 ∷≢[] : x ∷ xs ≢ (List A ∋ [])
 ∷≢[] ()
@@ -143,6 +153,14 @@ module _ (P? : Decidable P) where
  ... | yes Px′ = [] , xs , subst (λ ◆ → x ∷ xs ≡ ◆ ∷ xs) (sym $ just-injective p) refl , subst P (just-injective p) Px′ , All.[]
  ... | no ¬Px′ with find-∃ {x} {xs} p
  ... |   (ys′ , zs′ , ys′+x+zs′≡xs , Px , ¬Pys′) = x′ ∷ ys′ , zs′ , cong (x′ ∷_) ys′+x+zs′≡xs , Px , ¬Px′ All.∷ ¬Pys′
+
+ open import Data.List.Relation.Unary.Any using (Any; here; there)
+
+ find-∄ : ∀ {xs} → find P? xs ≡ nothing → ¬ Any P xs
+ find-∄ {[]} _ = λ ()
+ find-∄ {x ∷ xs} p with P? x
+ ... | yes Px = contradiction p λ ()
+ ... | no ¬Px = λ{ (here Px) → contradiction Px ¬Px ; (there q) → contradiction q (find-∄ {xs} p) }
 
 ++-injective : ∀ {xs ys zs ws : List A} → length xs ≡ length zs → xs ++ ys ≡ zs ++ ws → xs ≡ zs × ys ≡ ws
 ++-injective {xs = []} {zs = zs} p q rewrite length0⇒[] {xs = zs} (sym p) = refl , q
