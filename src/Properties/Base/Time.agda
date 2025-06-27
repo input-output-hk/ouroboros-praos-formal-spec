@@ -126,13 +126,6 @@ noPrematureHonestBlocksAtReady : ∀ {N : GlobalState} →
   → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
 noPrematureHonestBlocksAtReady = {!!}
 
-noPrematureHonestBlocksAt↓ : ∀ {N : GlobalState} →
-    N₀ ↝⋆ N
-  → ForgingFree N
-  → N .progress ≡ msgsDelivered
-  → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
-noPrematureHonestBlocksAt↓ = {!!}
-
 opaque
 
   unfolding honestMsgsDelivery corruptMsgsDelivery honestBlockMaking corruptBlockMaking
@@ -273,6 +266,87 @@ opaque
           goal (advanceRound   _) = L.All.map Nat.m≤n⇒m≤1+n ih
           goal (permuteParties _) = ih
           goal (permuteMsgs    _) = ih
+
+  noPrematureHonestBlocksAt↓ : ∀ {N : GlobalState} →
+      N₀ ↝⋆ N
+    → ForgingFree N
+    → N .progress ≡ msgsDelivered
+    → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
+  noPrematureHonestBlocksAt↓ = noPrematureHonestBlocksAt↓ʳ ∘ Star⇒Starʳ
+    where
+      open RTC; open Starʳ
+      noPrematureHonestBlocksAt↓ʳ : ∀ {N : GlobalState} →
+          N₀ ↝⋆ʳ N
+        → ForgingFree N
+        → N .progress ≡ msgsDelivered
+        → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
+      noPrematureHonestBlocksAt↓ʳ εʳ _ _ = []
+      noPrematureHonestBlocksAt↓ʳ {N} (_◅ʳ_ {j = N′} N₀↝⋆ʳN′ N′↝N) ffN NMsgsDelivered = goal N′↝N
+        where
+          ffN′ : ForgingFree N′
+          ffN′ = ForgingFreePrev (N′↝N ◅ ε) ffN
+
+          ih : N′ .progress ≡ msgsDelivered → L.All.All ((_< N′ .clock) ∘ slot) (honestBlockHistory N′)
+          ih = noPrematureHonestBlocksAt↓ʳ N₀↝⋆ʳN′ ffN′
+
+          goal : N′ ↝ N → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
+          goal (deliverMsgs {N′ = N″} N′Ready N′—[eoN′]↓→∗N″) =
+            subst
+              _
+              (sym $ clockPreservation-↓∗ N′—[eoN′]↓→∗N″)
+              (goal* N″↷↓N $ —[]→∗⇒—[]→∗ʳ N′—[eoN′]↓→∗N″)
+            where
+              N″↷↓N : N″ ↷↓ N
+              N″↷↓N = progress↓ (↷↓-refl {N})
+
+              goal* : ∀ {N″ ps} →
+                   N″ ↷↓ N
+                 → _ ⊢ N′ —[ ps ]↓→∗ʳ N″
+                 → L.All.All ((_< N′ .clock) ∘ slot) (honestBlockHistory N″)
+              goal* _ [] = noPrematureHonestBlocksAtReady (Starʳ⇒Star N₀↝⋆ʳN′) ffN′ N′Ready
+              goal* {N″} N″↷↓N (_∷ʳ_ {is = ps} {i = p} {s′ = N‴} N′—[ps]↓→∗ʳN‴ N‴↝[p]↓N″) = step* N‴↝[p]↓N″
+                where
+                  N‴↷↓N : N‴ ↷↓ N
+                  N‴↷↓N = delivery↓ N‴↝[p]↓N″ N″↷↓N
+
+                  ih* : L.All.All ((_< N′ .clock) ∘ slot) (honestBlockHistory N‴)
+                  ih* = goal* N‴↷↓N N′—[ps]↓→∗ʳN‴
+
+                  step* : _ ⊢ N‴ —[ p ]↓→ N″ → L.All.All ((_< N′ .clock) ∘ slot) (honestBlockHistory N″)
+                  step* (unknownParty↓ _  ) = ih*
+                  step* (honestParty↓  _ _) = ih*
+                  step* (corruptParty↓ _ _) = step*′ {mds} sub
+                    where
+                      mds : List (Message × DelayMap)
+                      mds =
+                        processMsgsᶜ
+                          (L.map msg (immediateMsgs p N‴))
+                          (N‴ .clock)
+                          (N‴ .history)
+                          (removeImmediateMsgs p N‴ .messages)
+                          (N‴ .advState)
+                          .proj₁
+
+                      sub : L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N‴
+                      sub = ffN .proj₁ N‴↷↓N
+
+                      step*′ : ∀ {mds} →
+                          L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N‴
+                        → L.All.All
+                            ((_< N′ .clock) ∘ slot)
+                            (honestBlockHistory (broadcastMsgsᶜ mds (removeImmediateMsgs p N‴)))
+                      step*′ {[]} _ = ih*
+                      step*′ {(m , _) ∷ mds} sub with bᵐ ← projBlock m | ¿ HonestBlock bᵐ ¿
+                      ... | yes hbᵐ = bᵐₜ<N′ₜ ∷ step*′ {mds} sub′
+                        where
+                          bᵐₜ<N′ₜ : bᵐ .slot < N′ .clock
+                          bᵐₜ<N′ₜ = L.All.lookup ih* $ ∷⊆⇒∈ sub
+
+                          sub′ : L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N‴
+                          sub′ = L.SubS.⊆-trans (L.SubS.xs⊆x∷xs _ bᵐ) sub
+                      ... | no ¬hbᵐ = step*′ {mds} sub
+          goal (permuteParties _) = ih NMsgsDelivered
+          goal (permuteMsgs    _) = ih NMsgsDelivered
 
   honestBlocksBelowSlotPreservation : ∀ {N N′ : GlobalState} →
       N₀ ↝⋆ N
