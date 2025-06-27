@@ -7,7 +7,7 @@ open import Data.Nat.Properties using (+-identityʳ; +-suc; ≤⇒≯; m≤n⇒m
 open import Data.Bool using (Bool; true; false)
 open import Relation.Binary.PropositionalEquality using (refl; _≡_; _≢_; module ≡-Reasoning)
 open import Data.Maybe using (nothing)
-open import Data.List using (List; []; [_]; _∷_; _∷ʳ_; _++_; map; filter; length; updateAt; _[_]%=_; lookup; findᵇ; find; upTo; downFrom; reverse; foldr; deduplicate)
+open import Data.List using (List; []; [_]; _∷_; _∷ʳ_; _++_; map; filter; length; updateAt; _[_]%=_; lookup; findᵇ; find; upTo; downFrom; reverse; foldr; deduplicate; replicate)
 open import Data.List.Ext using (ι; count; undup)
 open import Data.List.Properties using (∷ʳ-injective; filter-++; filter-accept; filter-reject; ++-identityʳ; unfold-reverse; ++-cancelˡ; ∷-injectiveˡ; ∷-injectiveʳ; reverse-selfInverse; length-map; length-downFrom; length-reverse; filter-all; filter-none)
 open import Data.List.Membership.Propositional using (_∈_; _∉_)
@@ -22,7 +22,7 @@ open import Relation.Nullary.Negation using (¬_; contradiction; contraposition)
 open import Relation.Nullary.Decidable.Core using (does; yes; no; _×-dec_; ¬?)
 open import Data.List.Relation.Unary.All.Properties.Core using (¬Any⇒All¬)
 open import Level using (Level)
-open import Function.Base using (_∘_; _$_; _∋_)
+open import Function.Base using (_∘_; _$_; _∋_; const)
 open import Relation.Binary.PropositionalEquality using (_≡_; _≗_; sym; cong; subst; module ≡-Reasoning)
 open import Data.Fin using (Fin; cast) renaming (zero to fzero; suc to fsuc)
 open import Data.Fin.Properties using (subst-is-cast)
@@ -267,3 +267,7 @@ module _ (P? : Decidable P) where
     count-none {x ∷ xs} p with P? x
     ... | yes Px = contradiction p λ ()
     ... | no ¬Px = ¬Px All.∷ count-none {xs} p
+
+replicate-map-const : ∀ {a b} {A : Set a} {B : Set b} {xs : List A} {x : B} {n : ℕ} → replicate (length xs) x ≡ map (const x) xs
+replicate-map-const {xs = []}              = refl
+replicate-map-const {xs = x′ ∷ xs} {x} {n} = cong (x ∷_) (replicate-map-const {xs = xs} {x} {n})

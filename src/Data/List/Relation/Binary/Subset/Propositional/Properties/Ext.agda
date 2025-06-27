@@ -1,10 +1,11 @@
 module Data.List.Relation.Binary.Subset.Propositional.Properties.Ext where
 
-open import Function.Base using (id; _$_; _∘_; _|>_)
+open import Function.Base using (id; _$_; _∘_; _|>_; const)
+open import Data.Nat.Base using (ℕ; zero; suc)
 open import Data.Product using (∃-syntax; _×_; _,_; proj₁; proj₂)
 open import Data.Sum.Base using (_⊎_; inj₁; inj₂)
 open import Data.Bool using (Bool)
-open import Data.List using (List; []; _∷_; _++_; cartesianProduct; filterᵇ; deduplicate)
+open import Data.List using (List; []; _∷_; _++_; cartesianProduct; filterᵇ; deduplicate; map; replicate; length)
 open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_; _⊈_)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties using (⊆-refl; ⊆-trans; xs⊆x∷xs; filter⁺′; ∷⁺ʳ; xs⊆xs++ys; ∈-∷⁺ʳ; ⊆-respˡ-↭)
 open import Data.List.Membership.Propositional using (_∈_; _∉_)
@@ -12,7 +13,8 @@ open import Data.List.Membership.Propositional.Properties using (∈-cartesianPr
 open import Data.List.Membership.Propositional.Properties.Ext using (x∈x∷xs)
 open import Data.List.Relation.Unary.Any using (here; there)
 open import Data.List.Relation.Unary.Any.Properties using (¬Any[])
-open import Relation.Binary.PropositionalEquality using (_≡_; sym; refl; trans)
+open import Data.List.Properties.Ext using (replicate-map-const)
+open import Relation.Binary.PropositionalEquality using (_≡_; sym; refl; trans; cong)
 open import Relation.Nullary.Negation using (¬_; contradiction)
 open import Class.DecEq using (DecEq; _≟_)
 
@@ -74,3 +76,13 @@ deduplicate⁺′ {xs = xs} xs⊆ys v∈ddxs with ∈-deduplicate⁻ _≟_ xs v�
 
 deduplicate-⊆ : ∀ {a} {A : Set a} ⦃ _ : DecEq A ⦄ (xs : List A) → deduplicate _≟_ xs ⊆ xs
 deduplicate-⊆ xs {x} x∈ddxs = ∈-deduplicate⁻ _≟_ xs {x} x∈ddxs
+
+replicate[x]⊆x∷xs : ∀ {a} {A : Set a} {xs : List A} {x : A} {n : ℕ} → replicate n x ⊆ x ∷ xs
+replicate[x]⊆x∷xs {n = zero}  = λ ()
+replicate[x]⊆x∷xs {n = suc n} = ∈-∷⁺ʳ (here refl) (replicate[x]⊆x∷xs {n = n})
+
+map[const-x]xs⊆x∷ys : ∀ {a b} {A : Set a} {B : Set b} {xs : List A} {ys : List B} {x : B} → map (const x) xs ⊆ x ∷ ys
+map[const-x]xs⊆x∷ys {xs = xs} {x = x}
+  rewrite
+    sym $ replicate-map-const {xs = xs} {x = x} {n = length xs}
+    = replicate[x]⊆x∷xs

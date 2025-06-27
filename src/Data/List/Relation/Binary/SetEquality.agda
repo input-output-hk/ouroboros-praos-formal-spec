@@ -49,6 +49,13 @@ _≡ˢ_ = _∼[ BS.set ]_
 ≡ˢ⇒⊆×⊇ p = to p , from p
   where open Function.Bundles.Equivalence
 
+-- TODO: Use these for convenience
+≡ˢ⇒⊆ : xs ≡ˢ ys → xs ⊆ ys
+≡ˢ⇒⊆ = proj₁ ∘ ≡ˢ⇒⊆×⊇
+
+≡ˢ⇒⊇ : xs ≡ˢ ys → ys ⊆ xs
+≡ˢ⇒⊇ = proj₂ ∘ ≡ˢ⇒⊆×⊇
+
 open import Relation.Unary using (Decidable) renaming (_⊆_ to _⋐_)
 import Relation.Binary.Definitions as B
 
