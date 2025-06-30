@@ -570,7 +570,7 @@ adversaryHasAdvantage {N} N₀↝⋆N ffN cfN {p} {ls} hp lsp {c} {sl} c⊆fgb�
                                         cfb[sb]⊆ht = L.All.lookup (cfbInHonestTree N₀↝⋆Nᴿ ffNᴿ cfNᴿ) sb∈hbhNᴿ
 
                                         ht⊆lt : allBlocks (honestTree Nᴿ) ⊆ˢ allBlocks (ls .tree)
-                                        ht⊆lt = honestGlobalTreeInHonestLocalTree⁺ N₀↝⋆Nᴿ hp NᴿReady Nᴿ↝⁺N lsp
+                                        ht⊆lt = honestGlobalTreeInHonestLocalTree-↝⁺ N₀↝⋆Nᴿ hp NᴿReady Nᴿ↝⁺N lsp
                                           where
                                             Nᴿ↝⁺N : Nᴿ ↝⁺ N
                                             Nᴿ↝⁺N rewrite Nᴿₜ≡Nₜ-1 = Nᴿ↝⋆N , Nₜ-1<Nₜ
