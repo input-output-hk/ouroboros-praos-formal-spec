@@ -12,10 +12,21 @@ open import Protocol.Prelude
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
-open import Function.Bundles using (_⇔_)
+open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness)
+open import Function.Bundles using (_⇔_; mk⇔)
 
 _hasStateIn_ : REL Party GlobalState 0ℓ
 p hasStateIn N = M.Is-just (N .states ⁉ p)
+
+hasStateInAltDef : ∀ {N : GlobalState} {p : Party} →
+  (∃[ ls ] N .states ⁉ p ≡ just ls) ⇔ p hasStateIn N
+hasStateInAltDef {N} {p} = mk⇔ to from
+  where
+    to : (∃[ ls ] N .states ⁉ p ≡ just ls) → p hasStateIn N
+    to (_ , lsNp) rewrite lsNp = M.Any.just tt
+
+    from : p hasStateIn N → (∃[ ls ] N .states ⁉ p ≡ just ls)
+    from pHasN = M.to-witness pHasN , Is-just⇒to-witness pHasN
 
 opaque
 
@@ -37,6 +48,11 @@ opaque
     → _ ⊢ N′ —[ p ]↑→ N″
     → p hasStateIn N ⇔ p hasStateIn N″
   hasState⇔-↑∗ = {!!}
+
+  hasState⇔-↝⋆ :  ∀ {N N′ : GlobalState} {p : Party} →
+      N ↝⋆ N′
+    → p hasStateIn N ⇔ p hasStateIn N′
+  hasState⇔-↝⋆ = {!!}
 
   localStatePreservation-∈-↑∗ : ∀ {N N′ N″ : GlobalState} {p : Party} →
       N₀ ↝⋆ N

@@ -14,7 +14,10 @@ open import Protocol.Chain ⦃ params ⦄ using (genesisBlock)
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.TreeType ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
 open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_)
+open import Function.Bundles using (_⇔_; Equivalence)
 
 honestLocalTreeInHonestGlobalTree : ∀ {N : GlobalState} {p : Party} {ls : LocalState} →
     N₀ ↝⋆ N
@@ -31,6 +34,15 @@ honestLocalTreeEvolution-↓ :  ∀ {N N′ : GlobalState} {p : Party} {ls ls′
   → allBlocks (ls′ .tree) ≡ˢ allBlocks (ls .tree) ++ blocksDeliveredIn p 𝟘 N -- TODO: same as immediateMsgs p N ???
 honestLocalTreeEvolution-↓ = {!!}
 
+honestLocalTreeBlocksMonotonicity :  ∀ {N N′ : GlobalState} {p : Party} {ls ls′ : LocalState} →
+    N₀ ↝⋆ N
+  → Honest p
+  → N .states ⁉ p ≡ just ls
+  → N ↝⋆ N′
+  → N′ .states ⁉ p ≡ just ls′
+  → allBlocks (ls .tree) ⊆ˢ allBlocks (ls′ .tree)
+honestLocalTreeBlocksMonotonicity = {!!}
+
 honestGlobalTreeInHonestLocalTree : ∀ {N N′ : GlobalState} {p : Party} {ls : LocalState} →
     N₀ ↝⋆ N
   → Honest p
@@ -41,14 +53,39 @@ honestGlobalTreeInHonestLocalTree : ∀ {N N′ : GlobalState} {p : Party} {ls :
   → allBlocks (honestTree N) ⊆ˢ allBlocks (ls .tree)
 honestGlobalTreeInHonestLocalTree = {!!}
 
-honestGlobalTreeInHonestLocalTree⁺ : ∀ {N N′ : GlobalState} {p : Party} {ls : LocalState} →
+honestGlobalTreeInHonestLocalTree-↝⋆⟨1⟩ :  ∀ {N N′ : GlobalState} {p : Party} {ls′ : LocalState} →
+    N₀ ↝⋆ N
+  → Honest p
+  → N .progress ≡ ready
+  → N ↝⋆⟨ 1 ⟩ N′
+  → N′ .progress ≡ ready
+  → N′ .states ⁉ p ≡ just ls′
+  → allBlocks (honestTree N) ⊆ˢ allBlocks (ls′ .tree)
+honestGlobalTreeInHonestLocalTree-↝⋆⟨1⟩ = {!!}
+
+honestGlobalTreeInHonestLocalTree-↝⁺ : ∀ {N N′ : GlobalState} {p : Party} {ls′ : LocalState} →
     N₀ ↝⋆ N
   → Honest p
   → N .progress ≡ ready
   → N ↝⁺ N′
-  → N′ .states ⁉ p ≡ just ls
-  → allBlocks (honestTree N) ⊆ˢ allBlocks (ls .tree)
-honestGlobalTreeInHonestLocalTree⁺ = {!!}
+  → N′ .states ⁉ p ≡ just ls′
+  → allBlocks (honestTree N) ⊆ˢ allBlocks (ls′ .tree)
+honestGlobalTreeInHonestLocalTree-↝⁺ {N} {N′} {p} {ls′} N₀↝⋆N hp NReady (N↝⋆N′ , Nₜ<N′ₜ) lsN′p
+  with ∃ReadyBetweenSlots NReady N↝⋆N′ (Nat.n≤1+n _ , Nₜ<N′ₜ)
+... | N″ , N″Ready , N″ₜ≡Nₜ+1 , N↝⋆N″ , N″↝⋆N′
+  with
+      pHasInN″ ← hasState⇔-↝⋆ N″↝⋆N′ .Equivalence.from $ subst M.Is-just (sym lsN′p) (M.Any.just tt)
+    | hasStateInAltDef {N″} .Equivalence.from pHasInN″
+... | ls″ , lsN″p = L.SubS.⊆-trans htN⊆tls″ tls″⊆tls′
+  where
+    N₀↝⋆N″ : N₀ ↝⋆ N″
+    N₀↝⋆N″ = N₀↝⋆N ◅◅ N↝⋆N″
+
+    tls″⊆tls′ : allBlocks (ls″ .tree) ⊆ˢ allBlocks (ls′ .tree)
+    tls″⊆tls′ = honestLocalTreeBlocksMonotonicity N₀↝⋆N″ hp lsN″p N″↝⋆N′ lsN′p
+
+    htN⊆tls″ : allBlocks (honestTree N) ⊆ˢ allBlocks (ls″ .tree)
+    htN⊆tls″ = honestGlobalTreeInHonestLocalTree-↝⋆⟨1⟩ N₀↝⋆N hp NReady (N↝⋆N″ , sym N″ₜ≡Nₜ+1) N″Ready lsN″p
 
 honestGlobalTreeBlocksMonotonicity : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
