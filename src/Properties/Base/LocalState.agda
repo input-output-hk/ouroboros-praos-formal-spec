@@ -14,6 +14,9 @@ open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness)
 open import Function.Bundles using (_⇔_; mk⇔)
+open import Relation.Binary.Structures using (IsEquivalence)
+open import Function.Properties.Equivalence using (⇔-isEquivalence)
+open IsEquivalence {ℓ = 0ℓ} ⇔-isEquivalence renaming (trans to ⇔-trans) hiding (refl)
 
 _hasStateIn_ : REL Party GlobalState 0ℓ
 p hasStateIn N = M.Is-just (N .states ⁉ p)
@@ -43,11 +46,17 @@ opaque
     → N′ .states ⁉ p ≡ N .states ⁉ p
   localStatePreservation-∉-↑∗ = {!!}
 
+  hasState⇔-↑ : ∀ {N N′ : GlobalState} {p p′ : Party} →
+      _ ⊢ N —[ p′ ]↑→ N′
+    → p hasStateIn N ⇔ p hasStateIn N′
+  hasState⇔-↑ = {!!}
+
   hasState⇔-↑∗ : ∀ {N N′ N″ : GlobalState} {ps : List Party} {p : Party} →
       _ ⊢ N —[ ps ]↑→∗ N′
     → _ ⊢ N′ —[ p ]↑→ N″
     → p hasStateIn N ⇔ p hasStateIn N″
-  hasState⇔-↑∗ = {!!}
+  hasState⇔-↑∗         []          ts = hasState⇔-↑ ts
+  hasState⇔-↑∗ {p = p} (ts′ ∷ ts*) ts = ⇔-trans (hasState⇔-↑ {p = p} ts′) (hasState⇔-↑∗ ts* ts)
 
   hasState⇔-↝⋆ :  ∀ {N N′ : GlobalState} {p : Party} →
       N ↝⋆ N′
