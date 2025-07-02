@@ -216,103 +216,103 @@ opaque
       N₀ ↝⋆ N
     → map msg (N .messages) ⊆ˢ N .history
   messages⊆history = messages⊆historyʳ ∘ Star⇒Starʳ
-      where
-        open RTC; open Starʳ
-        messages⊆historyʳ : ∀ {N : GlobalState} →
-            N₀ ↝⋆ʳ N
-          → L.map msg (N .messages) ⊆ˢ N .history
-        messages⊆historyʳ εʳ = L.SubS.⊆-refl
-        messages⊆historyʳ {N} (_◅ʳ_ {j = N′} N₀↝⋆ʳN′ N′↝N) = goal N′↝N
-          where
-            ih : L.map msg (N′ .messages) ⊆ˢ N′ .history
-            ih = messages⊆historyʳ N₀↝⋆ʳN′
+    where
+      open RTC; open Starʳ
+      messages⊆historyʳ : ∀ {N : GlobalState} →
+          N₀ ↝⋆ʳ N
+        → L.map msg (N .messages) ⊆ˢ N .history
+      messages⊆historyʳ εʳ = L.SubS.⊆-refl
+      messages⊆historyʳ {N} (_◅ʳ_ {j = N′} N₀↝⋆ʳN′ N′↝N) = goal N′↝N
+        where
+          ih : L.map msg (N′ .messages) ⊆ˢ N′ .history
+          ih = messages⊆historyʳ N₀↝⋆ʳN′
 
-            goal : N′ ↝ N → L.map msg (N .messages) ⊆ˢ N .history
-            goal (deliverMsgs {N′ = N″} N′Ready N′—[eoN′]↓→∗N″) = goal* $ —[]→∗⇒—[]→∗ʳ N′—[eoN′]↓→∗N″
-              where
-                goal* : ∀ {N″ ps} →
-                     _ ⊢ N′ —[ ps ]↓→∗ʳ N″
-                   → L.map msg (N″ .messages) ⊆ˢ N″ .history
-                goal* [] = ih
-                goal* {N″} (_∷ʳ_ {is = ps} {i = p} {s′ = N‴} N′—[ps]↓→∗ʳN‴ N‴↝[p]↓N″) = step* N‴↝[p]↓N″
-                  where
-                    ih* : L.map msg (N‴ .messages) ⊆ˢ N‴ .history
-                    ih* = goal* N′—[ps]↓→∗ʳN‴
+          goal : N′ ↝ N → L.map msg (N .messages) ⊆ˢ N .history
+          goal (deliverMsgs {N′ = N″} N′Ready N′—[eoN′]↓→∗N″) = goal* $ —[]→∗⇒—[]→∗ʳ N′—[eoN′]↓→∗N″
+            where
+              goal* : ∀ {N″ ps} →
+                   _ ⊢ N′ —[ ps ]↓→∗ʳ N″
+                 → L.map msg (N″ .messages) ⊆ˢ N″ .history
+              goal* [] = ih
+              goal* {N″} (_∷ʳ_ {is = ps} {i = p} {s′ = N‴} N′—[ps]↓→∗ʳN‴ N‴↝[p]↓N″) = step* N‴↝[p]↓N″
+                where
+                  ih* : L.map msg (N‴ .messages) ⊆ˢ N‴ .history
+                  ih* = goal* N′—[ps]↓→∗ʳN‴
 
-                    step* : _ ⊢ N‴ —[ p ]↓→ N″ → L.map msg (N″ .messages) ⊆ˢ N″ .history
-                    step* (unknownParty↓ _  ) = ih*
-                    step* (honestParty↓  _ _) = L.SubS.⊆-trans (L.SubS.map⁺ _ $ L.SubS.filter-⊆ _ _) ih*
-                    step* (corruptParty↓ _ _) = step*′ {mds}
-                      where
-                        mds : List (Message × DelayMap)
-                        mds =
-                          processMsgsᶜ
-                            (L.map msg (immediateMsgs p N‴))
-                            (N‴ .clock)
-                            (N‴ .history)
-                            (removeImmediateMsgs p N‴ .messages)
-                            (N‴ .advState)
-                            .proj₁
+                  step* : _ ⊢ N‴ —[ p ]↓→ N″ → L.map msg (N″ .messages) ⊆ˢ N″ .history
+                  step* (unknownParty↓ _  ) = ih*
+                  step* (honestParty↓  _ _) = L.SubS.⊆-trans (L.SubS.map⁺ _ $ L.SubS.filter-⊆ _ _) ih*
+                  step* (corruptParty↓ _ _) = step*′ {mds}
+                    where
+                      mds : List (Message × DelayMap)
+                      mds =
+                        processMsgsᶜ
+                          (L.map msg (immediateMsgs p N‴))
+                          (N‴ .clock)
+                          (N‴ .history)
+                          (removeImmediateMsgs p N‴ .messages)
+                          (N‴ .advState)
+                          .proj₁
 
-                        Nᶜ : List (Message × DelayMap) → GlobalState
-                        Nᶜ mds = broadcastMsgsᶜ mds (removeImmediateMsgs p N‴)
+                      Nᶜ : List (Message × DelayMap) → GlobalState
+                      Nᶜ mds = broadcastMsgsᶜ mds (removeImmediateMsgs p N‴)
 
-                        step*′ : ∀ {mds} →
-                          L.map msg (Nᶜ mds .messages) ⊆ˢ Nᶜ mds .history
-                        step*′ {[]} = L.SubS.⊆-trans (L.SubS.map⁺ _ $ L.SubS.filter-⊆ _ _) ih*
-                        step*′ {(m , φ) ∷ mds}
-                          rewrite
-                            L.map-++ msg (L.map (λ party → ⦅ m , party , φ party ⦆) (Nᶜ mds .execOrder)) (Nᶜ mds .messages)
-                          | sym $ L.map-∘ {g = msg} {f = λ party → ⦅ m , party , φ party ⦆} (Nᶜ mds .execOrder)
-                            = ++-meet (map[const-x]xs⊆x∷ys {xs = Nᶜ mds .execOrder} {x = m}) (∷-⊆⁺ (step*′ {mds}))
-            goal (makeBlock {N′ = N″} N′MsgsDelivered N′—[eoN′]↑→∗N″) = goal* $ —[]→∗⇒—[]→∗ʳ N′—[eoN′]↑→∗N″
-              where
-                goal* : ∀ {N″ ps} →
-                    _ ⊢ N′ —[ ps ]↑→∗ʳ N″
-                  → L.map msg (N″ .messages) ⊆ˢ N″ .history
-                goal* [] = ih
-                goal* {N″} (_∷ʳ_ {is = ps} {i = p} {s′ = N‴} N′—[ps]↑→∗ʳN‴ N‴↝[p]↑N″) = step* N‴↝[p]↑N″
-                  where
-                    ih* : L.map msg (N‴ .messages) ⊆ˢ N‴ .history
-                    ih* = goal* N′—[ps]↑→∗ʳN‴
+                      step*′ : ∀ {mds} →
+                        L.map msg (Nᶜ mds .messages) ⊆ˢ Nᶜ mds .history
+                      step*′ {[]} = L.SubS.⊆-trans (L.SubS.map⁺ _ $ L.SubS.filter-⊆ _ _) ih*
+                      step*′ {(m , φ) ∷ mds}
+                        rewrite
+                          L.map-++ msg (L.map (λ party → ⦅ m , party , φ party ⦆) (Nᶜ mds .execOrder)) (Nᶜ mds .messages)
+                        | sym $ L.map-∘ {g = msg} {f = λ party → ⦅ m , party , φ party ⦆} (Nᶜ mds .execOrder)
+                          = ++-meet (map[const-x]xs⊆x∷ys {xs = Nᶜ mds .execOrder} {x = m}) (∷-⊆⁺ (step*′ {mds}))
+          goal (makeBlock {N′ = N″} N′MsgsDelivered N′—[eoN′]↑→∗N″) = goal* $ —[]→∗⇒—[]→∗ʳ N′—[eoN′]↑→∗N″
+            where
+              goal* : ∀ {N″ ps} →
+                  _ ⊢ N′ —[ ps ]↑→∗ʳ N″
+                → L.map msg (N″ .messages) ⊆ˢ N″ .history
+              goal* [] = ih
+              goal* {N″} (_∷ʳ_ {is = ps} {i = p} {s′ = N‴} N′—[ps]↑→∗ʳN‴ N‴↝[p]↑N″) = step* N‴↝[p]↑N″
+                where
+                  ih* : L.map msg (N‴ .messages) ⊆ˢ N‴ .history
+                  ih* = goal* N′—[ps]↑→∗ʳN‴
 
-                    step* : _ ⊢ N‴ —[ p ]↑→ N″ → L.map msg (N″ .messages) ⊆ˢ N″ .history
-                    step* (unknownParty↑ _  ) = ih*
-                    step* (honestParty↑ {ls = ls} _ _) = step*′ {mb .proj₁}
-                      where
-                        mb : List Message × LocalState
-                        mb = makeBlockʰ (N‴ .clock) (txSelection (N‴ .clock) p) p ls
+                  step* : _ ⊢ N‴ —[ p ]↑→ N″ → L.map msg (N″ .messages) ⊆ˢ N″ .history
+                  step* (unknownParty↑ _  ) = ih*
+                  step* (honestParty↑ {ls = ls} _ _) = step*′ {mb .proj₁}
+                    where
+                      mb : List Message × LocalState
+                      mb = makeBlockʰ (N‴ .clock) (txSelection (N‴ .clock) p) p ls
 
-                        N‴ʰ : List Message → GlobalState
-                        N‴ʰ ms = broadcastMsgsʰ ms (updateLocalState p (mb .proj₂) N‴)
+                      N‴ʰ : List Message → GlobalState
+                      N‴ʰ ms = broadcastMsgsʰ ms (updateLocalState p (mb .proj₂) N‴)
 
-                        step*′ : ∀ {ms} →
-                          L.map msg (N‴ʰ ms .messages) ⊆ˢ N‴ʰ ms .history
-                        step*′ {[]} = ih*
-                        step*′ {m ∷ ms}
-                          rewrite
-                            L.map-++ msg (L.map (λ party → ⦅ m , party , 𝟙 ⦆) (N‴ʰ ms .execOrder)) (N‴ʰ ms .messages)
-                          | sym $ L.map-∘ {g = msg} {f = λ party → ⦅ m , party , 𝟙 ⦆} (N‴ʰ ms .execOrder)
-                          = ++-meet (map[const-x]xs⊆x∷ys {xs = N‴ʰ ms .execOrder} {x = m}) (∷-⊆⁺ (step*′ {ms}))
-                    step* (corruptParty↑ _ _) = step*′ {mds}
-                      where
-                        mds : List (Message × DelayMap)
-                        mds = makeBlockᶜ (N‴ .clock) (N‴ .history) (N‴ .messages) (N‴ .advState) .proj₁
+                      step*′ : ∀ {ms} →
+                        L.map msg (N‴ʰ ms .messages) ⊆ˢ N‴ʰ ms .history
+                      step*′ {[]} = ih*
+                      step*′ {m ∷ ms}
+                        rewrite
+                          L.map-++ msg (L.map (λ party → ⦅ m , party , 𝟙 ⦆) (N‴ʰ ms .execOrder)) (N‴ʰ ms .messages)
+                        | sym $ L.map-∘ {g = msg} {f = λ party → ⦅ m , party , 𝟙 ⦆} (N‴ʰ ms .execOrder)
+                        = ++-meet (map[const-x]xs⊆x∷ys {xs = N‴ʰ ms .execOrder} {x = m}) (∷-⊆⁺ (step*′ {ms}))
+                  step* (corruptParty↑ _ _) = step*′ {mds}
+                    where
+                      mds : List (Message × DelayMap)
+                      mds = makeBlockᶜ (N‴ .clock) (N‴ .history) (N‴ .messages) (N‴ .advState) .proj₁
 
-                        N‴ᶜ : List (Message × DelayMap) → GlobalState
-                        N‴ᶜ mds = broadcastMsgsᶜ mds N‴
+                      N‴ᶜ : List (Message × DelayMap) → GlobalState
+                      N‴ᶜ mds = broadcastMsgsᶜ mds N‴
 
-                        step*′ : ∀ {mds} →
-                          L.map msg (N‴ᶜ mds .messages) ⊆ˢ N‴ᶜ mds .history
-                        step*′ {[]} = ih*
-                        step*′ {(m , φ) ∷ mds}
-                          rewrite
-                            L.map-++ msg (L.map (λ party → ⦅ m , party , φ party ⦆) (N‴ᶜ mds .execOrder)) (N‴ᶜ mds .messages)
-                          | sym $ L.map-∘ {g = msg} {f = λ party → ⦅ m , party , φ party ⦆} (N‴ᶜ mds .execOrder)
-                            = ++-meet (map[const-x]xs⊆x∷ys {xs = N‴ᶜ mds .execOrder} {x = m}) (∷-⊆⁺ (step*′ {mds}))
-            goal (advanceRound   _) rewrite messagesAfterTickPreservation N′ = ih
-            goal (permuteParties _) = ih
-            goal (permuteMsgs    π) = L.SubS.⊆-trans (≡ˢ⇒⊆×⊇ (messagesAfterPermutationPreservation {N = N′} π) .proj₁) ih
+                      step*′ : ∀ {mds} →
+                        L.map msg (N‴ᶜ mds .messages) ⊆ˢ N‴ᶜ mds .history
+                      step*′ {[]} = ih*
+                      step*′ {(m , φ) ∷ mds}
+                        rewrite
+                          L.map-++ msg (L.map (λ party → ⦅ m , party , φ party ⦆) (N‴ᶜ mds .execOrder)) (N‴ᶜ mds .messages)
+                        | sym $ L.map-∘ {g = msg} {f = λ party → ⦅ m , party , φ party ⦆} (N‴ᶜ mds .execOrder)
+                          = ++-meet (map[const-x]xs⊆x∷ys {xs = N‴ᶜ mds .execOrder} {x = m}) (∷-⊆⁺ (step*′ {mds}))
+          goal (advanceRound   _) rewrite messagesAfterTickPreservation N′ = ih
+          goal (permuteParties _) = ih
+          goal (permuteMsgs    π) = L.SubS.⊆-trans (≡ˢ⇒⊆×⊇ (messagesAfterPermutationPreservation {N = N′} π) .proj₁) ih
 
   honestGlobalTreeButGBInBlockHistory : ∀ {N : GlobalState} →
       N₀ ↝⋆ N
