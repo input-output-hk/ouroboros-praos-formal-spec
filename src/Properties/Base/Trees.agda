@@ -9,35 +9,146 @@ module Properties.Base.Trees
   where
 
 open import Protocol.Prelude
-open import Protocol.Block ⦃ params ⦄ using (Block)
-open import Protocol.Chain ⦃ params ⦄ using (genesisBlock)
+open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
+open import Protocol.Block ⦃ params ⦄
+open import Protocol.Chain ⦃ params ⦄
+open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.TreeType ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
+open import Prelude.AssocList.Properties.Ext using (set-⁉)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-just)
+open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; ∈-∷-≢⁻)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭)
-open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊇)
+open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊇; ≡ˢ-refl)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
-open import Function.Bundles using (_⇔_; Equivalence)
+open import Function.Bundles using (_⇔_; Equivalence; Inverse)
 
-honestLocalTreeEvolution-↑ : ∀ {N N′ N″ : GlobalState} {ps : List Party} {p : Party} {ls₁ ls₂ : LocalState} →
+blocksDeliveredInEvolution-↑ : ∀ {N N′ N″ : GlobalState} {p : Party} →
     N₀ ↝⋆ N
-  → _ ⊢ N —[ ps ]↑→∗ N″
+  → _ ⊢ N —[ N .execOrder ]↑→∗ N″
   → _ ⊢ N —[ p ]↑→ N′
   → Honest p
-  → N .states ⁉ p ≡ just ls₁
-  → N′ .states ⁉ p ≡ just ls₂
-  → ∃[ bs ]
-        allBlocks (ls₂ .tree) ≡ˢ allBlocks (ls₁ .tree) ++ bs
-      × (∀ {p′} →
-            p′ ∈ N .execOrder
-          → bs ⊆ˢ blocksDeliveredIn p′ 𝟙 N″)
-honestLocalTreeEvolution-↑ = {!!}
+  → p ∈ N .execOrder
+  → ∀ {p′ : Party} {d : Delay} →
+      blocksDeliveredIn p′ d N′ ⊆ˢ blocksDeliveredIn p′ d N″
+blocksDeliveredInEvolution-↑ = {!!}
+
+opaque
+
+  unfolding honestBlockMaking
+
+  honestLocalTreeEvolution-↑ : ∀ {N N′ N″ : GlobalState} {p : Party} {ls ls′ : LocalState} →
+      N₀ ↝⋆ N
+    → _ ⊢ N —[ N .execOrder ]↑→∗ N″
+    → _ ⊢ N —[ p ]↑→ N′
+    → Honest p
+    → N .states ⁉ p ≡ just ls
+    → N′ .states ⁉ p ≡ just ls′
+    → ∃[ bs ]
+          allBlocks (ls′ .tree) ≡ˢ allBlocks (ls .tree) ++ bs
+        × (∀ {p′} →
+              p′ ∈ N .execOrder
+            → bs ⊆ˢ blocksDeliveredIn p′ 𝟙 N″)
+  honestLocalTreeEvolution-↑ {N} {N′} {N″} {p} {ls} {ls′} N₀↝⋆N N—[eoN]↑→∗N″ N—[p]↑→N′ hp lspN lspN′
+    with N—[p]↑→N′
+  ... | unknownParty↑ ls≡◇ = contradiction ls≡◇ ls≢◇
+    where
+      ls≢◇ : N .states ⁉ p ≢ nothing
+      ls≢◇ rewrite lspN = flip contradiction λ ()
+  ... | corruptParty↑ _ cpπ = contradiction hp $ corrupt⇒¬honest cpπ
+  ... | honestParty↑ {ls = ls*} ls*pN _ with Params.winnerᵈ params {p} {N .clock}
+  ...   | ⁇ (no ¬isWinner) = [] , tls′≡tls+[] , λ {p′} _ {b} b∈[] → contradiction b∈[] λ ()
+    where
+      ls*≡ls′ : ls* ≡ ls′
+      ls*≡ls′ rewrite set-⁉ (N .states) p ls* = M.just-injective lspN′
+
+      ls*≡ls : ls* ≡ ls
+      ls*≡ls = sym $ M.just-injective $ trans (sym lspN) ls*pN
+
+      tls′≡tls+[] : allBlocks (ls′ .tree) ≡ˢ allBlocks (ls .tree) ++ []
+      tls′≡tls+[] rewrite trans (sym ls*≡ls′) ls*≡ls | L.++-identityʳ (allBlocks (ls .tree)) = ≡ˢ-refl
+  ...   | ⁇ (yes isWinner) = [ nb ] , tls′≡tls+nb , [nb]⊆𝟙sN″
+    where
+      p∈eoN : p ∈ N .execOrder
+      p∈eoN = ∈-resp-↭ (execOrderPreservation-↭ N₀↝⋆N) (hasState⇔∈parties₀ N₀↝⋆N .Equivalence.to pHasInN)
+        where
+          pHasInN : p hasStateIn N
+          pHasInN = hasStateInAltDef {N} {p} .Equivalence.to (ls , lspN)
+
+      best : Chain
+      best = bestChain (N .clock ∸ 1) (ls .tree)
+
+      best* : Chain
+      best* = bestChain (N .clock ∸ 1) (ls* .tree)
+
+      nb : Block
+      nb = mkBlock (hash (tip best)) (N .clock) (txSelection (N .clock) p) p
+
+      nb* : Block
+      nb* = mkBlock (hash (tip best*)) (N .clock) (txSelection (N .clock) p) p
+
+      ls*≡ls : ls* ≡ ls
+      ls*≡ls = sym $ M.just-injective $ trans (sym lspN) ls*pN
+
+      ls+nb≡ls′ : addBlock ls nb ≡ ls′
+      ls+nb≡ls′ rewrite sym ls*≡ls | set-⁉ (N .states) p (addBlock ls* nb*) = M.just-injective lspN′
+
+      tls′≡tls+nb : allBlocks (ls′ .tree) ≡ˢ allBlocks (ls .tree) ++ [ nb ]
+      tls′≡tls+nb rewrite sym ls+nb≡ls′ = extendable (ls .tree) nb
+
+      [nb]⊆𝟙sN″ : ∀ {p′ : Party} → p′ ∈ N .execOrder → [ nb ] ⊆ˢ blocksDeliveredIn p′ 𝟙 N″
+      [nb]⊆𝟙sN″ {p′} p′∈eoN = L.SubS.⊆-trans [nb]⊆𝟙sN′ 𝟙sN′⊆𝟙sN″
+        where
+          [nb]⊆𝟙sN′ : [ nb ] ⊆ˢ blocksDeliveredIn p′ 𝟙 N′
+          [nb]⊆𝟙sN′ = L.SubS.∈-∷⁺ʳ {xs = []} nb∈𝟙sN′ λ ()
+            where
+              dlv? : Decidable¹ λ e → DeliveredIn e p′ 𝟙
+              dlv? = λ e → ¿ DeliveredIn e ¿² p′ 𝟙
+
+              mkenv : Party → Envelope
+              mkenv = λ party → ⦅ newBlock nb , party , 𝟙 ⦆
+
+              nb∈𝟙sN′ : nb ∈ blocksDeliveredIn p′ 𝟙 N′
+              nb∈𝟙sN′
+                rewrite
+                  ls*≡ls
+                | dec-yes ¿ winner p (N .clock) ¿ isWinner .proj₂
+                | L.filter-++ dlv? (map mkenv (N .execOrder)) (N .messages)
+                | L.map-++ (projBlock ∘ msg) (filter dlv? (map mkenv (N .execOrder))) (filter dlv? (messages N))
+                  = L.Mem.∈-++⁺ˡ {ys = map (projBlock ∘ msg) (filter dlv? (messages N))} (nb∈𝟙sN′* {N .execOrder} p′∈eoN)
+                where
+                  nb∈𝟙sN′* : ∀ {ps*} →
+                      p′ ∈ ps*
+                    → nb ∈ map (projBlock ∘ msg) (filter dlv? (map mkenv ps*))
+                  nb∈𝟙sN′* {[]} ()
+                  nb∈𝟙sN′* {p* ∷ ps*} p′∈p*+ps* with p′ ≟ p*
+                  ... | yes p′≡p*
+                          rewrite
+                            p′≡p*
+                          | L.filter-accept
+                              (λ e → ¿ DeliveredIn e ¿² p* 𝟙)
+                              {x = mkenv p*}
+                              {xs = map mkenv ps*}
+                              (refl , refl)
+                            = here refl
+                  ... | no p′≢p*
+                          rewrite
+                            L.filter-reject
+                              dlv?
+                              {x = mkenv p*}
+                              {xs = map mkenv ps*}
+                              λ{ (_ , p*≡p′) → contradiction (sym p*≡p′) p′≢p*}
+                            = nb∈𝟙sN′* {ps*} $ ∈-∷-≢⁻ p′∈p*+ps* p′≢p*
+
+          𝟙sN′⊆𝟙sN″ : blocksDeliveredIn p′ 𝟙 N′ ⊆ˢ blocksDeliveredIn p′ 𝟙 N″
+          𝟙sN′⊆𝟙sN″ rewrite dec-yes ¿ winner p (N .clock) ¿ isWinner .proj₂ =
+            blocksDeliveredInEvolution-↑ N₀↝⋆N N—[eoN]↑→∗N″ N—[p]↑→N′ hp p∈eoN {p′} {𝟙}
 
 honestLocalTreeInHonestGlobalTree : ∀ {N : GlobalState} {p : Party} {ls : LocalState} →
     N₀ ↝⋆ N
