@@ -172,7 +172,87 @@ honestLocalTreeBlocksMonotonicity :  ∀ {N N′ : GlobalState} {p : Party} {ls 
   → N ↝⋆ N′
   → N′ .states ⁉ p ≡ just ls′
   → allBlocks (ls .tree) ⊆ˢ allBlocks (ls′ .tree)
-honestLocalTreeBlocksMonotonicity = {!!}
+honestLocalTreeBlocksMonotonicity N₀↝⋆ʳN hp lspN N↝⋆N′ = honestLocalTreeBlocksMonotonicityʳ N₀↝⋆ʳN hp lspN (Star⇒Starʳ N↝⋆N′)
+  where
+    open RTC; open Starʳ
+    honestLocalTreeBlocksMonotonicityʳ :  ∀ {N N′ : GlobalState} {p : Party} {ls ls′ : LocalState} →
+        N₀ ↝⋆ N
+      → Honest p
+      → N .states ⁉ p ≡ just ls
+      → N ↝⋆ʳ N′
+      → N′ .states ⁉ p ≡ just ls′
+      → allBlocks (ls .tree) ⊆ˢ allBlocks (ls′ .tree)
+    honestLocalTreeBlocksMonotonicityʳ {ls = ls} {ls′ = ls′} _ _ lspN εʳ lspN′ = subst ((_⊆ˢ allBlocks (ls′ .tree)) ∘ (allBlocks ∘ tree)) ls′≡ls L.SubS.⊆-refl
+      where
+        ls′≡ls : ls′ ≡ ls
+        ls′≡ls = sym $ M.just-injective $ trans (sym lspN) lspN′
+    honestLocalTreeBlocksMonotonicityʳ {N} {N′} {p} {ls} {ls′} N₀↝⋆N hp lspN (_◅ʳ_ {j = N″} N↝⋆ʳN″ N″↝N′) lspN′ = goal N″↝N′
+      where
+        N₀↝⋆N″ : N₀ ↝⋆ N″
+        N₀↝⋆N″ = N₀↝⋆N ◅◅ Starʳ⇒Star N↝⋆ʳN″
+
+        hasLspN″ : p hasStateIn N″
+        hasLspN″ = L.All.lookup (allPartiesHaveLocalState N₀↝⋆N″) p∈N″
+          where
+            p∈N′ : p ∈ N′ .execOrder
+            p∈N′ = hasState⇒∈execOrder (N₀↝⋆N″ ◅◅ N″↝N′ ◅ ε) (≡just⇒Is-just lspN′)
+
+            p∈N″ : p ∈ N″ .execOrder
+            p∈N″ = ∈-resp-↭ (↭-sym (execOrderPreservation-↭-↝ N″↝N′)) p∈N′
+
+        ls″ : LocalState
+        ls″ = M.to-witness hasLspN″
+
+        lspN″ : N″ .states ⁉ p ≡ just ls″
+        lspN″ = Is-just⇒to-witness hasLspN″
+
+        ih : ∀ {ls⁺} → N″ .states ⁉ p ≡ just ls⁺ → allBlocks (ls .tree) ⊆ˢ allBlocks (ls⁺ .tree)
+        ih lspN″ = honestLocalTreeBlocksMonotonicityʳ N₀↝⋆N hp lspN N↝⋆ʳN″ lspN″
+
+        goal : N″ ↝ N′ → allBlocks (ls .tree) ⊆ˢ allBlocks (ls′ .tree)
+        goal (deliverMsgs {N′ = N‴} N″Ready N″—[eoN″]↓→∗N‴) = let open L.SubS.⊆-Reasoning Block in begin
+          allBlocks (ls .tree)                              ⊆⟨ ih lspN″ ⟩
+          allBlocks (ls″ .tree)                             ⊆⟨ L.SubS.xs⊆xs++ys _ _ ⟩
+          allBlocks (ls″ .tree) ++ blocksDeliveredIn p 𝟘 N″ ⊆⟨ ≡ˢ⇒⊇ tls′≡tls″+𝟘s ⟩
+          allBlocks (ls′ .tree)                             ∎
+          where
+            Nᵖ : GlobalState
+            Nᵖ = honestMsgsDelivery p ls″ N″
+
+            N″↝[p]↓Nᵖ : N″ ↝[ p ]↓ Nᵖ
+            N″↝[p]↓Nᵖ = honestParty↓ lspN″ hp
+
+            lspNᵖ : Nᵖ .states ⁉ p ≡ just ls′
+            lspNᵖ = trans (sym lspN‴≡lspNᵖ) lspN′
+              where
+                lspN‴≡lspNᵖ : N‴ .states ⁉ p ≡ Nᵖ .states ⁉ p
+                lspN‴≡lspNᵖ = localStatePreservation-↓∗ N₀↝⋆N″ N″—[eoN″]↓→∗N‴ N″↝[p]↓Nᵖ
+
+            tls′≡tls″+𝟘s : allBlocks (ls′ .tree) ≡ˢ allBlocks (ls″ .tree) ++ blocksDeliveredIn p 𝟘 N″
+            tls′≡tls″+𝟘s = honestLocalTreeEvolution-↓ hp lspN″ N″↝[p]↓Nᵖ lspNᵖ
+        goal (makeBlock {N″} {N‴} N″MsgsDelivered N″—[eoN″]↑→∗N‴) = L.SubS.⊆-trans (ih lspN″) tls″⊆tls′
+          where
+            Nᵖ : GlobalState
+            Nᵖ = honestBlockMaking p ls″ N″
+
+            N″↝[p]↑Nᵖ : N″ ↝[ p ]↑ Nᵖ
+            N″↝[p]↑Nᵖ = honestParty↑ lspN″ hp
+
+            lspNᵖ : Nᵖ .states ⁉ p ≡ just ls′
+            lspNᵖ = trans (sym lspN‴≡lspNᵖ) lspN′
+              where
+                lspN‴≡lspNᵖ : N‴ .states ⁉ p ≡ Nᵖ .states ⁉ p
+                lspN‴≡lspNᵖ = localStatePreservation-∈-↑∗ N₀↝⋆N″ N″—[eoN″]↑→∗N‴ N″↝[p]↑Nᵖ
+
+            tls″⊆tls′ : allBlocks (ls″ .tree) ⊆ˢ allBlocks (ls′ .tree)
+            tls″⊆tls′ with honestLocalTreeEvolution-↑ N₀↝⋆N″ N″—[eoN″]↑→∗N‴ N″↝[p]↑Nᵖ hp lspN″ lspNᵖ
+            ... | bs , tls′≡tls″+bs , _ = let open L.SubS.⊆-Reasoning Block in begin
+              allBlocks (ls″ .tree)       ⊆⟨ L.SubS.xs⊆xs++ys _ _ ⟩
+              allBlocks (ls″ .tree) ++ bs ⊆⟨ ≡ˢ⇒⊇ tls′≡tls″+bs ⟩
+              allBlocks (ls′ .tree)       ∎
+        goal (advanceRound   _) = ih lspN′
+        goal (permuteParties _) = ih lspN′
+        goal (permuteMsgs    _) = ih lspN′
 
 honestGlobalTreeInHonestLocalTree : ∀ {N N′ : GlobalState} {p : Party} {ls : LocalState} →
     N₀ ↝⋆ N
