@@ -9,6 +9,7 @@ module Properties.Base.Trees
   where
 
 open import Protocol.Prelude
+open import Protocol.BaseTypes
 open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
 open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
@@ -373,12 +374,6 @@ honestGlobalTreeInHonestLocalTree-↝⁺ {N} {N′} {p} {ls′} N₀↝⋆N hp N
     htN⊆tls″ : allBlocks (honestTree N) ⊆ˢ allBlocks (ls″ .tree)
     htN⊆tls″ = honestGlobalTreeInHonestLocalTree-↝⋆⟨1⟩ N₀↝⋆N hp NReady (N↝⋆N″ , sym N″ₜ≡Nₜ+1) N″Ready lsN″p
 
-honestGlobalTreeBlocksMonotonicity : ∀ {N N′ : GlobalState} →
-    N₀ ↝⋆ N
-  → N ↝ N′
-  → allBlocks (honestTree N) ⊆ˢ allBlocks (honestTree N′)
-honestGlobalTreeBlocksMonotonicity = {!!}
-
 honestGlobalTreeBlocksPreservation : ∀ {N N′ : GlobalState} {pg : Progress} →
     N ↝⋆ N′
   → N .progress ≡ pg
@@ -400,3 +395,42 @@ honestGlobalTreeBlockInSomeHonestLocalTree :  ∀ {N : GlobalState} {b : Block} 
       × Honest p
       × p ∈ N .execOrder
 honestGlobalTreeBlockInSomeHonestLocalTree = {!!}
+
+honestGlobalTreeBlocksMonotonicity : ∀ {N N′ : GlobalState} →
+    N₀ ↝⋆ N
+  → N ↝ N′
+  → allBlocks (honestTree N) ⊆ˢ allBlocks (honestTree N′)
+honestGlobalTreeBlocksMonotonicity {N} {N′} N₀↝⋆N N↝N′ {b} b∈htN
+  with honestGlobalTreeBlockInSomeHonestLocalTree N₀↝⋆N b∈htN
+... | p , ls , lspN , b∈lst , hp , p∈eoN =
+    b∈cM ∶
+  b ∈ L.concatMap (blocks N′) (honestParties N′)                |> L.SubS.xs⊆x∷xs _ _ ∶
+  b ∈ genesisBlock ∷ L.concatMap (blocks N′) (honestParties N′) |> ≡ˢ⇒⊇ (buildTreeUsesAllBlocks _) ∶
+  b ∈ allBlocks (honestTree N′)
+  where
+    open import Function.Reasoning
+    open RTC
+
+    p∈eoN′ : p ∈ N′ .execOrder
+    p∈eoN′ = ∈-resp-↭ (execOrderPreservation-↭ (N↝N′ ◅ ε)) p∈eoN
+
+    ∃lspN′ : ∃[ ls′ ] N′ .states ⁉ p ≡ just ls′
+    ∃lspN′ = hasStateInAltDef {N′} .Equivalence.from pHasInN′
+      where
+        pHasInN′ : p hasStateIn N′
+        pHasInN′ = hasState⇔-↝⋆ (N↝N′ ◅ ε) .Equivalence.to $ hasStateInAltDef {N} .Equivalence.to (ls , lspN)
+
+    b∈cM : b ∈ L.concatMap (blocks N′) (honestParties N′)
+    b∈cM = L.Mem.concat-∈↔ .Inverse.to (b∈cM* p∈eoN′)
+      where
+        b∈cM* : ∀ {ps*} → p ∈ ps* → ∃[ bs ] b ∈ bs × bs ∈ L.map (blocks N′) (L.filter ¿ Honest ¿¹ ps*)
+        b∈cM* {[]} ()
+        b∈cM* {p* ∷ ps*} (here p≡p*) rewrite sym p≡p* | hp with ∃lspN′
+        ... | ls′ , lspN′ rewrite lspN′ = allBlocks (ls′ .tree) , b∈ls′t , here refl
+          where
+            b∈ls′t : b ∈ allBlocks (ls′ .tree)
+            b∈ls′t = honestLocalTreeBlocksMonotonicity N₀↝⋆N hp lspN (N↝N′ ◅ ε) lspN′ b∈lst
+        b∈cM* {p* ∷ ps*} (there p∈ps*) with b∈cM* {ps*} p∈ps*
+        ... | bs′ , b∈bs′ , bs′∈bss[ps*] with ¿ Honest p* ¿
+        ...   | yes _ = bs′ , b∈bs′ , there bs′∈bss[ps*]
+        ...   | no  _ = bs′ , b∈bs′ , bs′∈bss[ps*]
