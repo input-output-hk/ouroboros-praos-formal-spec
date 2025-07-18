@@ -5,10 +5,11 @@ open import Data.Maybe.Properties using (just-injective)
 open import Data.Bool using (Bool; false; true)
 open import Data.Sum using (_⊎_; inj₁; inj₂)
 open import Data.Product using (_×_; _,_; proj₁; proj₂)
-open import Data.List using (List; []; _∷_; findᵇ; find; filter; deduplicate)
+open import Data.List using (List; []; _∷_; findᵇ; find; filter; deduplicate; _∷ʳ_; [_])
 open import Data.List.Ext using (undup)
 open import Data.List.Membership.Propositional using (_∈_; _∉_)
 open import Data.List.Relation.Unary.Any using (here; there)
+open import Data.List.Relation.Unary.Any.Properties using (++-comm)
 open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; refl; sym; subst)
 open import Relation.Nullary.Negation using (¬_; contradiction)
 open import Relation.Nullary.Decidable using (yes; no)
@@ -56,6 +57,9 @@ module _ {a p} {A : Set a} ⦃ _ : DecEq A ⦄ {P : Pred A p} (P? : Decidable P)
 ∈-∷-≢⁻ y∈x∷xs y≢x with ∈-∷⁻ y∈x∷xs
 ... | inj₁ y≡x  = contradiction y≡x y≢x
 ... | inj₂ y∈xs = y∈xs
+
+∈-∷ʳ-≢⁻ : ∀ {a} {A : Set a} {xs : List A} {x y : A} → y ∈ xs ∷ʳ x → y ≢ x → y ∈ xs
+∈-∷ʳ-≢⁻ {xs = xs} {x = x} = ∈-∷-≢⁻ ∘ ++-comm xs [ x ]
 
 ∉-filter⁺ : ∀ {a p} {A : Set a} {P : Pred A p} {P? : Decidable P} {x : A} (xs : List A) → ¬ P x → x ∉ filter P? xs
 ∉-filter⁺ [] _ = λ ()
