@@ -1,3 +1,5 @@
+{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
+
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -25,3 +27,9 @@ messagesAfterPermutationPreservation : ∀ {N : GlobalState} {envelopes : List E
     N .messages ↭ envelopes
   → L.map msg envelopes ≡ˢ L.map msg (N .messages)
 messagesAfterPermutationPreservation π = ≡ˢ-sym $ bag-=⇒ $ ↭⇒∼bag $ map⁺ msg π
+
+immediateMessagesPreservation-∉-↓∗ : ∀ {N N′ : GlobalState} {ps : List Party} {p : Party} →
+    p ∉ ps
+  → _ ⊢ N —[ ps ]↓→∗ N′
+  → immediateMsgs p N′ ≡ immediateMsgs p N
+immediateMessagesPreservation-∉-↓∗ = {!!}
