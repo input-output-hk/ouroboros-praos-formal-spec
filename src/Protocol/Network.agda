@@ -10,9 +10,9 @@ open import Protocol.Message ⦃ params ⦄
 Delay : Type
 Delay = Fin 3
 
-pattern 𝟘 = 0F -- immediate
-pattern 𝟙 = 1F -- delayed 1 round
-pattern 𝟚 = 2F -- delayed 2 rounds
+pattern 𝟘 = 0F -- to be delivered at round t
+pattern 𝟙 = 1F -- to be delivered at round t + 1
+pattern 𝟚 = 2F -- to be delivered at round t + 2
 
 record Envelope : Type where
   constructor
@@ -34,4 +34,4 @@ decreaseDelay : Envelope → Envelope
 decreaseDelay ev = record ev { cd = Fi.pred (ev .cd) }
 
 DelayMap : Type
-DelayMap = Party → Delay
+DelayMap = Party → [ d ∈ Delay ∣ d Fi.> (Delay ∋ 𝟘) ]

@@ -27,6 +27,7 @@ x∈x∷xs xs = here refl
 ∈-∷⁻ (there p) = inj₂ p
 
 open import Data.List.Relation.Unary.All.Properties.Core using (¬Any⇒All¬; All¬⇒¬Any)
+open import Data.List.Relation.Unary.All.Properties using (∷ʳ⁻)
 open import Data.List.Relation.Unary.All using (All; uncons)
 open import Function.Base using (_∘_)
 open import Relation.Binary.PropositionalEquality using (≢-sym)
@@ -34,6 +35,10 @@ open import Relation.Binary.PropositionalEquality using (≢-sym)
 ∉-∷⁻ : ∀ {a} {A : Set a} {xs : List A} {x y} → y ∉ x ∷ xs → (y ≢ x) × (y ∉ xs)
 ∉-∷⁻ {_} {_} {xs} {x} {y} y∉x∷xs with uncons (¬Any⇒All¬ _ y∉x∷xs)
 ... | y≢x , [≢y]xs = y≢x , All¬⇒¬Any [≢y]xs
+
+∉-∷ʳ⁻ : ∀ {a} {A : Set a} {xs : List A} {x y} → y ∉ xs ∷ʳ x → (y ≢ x) × (y ∉ xs)
+∉-∷ʳ⁻ {_} {_} {xs} {x} {y} y∉xs∷ʳx with ∷ʳ⁻ (¬Any⇒All¬ _ y∉xs∷ʳx)
+... | [≢y]xs , y≢x = y≢x , All¬⇒¬Any [≢y]xs
 
 ∈×∉⇒≢ : ∀ {a} {A : Set a} {xs : List A} {x x′} → x ∈ xs → x′ ∉ xs → x ≢ x′
 ∈×∉⇒≢ {xs = x″ ∷ xs″} x∈x″∷xs″ x′∉x″∷xs″ with ∈-∷⁻ x∈x″∷xs″ | ∉-∷⁻ x′∉x″∷xs″
