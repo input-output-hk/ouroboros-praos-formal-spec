@@ -119,7 +119,7 @@ broadcastMsgᶜ msg φ N =
     }
   where
     newMessages : List Envelope
-    newMessages = map (λ party → ⦅ msg , party , φ party ⦆) (N .execOrder)
+    newMessages = map (λ party → ⦅ msg , party , φ party .value ⦆) (N .execOrder)
 
 broadcastMsgsᶜ : List (Message × DelayMap) → GlobalState → GlobalState
 broadcastMsgsᶜ = flip $ L.foldr (λ{ (msg , φ) N′ → broadcastMsgᶜ msg φ N′ })

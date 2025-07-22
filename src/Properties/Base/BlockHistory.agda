@@ -262,8 +262,8 @@ opaque
                       step*′ {[]} = L.SubS.⊆-trans (L.SubS.map⁺ _ $ L.SubS.filter-⊆ _ _) ih*
                       step*′ {(m , φ) ∷ mds}
                         rewrite
-                          L.map-++ msg (L.map (λ party → ⦅ m , party , φ party ⦆) (Nᶜ mds .execOrder)) (Nᶜ mds .messages)
-                        | sym $ L.map-∘ {g = msg} {f = λ party → ⦅ m , party , φ party ⦆} (Nᶜ mds .execOrder)
+                          L.map-++ msg (L.map (λ party → ⦅ m , party , φ party .value ⦆) (Nᶜ mds .execOrder)) (Nᶜ mds .messages)
+                        | sym $ L.map-∘ {g = msg} {f = λ party → ⦅ m , party , φ party .value ⦆} (Nᶜ mds .execOrder)
                           = ++-meet (map[const-x]xs⊆x∷ys {xs = Nᶜ mds .execOrder} {x = m}) (∷-⊆⁺ (step*′ {mds}))
           goal (makeBlock {N′ = N″} N′MsgsDelivered N′—[eoN′]↑→∗N″) = goal* $ —[]→∗⇒—[]→∗ʳ N′—[eoN′]↑→∗N″
             where
@@ -307,8 +307,8 @@ opaque
                       step*′ {[]} = ih*
                       step*′ {(m , φ) ∷ mds}
                         rewrite
-                          L.map-++ msg (L.map (λ party → ⦅ m , party , φ party ⦆) (N‴ᶜ mds .execOrder)) (N‴ᶜ mds .messages)
-                        | sym $ L.map-∘ {g = msg} {f = λ party → ⦅ m , party , φ party ⦆} (N‴ᶜ mds .execOrder)
+                          L.map-++ msg (L.map (λ party → ⦅ m , party , φ party .value ⦆) (N‴ᶜ mds .execOrder)) (N‴ᶜ mds .messages)
+                        | sym $ L.map-∘ {g = msg} {f = λ party → ⦅ m , party , φ party .value ⦆} (N‴ᶜ mds .execOrder)
                           = ++-meet (map[const-x]xs⊆x∷ys {xs = N‴ᶜ mds .execOrder} {x = m}) (∷-⊆⁺ (step*′ {mds}))
           goal (advanceRound   _) rewrite messagesAfterTickPreservation N′ = ih
           goal (permuteParties _) = ih

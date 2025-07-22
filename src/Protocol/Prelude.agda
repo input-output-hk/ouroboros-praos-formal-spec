@@ -13,6 +13,7 @@ open import Prelude.Init public
 open import Data.Sum.Base using () renaming (map₁ to ⊎-map₁; map₂ to ⊎-map₂) public
 open import Data.Product.Base using (uncurry′) renaming (swap to ×-swap) public
 open import Data.List.Base using (_ʳ++_) public
+open import Data.Refinement hiding (map; _≟_) public
 open L.SubL public using () renaming (_⊆_ to _⊑_)
 open import Class.DecEq public
 open import Class.Decidable public
