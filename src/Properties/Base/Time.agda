@@ -30,6 +30,7 @@ open import Data.Nat.Properties using (<-trans)
 open import Data.Nat.Base using (z<s; s<s)
 open import Function.Related.Propositional as Related
 open import Function.Bundles using (Equivalence)
+open import Function.Base using (∣_⟩-_)
 
 opaque
 
@@ -140,4 +141,54 @@ noPrematureHonestBlocksAtReady = {!!}
        × N″ .clock ≡ sl
        × N ↝⋆ N″
        × N″ ↝⋆ N′
-∃ReadyBetweenSlots = {!!}
+∃ReadyBetweenSlots = ∣ flip ∃ReadyBetweenSlotsʳ ⟩- Star⇒Starʳ
+  where
+    open RTC; open Starʳ
+    ∃ReadyBetweenSlotsʳ : ∀ {N N′ : GlobalState} {sl : Slot} →
+        N ↝⋆ʳ N′
+      → N .progress ≡ ready
+      → N .clock ≤ sl × sl ≤ N′ .clock
+      → ∃[ N″ ]
+             N″ .progress ≡ ready
+           × N″ .clock ≡ sl
+           × N ↝⋆ N″
+           × N″ ↝⋆ N′
+    ∃ReadyBetweenSlotsʳ {N} {.N} {sl} εʳ NReady (Nₜ≤sl , sl≤Nₜ) = N , NReady , Nat.≤-antisym Nₜ≤sl sl≤Nₜ , ε , ε
+    ∃ReadyBetweenSlotsʳ {N} {N′} {sl} N↝⋆ʳN′@(_◅ʳ_ {j = N°} N↝⋆ʳN° N°↝N′) NReady (Nₜ≤sl , sl≤N′ₜ) = goal N°↝N′
+      where
+        ih :
+            sl ≤ N° .clock
+          → ∃[ N″ ]
+                 N″ .progress ≡ ready
+               × N″ .clock ≡ sl
+               × N ↝⋆ N″
+               × N″ ↝⋆ N°
+        ih sl≤N°ₜ = ∃ReadyBetweenSlotsʳ N↝⋆ʳN° NReady (Nₜ≤sl , sl≤N°ₜ)
+
+        goalFromIH :
+            sl ≤ N° .clock
+          → ∃[ N″ ]
+                 N″ .progress ≡ ready
+               × N″ .clock ≡ sl
+               × N ↝⋆ N″
+               × N″ ↝⋆ N′
+        goalFromIH sl≤N°ₜ with ih sl≤N°ₜ
+        ... | N″ , N″Ready , N″ₜ≡sl , N↝⋆N″ , N″↝⋆N° = N″ , N″Ready , N″ₜ≡sl , N↝⋆N″ , N″↝⋆N° ◅◅ (N°↝N′ ◅ ε)
+
+        goal :
+            N° ↝ N′
+          → ∃[ N″ ]
+                 N″ .progress ≡ ready
+               × N″ .clock ≡ sl
+               × N ↝⋆ N″
+               × N″ ↝⋆ N′
+        goal (deliverMsgs {N′ = N‴} N°Ready N°—[eoN°]↓→∗N‴) =
+          goalFromIH $ subst (sl ≤_) (clockPreservation-↓∗ N°—[eoN°]↓→∗N‴) sl≤N′ₜ
+        goal (makeBlock {N°} {N‴} N°MsgsDelivered N°—[eoN°]↑→∗N‴) =
+          goalFromIH $ subst (sl ≤_) (clockPreservation-↑∗ N°—[eoN°]↑→∗N‴) sl≤N′ₜ
+        goal (advanceRound _)
+          with Nat.m≤n⇒m<n∨m≡n sl≤N′ₜ
+        ... | inj₂ sl≡N°ₜ+1 rewrite sl≡N°ₜ+1 = N′ , refl , refl , Starʳ⇒Star N↝⋆ʳN′ , ε
+        ... | inj₁ sl<N°ₜ+1                  = goalFromIH $ Nat.≤-pred sl<N°ₜ+1
+        goal (permuteParties _) = goalFromIH sl≤N′ₜ
+        goal (permuteMsgs    _) = goalFromIH sl≤N′ₜ

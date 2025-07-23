@@ -173,7 +173,7 @@ honestLocalTreeBlocksMonotonicity :  ∀ {N N′ : GlobalState} {p : Party} {ls 
   → N ↝⋆ N′
   → N′ .states ⁉ p ≡ just ls′
   → allBlocks (ls .tree) ⊆ˢ allBlocks (ls′ .tree)
-honestLocalTreeBlocksMonotonicity N₀↝⋆ʳN hp lspN N↝⋆N′ = honestLocalTreeBlocksMonotonicityʳ N₀↝⋆ʳN hp lspN (Star⇒Starʳ N↝⋆N′)
+honestLocalTreeBlocksMonotonicity N₀↝⋆N hp lspN N↝⋆N′ = honestLocalTreeBlocksMonotonicityʳ N₀↝⋆N hp lspN (Star⇒Starʳ N↝⋆N′)
   where
     open RTC; open Starʳ
     honestLocalTreeBlocksMonotonicityʳ :  ∀ {N N′ : GlobalState} {p : Party} {ls ls′ : LocalState} →
