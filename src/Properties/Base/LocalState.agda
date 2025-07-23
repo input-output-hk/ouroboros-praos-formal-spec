@@ -66,7 +66,6 @@ opaque
     → _ ⊢ N₁  —[ p ]↓→ N₂
     → _ ⊢ N₁′ —[ p ]↓→ N₂′
     → N₁ .states ⁉ p ≡ N₁′ .states ⁉ p
---    → N₁ .clock ≡ N₁′ .clock
     → immediateMsgs p N₁ ≡ immediateMsgs p N₁′
     → N₂ .states ⁉ p ≡ N₂′ .states ⁉ p
   localStatePreservation-↓² hp (corruptParty↓ _ cp) _ _ _
