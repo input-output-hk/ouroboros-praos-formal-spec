@@ -30,7 +30,7 @@ open import Data.Nat.Properties using (<-trans)
 open import Data.Nat.Base using (z<s; s<s)
 open import Function.Related.Propositional as Related
 open import Function.Bundles using (Equivalence)
-open import Function.Base using (∣_⟩-_)
+open import Function.Base using (∣_⟩-_; _-⟨_∣)
 
 opaque
 
@@ -107,15 +107,6 @@ positiveClock = positiveClock′ ∘ Star⇒Starʳ
     ... | permuteParties _      = ih
     ... | permuteMsgs    _      = ih
 
-rewindToReady : ∀ {N : GlobalState} →
-    N₀ ↝⁺ N
-  → ∃[ N′ ]
-         N₀ ↝⋆ N′
-       × N′ ↝⋆ N
-       × N′ .progress ≡ ready
-       × N′ .clock ≡ N .clock ∸ 1
-rewindToReady = {!!}
-
 ∃ReadyBeforeMsgsDelivered : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
   → N .progress ≡ msgsDelivered
@@ -124,6 +115,71 @@ rewindToReady = {!!}
        × N′ ↝⋆⟨ 0 ⟩ N
        × N′ .progress ≡ ready
 ∃ReadyBeforeMsgsDelivered = {!!}
+
+∃MsgsDeliveredBeforeBlockMade : ∀ {N : GlobalState} →
+    N₀ ↝⋆ N
+  → N .progress ≡ blockMade
+  → ∃[ N′ ]
+         N₀ ↝⋆ N′
+       × N′ ↝⋆⟨ 0 ⟩ N
+       × N′ .progress ≡ msgsDelivered
+∃MsgsDeliveredBeforeBlockMade = {!!}
+
+∃ReadyInPreviousRound : ∀ {N : GlobalState} →
+    N₀ ↝⁺ N
+  → ∃[ N′ ]
+         N₀ ↝⋆ N′
+       × N′ ↝⋆ N
+       × N′ .progress ≡ ready
+       × N′ .clock ≡ N .clock ∸ 1
+∃ReadyInPreviousRound = uncurry (Star⇒Starʳ -⟨ ∃ReadyInPreviousRoundʳ ∣)
+  where
+    open RTC; open Starʳ
+    ∃ReadyInPreviousRoundʳ : ∀ {N : GlobalState} →
+        N₀ ↝⋆ʳ N
+      → N₀ .clock < N .clock
+      → ∃[ N′ ]
+             N₀ ↝⋆ N′
+           × N′ ↝⋆ N
+           × N′ .progress ≡ ready
+           × N′ .clock ≡ N .clock ∸ 1
+    ∃ReadyInPreviousRoundʳ εʳ N₀ₜ<N₀ₜ = contradiction N₀ₜ<N₀ₜ (Nat.<-irrefl refl)
+    ∃ReadyInPreviousRoundʳ {N} (_◅ʳ_ {j = N°} N₀↝⋆ʳN° N°↝N) N₀ₜ<Nₜ = goal N°↝N
+      where
+        ih :
+            N₀ .clock < N° .clock
+          → ∃[ N′ ]
+                 N₀ ↝⋆ N′
+               × N′ ↝⋆ N°
+               × N′ .progress ≡ ready
+               × N′ .clock ≡ N° .clock ∸ 1
+        ih = ∃ReadyInPreviousRoundʳ N₀↝⋆ʳN°
+
+        goal :
+            N° ↝ N
+          → ∃[ N′ ]
+                 N₀ ↝⋆ N′
+               × N′ ↝⋆ N
+               × N′ .progress ≡ ready
+               × N′ .clock ≡ N .clock ∸ 1
+        goal (deliverMsgs _ ts↓∗) rewrite clockPreservation-↓∗ ts↓∗
+          with ih N₀ₜ<Nₜ
+        ... | N′ , N₀↝⋆N′ , N′↝⋆N° , N′Ready , N′ₜ≡N°ₜ-1 = N′ , N₀↝⋆N′ , N′↝⋆N° ◅◅ (N°↝N ◅ ε) , N′Ready , N′ₜ≡N°ₜ-1
+        goal (makeBlock _ ts↑∗)  rewrite clockPreservation-↑∗ ts↑∗
+          with ih N₀ₜ<Nₜ
+        ... | N′ , N₀↝⋆N′ , N′↝⋆N° , N′Ready , N′ₜ≡N°ₜ-1 = N′ , N₀↝⋆N′ , N′↝⋆N° ◅◅ (N°↝N ◅ ε) , N′Ready , N′ₜ≡N°ₜ-1
+        goal (advanceRound N°BlockMade)
+          with ∃MsgsDeliveredBeforeBlockMade (Starʳ⇒Star N₀↝⋆ʳN°) N°BlockMade
+        ... | N↑ , N₀↝⋆N↑ , (N↑↝⋆N° , N↑ₜ≡N°ₜ) , N↑MsgsDelivered
+          with ∃ReadyBeforeMsgsDelivered N₀↝⋆N↑ N↑MsgsDelivered
+        ... | N↓ , N₀↝⋆N↓ , (N↓↝⋆N↑ , N↓ₜ≡N↑ₜ) , N↓Ready =
+          N↓ , N₀↝⋆N↓ , N↓↝⋆N↑ ◅◅ N↑↝⋆N° ◅◅ (N°↝N ◅ ε) , N↓Ready , trans N↓ₜ≡N↑ₜ N↑ₜ≡N°ₜ
+        goal (permuteParties _)
+          with ih N₀ₜ<Nₜ
+        ... | N′ , N₀↝⋆N′ , N′↝⋆N° , N′Ready , N′ₜ≡N°ₜ-1 = N′ , N₀↝⋆N′ , N′↝⋆N° ◅◅ (N°↝N ◅ ε) , N′Ready , N′ₜ≡N°ₜ-1
+        goal (permuteMsgs _)
+          with ih N₀ₜ<Nₜ
+        ... | N′ , N₀↝⋆N′ , N′↝⋆N° , N′Ready , N′ₜ≡N°ₜ-1 = N′ , N₀↝⋆N′ , N′↝⋆N° ◅◅ (N°↝N ◅ ε) , N′Ready , N′ₜ≡N°ₜ-1
 
 noPrematureHonestBlocksAtReady : ∀ {N : GlobalState} →
     N₀ ↝⋆ N

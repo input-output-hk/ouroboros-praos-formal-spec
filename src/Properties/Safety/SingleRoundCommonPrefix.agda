@@ -515,7 +515,7 @@ adversaryHasAdvantage {N} N₀↝⋆N ffN cfN {p} {ls} hp lsp {c} {sl} c⊆fgb�
                           blockPos sb N ∈ mapBlockPos (corruptBlocks c₄)
                         p[sb]∈lcs⊎cp[c₃+c₄] with blockPos sb N <? (1 + ∣ b′ ∷ c₂ ∣) + ∣ c₁ ∣
                         ... | yes p = inj₁ p
-                        ... | no ¬p with rewindToReady N₀↝⁺N
+                        ... | no ¬p with ∃ReadyInPreviousRound N₀↝⁺N
                         ... |   Nᴿ , N₀↝⋆Nᴿ , Nᴿ↝⋆N , NᴿReady , Nᴿₜ≡Nₜ-1 = inj₂ p[sb]∈cp[c₃+c₄]
                           where
                             sb∈hbhNᴿ : sb ∈ honestBlockHistory Nᴿ
