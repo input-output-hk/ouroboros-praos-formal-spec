@@ -114,7 +114,24 @@ positiveClock = positiveClock′ ∘ Star⇒Starʳ
          N₀ ↝⋆ N′
        × N′ ↝⋆⟨ 0 ⟩ N
        × N′ .progress ≡ ready
-∃ReadyBeforeMsgsDelivered = {!!}
+∃ReadyBeforeMsgsDelivered = Star⇒Starʳ -⟨ flip ∃ReadyBeforeMsgsDeliveredʳ ∣
+  where
+    open RTC; open Starʳ
+    ∃ReadyBeforeMsgsDeliveredʳ : ∀ {N : GlobalState} →
+        N .progress ≡ msgsDelivered
+      → N₀ ↝⋆ʳ N
+      → ∃[ N′ ]
+             N₀ ↝⋆ N′
+           × N′ ↝⋆⟨ 0 ⟩ N
+           × N′ .progress ≡ ready
+    ∃ReadyBeforeMsgsDeliveredʳ {N} NMsgsDelivered (_◅ʳ_ {j = N°} N₀↝⋆ʳN° N°↝N)
+      with N°↝N
+    ... | deliverMsgs N°Ready ts↓∗ rewrite clockPreservation-↓∗ ts↓∗ =
+      N° , Starʳ⇒Star N₀↝⋆ʳN° , (N°↝N ◅ ε , refl) , N°Ready
+    ... | permuteParties _ = case ∃ReadyBeforeMsgsDeliveredʳ NMsgsDelivered N₀↝⋆ʳN° of λ where
+      (N′ , N₀↝⋆N′ , (N′↝⋆N° , N°ₜ≡N′ₜ) , N′Ready) → N′ , N₀↝⋆N′ , (N′↝⋆N° ◅◅ N°↝N ◅ ε , N°ₜ≡N′ₜ) , N′Ready
+    ... | permuteMsgs    _ = case ∃ReadyBeforeMsgsDeliveredʳ NMsgsDelivered N₀↝⋆ʳN° of λ where
+      (N′ , N₀↝⋆N′ , (N′↝⋆N° , N°ₜ≡N′ₜ) , N′Ready) → N′ , N₀↝⋆N′ , (N′↝⋆N° ◅◅ N°↝N ◅ ε , N°ₜ≡N′ₜ) , N′Ready
 
 ∃MsgsDeliveredBeforeBlockMade : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
