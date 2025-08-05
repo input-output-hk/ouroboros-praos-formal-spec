@@ -25,7 +25,7 @@ open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; ∈-∷-≢⁻)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭)
-open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊇; ≡ˢ-refl)
+open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊆; ≡ˢ⇒⊇; ≡ˢ-refl)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Function.Bundles using (_⇔_; Equivalence; Inverse)
@@ -386,7 +386,7 @@ allGBsInHonestTree₀ :
     L.All.All (_≡ genesisBlock) (allBlocks (honestTree N₀))
 allGBsInHonestTree₀ = {!!}
 
-honestGlobalTreeBlockInSomeHonestLocalTree :  ∀ {N : GlobalState} {b : Block} →
+honestGlobalTreeBlockInSomeHonestLocalTree : ∀ {N : GlobalState} {b : Block} →
     N₀ ↝⋆ N
   → b ∈ allBlocks (honestTree N)
   → ∃₂[ p , ls ]
@@ -394,7 +394,31 @@ honestGlobalTreeBlockInSomeHonestLocalTree :  ∀ {N : GlobalState} {b : Block} 
       × b ∈ allBlocks (ls .tree)
       × Honest p
       × p ∈ N .execOrder
-honestGlobalTreeBlockInSomeHonestLocalTree = {!!}
+honestGlobalTreeBlockInSomeHonestLocalTree {N} {b} N₀↝⋆N b∈htN
+  with ≡ˢ⇒⊆ (buildTreeUsesAllBlocks $ L.concatMap (blocks N) (honestParties N)) b∈htN
+... | there b∈cM = b∈cM* b∈cM
+  where
+    b∈cM* : ∀ {ps*} →
+        b ∈ L.concatMap (blocks N) (L.filter ¿ Honest ¿¹ ps*)
+      → ∃₂[ p , ls ]
+            N .states ⁉ p ≡ just ls
+          × b ∈ allBlocks (ls .tree)
+          × Honest p
+          × p ∈ ps*
+    b∈cM* {p* ∷ _} b∈cM[p*+ps*] with ¿ Honest p* ¿
+    ... | yes hp* with L.Mem.++-∈⇔ {xs = blocks N p*} .Equivalence.to b∈cM[p*+ps*]
+    ...   | inj₁ b∈bks[p*] with N .states ⁉ p* in eq
+    ...     | just ls = p* , ls , eq , b∈bks[p*] , hp* , here refl
+    b∈cM* {_ ∷ ps*} _
+        | _
+          | inj₂ b∈cM[ps*] with b∈cM* {ps*} b∈cM[ps*]
+    ...     | p′ , ls′ , lsp′N , b∈tls′ , hp′ , p′∈ps* = p′ , ls′ , lsp′N , b∈tls′ , hp′ , there p′∈ps*
+    b∈cM* {_ ∷ ps*} b∈cM[ps*]
+        | no ¬hp* with b∈cM* {ps*} b∈cM[ps*]
+    ...   | p′ , ls′ , lsp′N , b∈tls′ , hp′ , p′∈ps* = p′ , ls′ , lsp′N , b∈tls′ , hp′ , there p′∈ps*
+... | here b≡gb rewrite b≡gb with L.Mem.Any↔ .Inverse.from (execOrderHasHonest N₀↝⋆N)
+...   | p , p∈eoN , hp with hasStateInAltDef {N} {p} .Equivalence.from $ L.All.lookup (allPartiesHaveLocalState N₀↝⋆N) p∈eoN
+...     | ls , lspN = p , ls , lspN , genesisBlockInAllBlocks (ls .tree) , hp , p∈eoN
 
 honestGlobalTreeBlocksMonotonicity : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N

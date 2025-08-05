@@ -72,4 +72,7 @@ record TreeType (T : Type) : Type₁ where
   allBlocksBuildTree-++ : ∀ (bs bs′ : List Block) → allBlocks (buildTree (bs ++ bs′)) ≡ˢ allBlocks (buildTree bs) ++ allBlocks (buildTree bs′)
   allBlocksBuildTree-++ = {!!}
 
+  genesisBlockInAllBlocks : ∀ (t : T) → genesisBlock ∈ allBlocks t
+  genesisBlockInAllBlocks = {!!}
+
 open TreeType ⦃ ... ⦄ public
