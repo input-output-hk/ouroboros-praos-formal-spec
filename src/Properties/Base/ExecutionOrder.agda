@@ -12,6 +12,7 @@ open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Data.List.Properties.Ext using (foldr-preservesʳ')
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (Unique-resp-↭)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (Any-resp-↭)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-refl; ↭-sym; ↭-trans)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
@@ -87,3 +88,6 @@ execOrder-↭-parties₀ = execOrder-↭-parties₀′ ∘ Star⇒Starʳ
     execOrder-↭-parties₀′ : ∀ {N : GlobalState} → N₀ ↝⋆ʳ N → N .execOrder ↭ parties₀
     execOrder-↭-parties₀′ εʳ        = _↭_.refl
     execOrder-↭-parties₀′ (π* ◅ʳ π) = ↭-trans (↭-sym $ execOrderPreservation-↭-↝ π) (execOrder-↭-parties₀′ π*)
+
+execOrderHasHonest : ∀ {N : GlobalState} → N₀ ↝⋆ N → L.Any.Any Honest (N .execOrder)
+execOrderHasHonest N₀↝⋆N = Any-resp-↭ (execOrderPreservation-↭ N₀↝⋆N) parties₀HasHonest
