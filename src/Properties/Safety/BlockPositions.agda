@@ -27,14 +27,16 @@ open import Properties.Base.BlockHistory ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
 open import Data.Nat.Properties.Ext using (pred[n]<n; suc-≢-injective)
+open import Data.Sum.Algebra.Ext using (¬A⊎B⇒A→B)
 open import Data.List.Properties.Ext using ([]≢∷ʳ; ≢[]⇒∷; ∷≢[]; length0⇒[]; filter-acceptʳ; filter-rejectʳ)
 open import Data.List.Membership.Propositional.Properties.Ext using (x∈x∷xs; ∈-∷⁻)
 open import Data.List.Relation.Unary.All.Properties.Ext using (cartesianProduct⁻)
 open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
-open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs)
+open import Data.List.Relation.Unary.Unique.DecPropositional.Properties using (deduplicate-!)
+open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs; map⁺-∈)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using ({- Unique-resp-↭; -} filter-↭)
 open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ-refl; ≡ˢ-sym; ≡ˢ-trans; ≡ˢ⇒⊆×⊇; ⊆×⊇⇒≡ˢ; deduplicate-cong; filter-cong; cartesianProduct-cong; All-resp-≡ˢ; Any-resp-≡ˢ)
-open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using ({- cartesianProduct-⊆-Mono; filterᵇ-mono; -} ∷-⊆; ∷⊆⇒∈;  ∷-⊆⁺)
+open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (cartesianProduct-⊆-Mono; deduplicate-⊆; ∷-⊆; ∷⊆⇒∈;  ∷-⊆⁺)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗)
@@ -1349,3 +1351,39 @@ opaque
       ... | advanceRound   _                  = ih
       ... | permuteParties _                  = ih
       ... | permuteMsgs    _                  = ih
+
+superBlockPositionsUniqueness : ∀ {N : GlobalState} →
+    N₀ ↝⋆ N
+  → ForgingFree N
+  → CollisionFree N
+  → Unique (map (flip blockPos N) (superBlocks N))
+superBlockPositionsUniqueness {N} N₀↝⋆N ffN cfN = superBlockPositionsUniqueness′ (superBlockPositions N₀↝⋆N cfN ffN)
+  where
+    sbs = List Block ∋ L.deduplicate _≟_ (filter ¿ SuperBlock ¿¹ (blockHistory N))
+    hbs = List Block ∋ filter ¿ HonestBlock ¿¹ (blockHistory N)
+
+    superBlockPositionsUniqueness′ :
+      L.All.All
+        (λ{ (b , b′) → flip blockPos N b ≢ flip blockPos N b′ ⊎ b ≡ b′ })
+        (L.cartesianProduct sbs hbs)
+      →
+      Unique (map (flip blockPos N) sbs)
+    superBlockPositionsUniqueness′ inj = map⁺-∈ (cartesianProduct⁻ inj-sbs) sbs!
+      where
+        sbs! : Unique sbs
+        sbs! = deduplicate-! _≟_ (filter ¿ SuperBlock ¿¹ (blockHistory N))
+
+        inj-sbs :
+          L.All.All
+            (λ{ (b , b′) → flip blockPos N b ≡ flip blockPos N b′ → b ≡ b′ })
+            (L.cartesianProduct sbs sbs)
+        inj-sbs = L.All.map ¬A⊎B⇒A→B $ L.All.anti-mono sbs×sbs⊆sbs×hbs inj
+          where
+            sbs×sbs⊆sbs×hbs : L.cartesianProduct sbs sbs ⊆ˢ L.cartesianProduct sbs hbs
+            sbs×sbs⊆sbs×hbs = cartesianProduct-⊆-Mono {xs = sbs} L.SubS.⊆-refl $
+              let open L.SubS.⊆-Reasoning Block in begin
+                sbs
+                  ⊆⟨ deduplicate-⊆ _ ⟩
+                filter ¿ SuperBlock ¿¹ (blockHistory N)
+                  ⊆⟨ L.SubS.filter⁺′ ¿ SuperBlock ¿¹ ¿ HonestBlock ¿¹ proj₁ {xs = blockHistory N} L.SubS.⊆-refl ⟩
+                hbs ∎

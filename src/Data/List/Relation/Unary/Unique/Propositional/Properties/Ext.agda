@@ -5,9 +5,9 @@ module Data.List.Relation.Unary.Unique.Propositional.Properties.Ext where
 open import Level using (Level)
 open import Function.Base using (_∘_; _∋_; _$_)
 open import Function.Bundles using (_⇔_)
-open import Relation.Nullary.Negation using (contradiction)
+open import Relation.Nullary.Negation using (contradiction; contraposition)
 open import Relation.Nullary.Decidable using (yes; no)
-open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; cong)
+open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; refl; cong; ≢-sym)
 open import Relation.Binary.PropositionalEquality.Properties using (setoid)
 open import Data.Empty using (⊥-elim)
 open import Data.Product.Base using (_×_; _,_; proj₁; proj₂)
@@ -16,9 +16,10 @@ open import Data.Nat.Base using (suc; _≤_; z≤n; s≤s; _+_)
 open import Data.Nat.Properties using (_≟_)
 open import Data.List.Base using (List; []; _∷_; _∷ʳ_; _++_; length; map)
 open import Data.List.Membership.Propositional using (_∈_; _∉_)
-open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻)
+open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; ∈×∉⇒≢)
 open import Data.List.Relation.Unary.Any using (here; there)
-open import Data.List.Relation.Unary.All as All using (All; []; _∷_)
+open import Data.List.Relation.Unary.All as All using (All; []; _∷_; tabulate)
+open import Data.List.Relation.Unary.All.Properties using (map⁺; All¬⇒¬Any)
 open import Data.List.Relation.Unary.AllPairs.Core
 open import Data.List.Relation.Unary.Unique.Propositional using (Unique)
 open import Data.List.Relation.Unary.Unique.Propositional.Properties using (Unique[x∷xs]⇒x∉xs)
@@ -39,12 +40,20 @@ private
     x : A
     xs ys : List A
 
--- TODO: Remove when upgrading to stdlib 2.3.
 module _ {A : Set a} {B : Set b} where
 
+  -- TODO: Remove when upgrading to stdlib 2.3.
   map⁻ : ∀ {f} → Congruent _≡_ _≡_ f →
          ∀ {xs} → Unique (map f xs) → Unique xs
   map⁻ = Setoid.map⁻ (setoid A) (setoid B)
+
+  map⁺-∈ : ∀ {xs} {f : A → B} → (∀ {x y} → x ∈ xs → y ∈ xs → f x ≡ f y → x ≡ y) →
+           Unique xs → Unique (map f xs)
+  map⁺-∈ inj []           = []
+  map⁺-∈ inj (x≢xs ∷ xs!) =
+    map⁺ (tabulate (λ {x′} x′∈xs → contraposition (inj (here refl) (there x′∈xs)) (≢-sym $ ∈×∉⇒≢ x′∈xs (All¬⇒¬Any x≢xs))))
+    ∷
+    map⁺-∈ (λ x∈xs y∈xs → inj (there x∈xs) (there y∈xs)) xs!
 
 module _ {A : Set a} {xs ys} where
 
