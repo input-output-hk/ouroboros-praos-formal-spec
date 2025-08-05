@@ -156,13 +156,6 @@ superBlocksPreservation-↓∗ {N} {N′} N₀↝⋆N N—[ps]↓→∗N′ ffN�
   b ∈ superBlocks N′ ∎
   where open Related.EquationalReasoning
 
-superBlockPositionsUniqueness : ∀ {N : GlobalState} →
-    N₀ ↝⋆ N
-  → ForgingFree N
-  → CollisionFree N
-  → Unique (map (flip blockPos N) (superBlocks N))
-superBlockPositionsUniqueness = {!!}
-
 superBlocks⊆honestBlockHistory : ∀ (N : GlobalState) → superBlocks N ⊆ˢ honestBlockHistory N
 superBlocks⊆honestBlockHistory N rewrite superBlocksAltDef N = begin
   (L.deduplicate _≟_ $ filter ¿ SuperSlot ∘ slot ¿¹ (honestBlockHistory N)) ⊆⟨ L.Mem.∈-deduplicate⁻ _≟_ _ ⟩

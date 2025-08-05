@@ -41,9 +41,8 @@ open import Relation.Binary.PropositionalEquality using (≢-sym)
 ... | [≢y]xs , y≢x = y≢x , All¬⇒¬Any [≢y]xs
 
 ∈×∉⇒≢ : ∀ {a} {A : Set a} {xs : List A} {x x′} → x ∈ xs → x′ ∉ xs → x ≢ x′
-∈×∉⇒≢ {xs = x″ ∷ xs″} x∈x″∷xs″ x′∉x″∷xs″ with ∈-∷⁻ x∈x″∷xs″ | ∉-∷⁻ x′∉x″∷xs″
-... | inj₁ x≡x″  | x′≢x″ , _      rewrite x≡x″ = ≢-sym x′≢x″
-... | inj₂ x∈xs″ | _     , x′∉xs″              = ∈×∉⇒≢ x∈xs″ x′∉xs″
+∈×∉⇒≢ (here px) p rewrite px = ≢-sym (∉-∷⁻ p .proj₁)
+∈×∉⇒≢ (there p′) p = ∈×∉⇒≢ p′ (∉-∷⁻ p .proj₂)
 
 ∈-findᵇ⁻ : ∀ {a} {A : Set a} ⦃ _ : DecEq A ⦄ {P : A → Bool} {xs : List A} {x : A} → findᵇ P xs ≡ just x → x ∈ xs
 ∈-findᵇ⁻ {P = P} {xs = x′ ∷ xs′} eqf with P x′
