@@ -29,10 +29,12 @@ open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness)
 open import Relation.Binary.Structures using (IsEquivalence)
 open import Relation.Binary.PropositionalEquality using (≢-sym)
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ)
 open import Function.Bundles using (_⇔_; mk⇔; Equivalence)
 open import Function.Properties.Equivalence using (⇔-isEquivalence)
 open import Function.Properties.Equivalence.Ext using (⊤⇎⊥)
-open IsEquivalence {ℓ = 0ℓ} ⇔-isEquivalence renaming (trans to ⇔-trans) hiding (refl; sym)
+open IsEquivalence {ℓ = 0ℓ} ⇔-isEquivalence renaming (refl to ⇔-refl; trans to ⇔-trans) hiding (sym)
 
 _hasStateIn_ : REL Party GlobalState 0ℓ
 p hasStateIn N = M.Is-just (N .states ⁉ p)
@@ -138,7 +140,95 @@ opaque
   hasState⇔-↝⋆ :  ∀ {N N′ : GlobalState} {p : Party} →
       N ↝⋆ N′
     → p hasStateIn N ⇔ p hasStateIn N′
-  hasState⇔-↝⋆ = {!!}
+  hasState⇔-↝⋆ {N} {N′} {p} = hasState⇔-↝⋆ʳ ∘ Star⇒Starʳ
+    where
+      open RTC; open Starʳ
+      hasState⇔-↝⋆ʳ : ∀ {N′ : GlobalState} → N ↝⋆ʳ N′ → p hasStateIn N ⇔ p hasStateIn N′
+      hasState⇔-↝⋆ʳ εʳ = ⇔-refl
+      hasState⇔-↝⋆ʳ {N′} (_◅ʳ_ {j = N″} N↝⋆ʳN″ N″↝N′) = goal N″↝N′
+        where
+          ih : p hasStateIn N ⇔ p hasStateIn N″
+          ih = hasState⇔-↝⋆ʳ N↝⋆ʳN″
+
+          goal : N″ ↝ N′ → p hasStateIn N ⇔ p hasStateIn N′
+          goal (deliverMsgs {N′ = N‴} N″Ready N″—[eoN″]↓→∗N‴) = goal* $ —[]→∗⇒—[]→∗ʳ N″—[eoN″]↓→∗N‴
+            where
+              goal* : ∀ {N* ps} → _ ⊢ N″ —[ ps ]↓→∗ʳ N* → p hasStateIn N ⇔ p hasStateIn N*
+              goal* [] = ih
+              goal* {N*} (_∷ʳ_ {is = ps*} {i = p*} {s′ = N°} N″—[ps*]↓→∗ʳN° N°↝[p*]↓N*) = step* N°↝[p*]↓N*
+                where
+                  ih* : p hasStateIn N ⇔ p hasStateIn N°
+                  ih* = goal* N″—[ps*]↓→∗ʳN°
+
+                  step* : _ ⊢ N° —[ p* ]↓→ N* → p hasStateIn N ⇔ p hasStateIn N*
+                  step* (unknownParty↓ _) = ih*
+                  step* (honestParty↓ {ls = ls} lsN°p* hp*) = ⇔-trans ih* step-hp*
+                    where
+                      step-hp* : p hasStateIn N° ⇔ p hasStateIn (honestMsgsDelivery p* ls N°)
+                      step-hp* with p ≟ p*
+                      ... | yes p≡p*
+                        rewrite
+                            sym p≡p*
+                          | set-⁉
+                              (N° .states)
+                              p
+                              (L.foldr (λ m ls″ → addBlock ls″ (projBlock m)) ls (L.map msg (immediateMsgs p N°)))
+                          | lsN°p*
+                          = mk⇔ (const $ M.Any.just tt) (const $ M.Any.just tt)
+                      ... | no p≢p*
+                        rewrite
+                          set-⁉-¬
+                            (N° .states)
+                            p*
+                            p
+                            (L.foldr (λ m ls″ → addBlock ls″ (projBlock m)) ls (L.map msg (immediateMsgs p* N°)))
+                            (≢-sym p≢p*)
+                          = ⇔-refl
+                  step* (corruptParty↓ _ _)
+                    rewrite
+                      localStatePreservation-broadcastMsgsᶜ
+                        {fetchNewMsgs p* N° .proj₂}
+                        {processMsgsᶜ
+                          (fetchNewMsgs p* N° .proj₁)
+                          (fetchNewMsgs p* N° .proj₂ .clock)
+                          (fetchNewMsgs p* N° .proj₂ .history)
+                          (fetchNewMsgs p* N° .proj₂ .messages)
+                          (fetchNewMsgs p* N° .proj₂ .advState)
+                          .proj₁
+                         }
+                      = ih*
+          goal (makeBlock {N″} {N‴} N″MsgsDelivered N″—[eoN″]↑→∗N‴) = goal* $ —[]→∗⇒—[]→∗ʳ N″—[eoN″]↑→∗N‴
+            where
+              goal* : ∀ {N* ps} → _ ⊢ N″ —[ ps ]↑→∗ʳ N* → p hasStateIn N ⇔ p hasStateIn N*
+              goal* [] = ih
+              goal* {N*} (_∷ʳ_ {is = ps*} {i = p*} {s′ = N°} N″—[ps*]↑→∗ʳN° N°↝[p*]↑N*) = step* N°↝[p*]↑N*
+                where
+                  ih* : p hasStateIn N ⇔ p hasStateIn N°
+                  ih* = goal* N″—[ps*]↑→∗ʳN°
+
+                  step* : _ ⊢ N° —[ p* ]↑→ N* → p hasStateIn N ⇔ p hasStateIn N*
+                  step* (unknownParty↑ _) = ih*
+                  step* (honestParty↑ {ls = ls} lsN°p* hp*) = ⇔-trans ih* step-hp*
+                    where
+                      step-hp* : p hasStateIn N° ⇔ p hasStateIn (honestBlockMaking p* ls N°)
+                      step-hp* with makeBlockʰ (N° .clock) (txSelection (N° .clock) p*) p* ls
+                      ... | newMsgs , newLs
+                        rewrite
+                          localStatePreservation-broadcastMsgsʰ {updateLocalState p* newLs N°} {newMsgs}
+                        with p ≟ p*
+                      ...   | yes p≡p*
+                          rewrite sym p≡p* | set-⁉ (N° .states) p newLs | lsN°p*
+                            = mk⇔ (const $ M.Any.just tt) (const $ M.Any.just tt)
+                      ...   | no p≢p*
+                          rewrite set-⁉-¬ (N° .states) p* p newLs (≢-sym p≢p*) = ⇔-refl
+                  step* (corruptParty↑ _ _)
+                    rewrite
+                      localStatePreservation-broadcastMsgsᶜ
+                        {N°} {makeBlockᶜ (N° .clock) (N° .history) (N° .messages) (N° .advState) .proj₁}
+                      = ih*
+          goal (advanceRound   _) = ih
+          goal (permuteParties _) = ih
+          goal (permuteMsgs    _) = ih
 
   localStatePrev-↓ :  ∀ {N N′ : GlobalState} {p : Party} →
       p hasStateIn N′
