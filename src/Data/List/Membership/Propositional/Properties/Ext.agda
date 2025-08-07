@@ -4,6 +4,7 @@ open import Data.Maybe using (just)
 open import Data.Maybe.Properties using (just-injective)
 open import Data.Bool using (Bool; false; true)
 open import Data.Sum using (_⊎_; inj₁; inj₂)
+open import Data.Sum.Algebra using (⊎-comm)
 open import Data.Product using (_×_; _,_; proj₁; proj₂)
 open import Data.List using (List; []; _∷_; findᵇ; find; filter; deduplicate; _∷ʳ_; [_])
 open import Data.List.Ext using (undup)
@@ -15,6 +16,7 @@ open import Relation.Nullary.Negation using (¬_; contradiction)
 open import Relation.Nullary.Decidable using (yes; no)
 open import Relation.Unary using (Pred; Decidable)
 open import Function.Base using (case_of_)
+open import Function.Bundles using (Inverse)
 open import Class.DecEq using (DecEq)
 open DecEq ⦃...⦄
 
@@ -56,6 +58,9 @@ module _ {a p} {A : Set a} ⦃ _ : DecEq A ⦄ {P : Pred A p} (P? : Decidable P)
   ∈-find⁻ {xs = x′ ∷ xs′} eqf with P? x′
   ... | no  _ = there (∈-find⁻ {xs = xs′} eqf)
   ... | yes _ = here (sym (just-injective eqf))
+
+∈-∷ʳ⁻ : ∀ {a} {A : Set a} {xs : List A} {x y} → y ∈ xs ∷ʳ x → (y ∈ xs) ⊎ (y ≡ x)
+∈-∷ʳ⁻ {xs = xs} {x = x} = ⊎-comm _ _ .Inverse.to ∘ ∈-∷⁻ ∘ ++-comm xs [ x ]
 
 ∈-∷-≢⁻ : ∀ {a} {A : Set a} {xs : List A} {x y : A} → y ∈ x ∷ xs → y ≢ x → y ∈ xs
 ∈-∷-≢⁻ y∈x∷xs y≢x with ∈-∷⁻ y∈x∷xs

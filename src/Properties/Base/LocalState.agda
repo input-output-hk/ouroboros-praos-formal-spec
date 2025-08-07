@@ -21,11 +21,12 @@ open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[∷ʳ]→∗-split; —[[]]→∗ʳ⇒≡)
 open import Prelude.AssocList.Properties.Ext using (set-⁉; set-⁉-¬)
-open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷ʳ-≢⁻)
+open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷ʳ-≢⁻; ∈-∷ʳ⁻)
 open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
 open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs)
-open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭; map⁺)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness)
 open import Relation.Binary.Structures using (IsEquivalence)
 open import Relation.Binary.PropositionalEquality using (≢-sym)
@@ -251,6 +252,18 @@ hasState⇒∈execOrder : ∀ {N : GlobalState} {p : Party} →
   → p hasStateIn N
   → p ∈ N .execOrder
 hasState⇒∈execOrder = {!!}
+
+blocksDeliveredInEvolution-↑′ : ∀ {N N′ : GlobalState} {p : Party} →
+    _ ⊢ N —[ p ]↑→ N′
+  → ∀ {p′ : Party} {d : Delay} →
+      blocksDeliveredIn p′ d N ⊆ˢ blocksDeliveredIn p′ d N′
+blocksDeliveredInEvolution-↑′ = {!!}
+
+blocksDeliveredInEvolution-↑∗ : ∀ {N N′ : GlobalState} {ps : List Party} →
+    _ ⊢ N —[ ps ]↑→∗ N′
+  → ∀ {p′ : Party} {d : Delay} →
+      blocksDeliveredIn p′ d N ⊆ˢ blocksDeliveredIn p′ d N′
+blocksDeliveredInEvolution-↑∗ = {!!}
 
 opaque
 
@@ -519,3 +532,97 @@ opaque
           goal (corruptParty↑ _ _)
             with makeBlockᶜ (clock N‴) (history N‴) (messages N‴) (advState N‴)
           ... | newMds , _ rewrite localStatePreservation-broadcastMsgsᶜ {N‴} {newMds} = ih N—[ps′]↑→∗N‴
+
+  blocksDeliveredInEvolution-↑ : ∀ {N N′ N″ : GlobalState} {p : Party} →
+      N₀ ↝⋆ N
+    → _ ⊢ N —[ N .execOrder ]↑→∗ N″
+    → _ ⊢ N —[ p ]↑→ N′
+    → Honest p
+    → p ∈ N .execOrder
+    → ∀ {p′ : Party} {d : Delay} →
+        blocksDeliveredIn p′ d N′ ⊆ˢ blocksDeliveredIn p′ d N″
+  blocksDeliveredInEvolution-↑ {N} {N′} {N″} {p} N₀↝⋆N N—[eoN]↑→∗N″ N—[p]↑→N′ hp p∈eoN {p′} {d} =
+    blocksDeliveredInEvolution-↑ʳ (reverseView (N .execOrder)) eoN! p∈eoN (—[]→∗⇒—[]→∗ʳ N—[eoN]↑→∗N″)
+    where
+      ¬cp : ¬ Corrupt p
+      ¬cp = honest⇒¬corrupt hp
+
+      eoN! : Unique (N .execOrder)
+      eoN! = execOrderUniqueness N₀↝⋆N
+
+      open import Data.List.Reverse
+
+      blocksDeliveredInEvolution-↑ʳ : ∀ {N* ps} →
+          Reverse ps
+        → Unique ps
+        → p ∈ ps
+        → _ ⊢ N —[ ps ]↑→∗ʳ N*
+        → blocksDeliveredIn p′ d N′ ⊆ˢ blocksDeliveredIn p′ d N*
+      blocksDeliveredInEvolution-↑ʳ {N*} (ps* ∶ ps*r ∶ʳ p*) [ps*∷ʳp*]! p∈[ps*∷ʳp*] N—[ps*∷ʳp*]↑→∗ʳN*
+        with —[∷ʳ]→∗-split $ —[]→∗ʳ⇒—[]→∗ N—[ps*∷ʳp*]↑→∗ʳN*
+      ... | N‴ , N—[ps*]↑→∗N‴ , N‴—[p*]↑→N* = goal
+        where
+          ps*! : Unique ps*
+          ps*! = headʳ [ps*∷ʳp*]!
+
+          p*∉ps* : p* ∉ ps*
+          p*∉ps* = Unique[xs∷ʳx]⇒x∉xs [ps*∷ʳp*]!
+
+          lsp*N≡lsp*N‴ : N .states ⁉ p* ≡ N‴ .states ⁉ p*
+          lsp*N≡lsp*N‴ = sym $ localStatePreservation-∉-↑∗ p*∉ps* N—[ps*]↑→∗N‴
+
+          ih : p ∈ ps* → blocksDeliveredIn p′ d N′ ⊆ˢ blocksDeliveredIn p′ d N‴
+          ih p∈ps* = blocksDeliveredInEvolution-↑ʳ ps*r ps*! p∈ps* (—[]→∗⇒—[]→∗ʳ N—[ps*]↑→∗N‴)
+
+          goal : blocksDeliveredIn p′ d N′ ⊆ˢ blocksDeliveredIn p′ d N*
+          goal with ∈-∷ʳ⁻ p∈[ps*∷ʳp*]
+          ... | inj₁ p∈ps* = L.SubS.⊆-trans (ih p∈ps*) (blocksDeliveredInEvolution-↑′ N‴—[p*]↑→N*)
+          ... | inj₂ p≡p*  = goal-p≡p* N‴—[p*]↑→N*
+            where
+              N—[p*]↑→N′ : _ ⊢ N —[ p* ]↑→ N′
+              N—[p*]↑→N′ rewrite sym p≡p* = N—[p]↑→N′
+
+              goal-p≡p* : _ ⊢ N‴ —[ p* ]↑→ N* → blocksDeliveredIn p′ d N′ ⊆ˢ blocksDeliveredIn p′ d N*
+              goal-p≡p* N‴—[p*]↑→N* with N—[p*]↑→N′
+              ... | unknownParty↑ _     = blocksDeliveredInEvolution-↑∗ (—[]→∗ʳ⇒—[]→∗ N—[ps*∷ʳp*]↑→∗ʳN*)
+              ... | corruptParty↑ _ cp* = contradiction (subst Corrupt (sym p≡p*) cp*) ¬cp
+              ... | honestParty↑ {ls = ls} lsp*N hp* with N‴—[p*]↑→N*
+              ...   | unknownParty↑ lsp*N*≡◇ = contradiction lsp*N*≡◇ lsp*N*≢◇
+                where
+                  lsp*N*≢◇ : N* .states ⁉ p* ≢ nothing
+                  lsp*N*≢◇ rewrite sym lsp*N≡lsp*N‴ | lsp*N = λ ()
+              ...   | corruptParty↑ _ cp* = contradiction (subst Corrupt (sym p≡p*) cp*) ¬cp
+              ...   | honestParty↑ {ls = ls′} ls′p*N‴ _ rewrite clockPreservation-↑∗ N—[ps*]↑→∗N‴
+                        with Params.winnerᵈ params {p*} {N .clock}
+              ...     | ⁇ (no  _) = blocksDeliveredInEvolution-↑∗ N—[ps*]↑→∗N‴
+              ...     | ⁇ (yes _) = goal-wp*
+                where
+                  nb : LocalState → Block
+                  nb ls = mkBlock (hash (tip (bestChain (N .clock ∸ 1) (ls .tree)))) (N .clock) (txSelection (N .clock) p*) p*
+
+                  ls′≡ls : ls′ ≡ ls
+                  ls′≡ls = sym $ M.just-injective $ trans (sym lsp*N) ls′p*N
+                    where
+                      ls′p*N : N .states ⁉ p* ≡ just ls′
+                      ls′p*N rewrite lsp*N≡lsp*N‴ = ls′p*N‴
+
+                  dlv? : Decidable¹ λ e → DeliveredIn e p′ d
+                  dlv? = λ e → ¿ DeliveredIn e ¿² p′ d
+
+                  mkenv : LocalState → Party → Envelope
+                  mkenv ls = λ party → ⦅ newBlock (nb ls) , party , 𝟙 ⦆
+
+                  goal-wp* :
+                    map (projBlock ∘ msg) (filter dlv? (map (mkenv ls) (N .execOrder) ++ N .messages))
+                    ⊆ˢ
+                    map (projBlock ∘ msg) (filter dlv? (map (mkenv ls′) (N‴ .execOrder) ++ N‴ .messages))
+                  goal-wp*
+                    rewrite
+                      ls′≡ls
+                    | L.filter-++ dlv? (map (mkenv ls) (N .execOrder)) (N .messages)
+                    | L.map-++ (projBlock ∘ msg) (filter dlv? (map (mkenv ls) (N .execOrder))) (filter dlv? (N .messages))
+                    | L.filter-++ dlv? (map (mkenv ls) (N‴ .execOrder)) (N‴ .messages)
+                    | L.map-++ (projBlock ∘ msg) (filter dlv? (map (mkenv ls) (N‴ .execOrder))) (filter dlv? (N‴ .messages))
+                      = L.SubS.++⁺
+                          (∈-resp-↭ $ map⁺ _ $ filter-↭ _ $ map⁺ _ $ execOrderPreservation-↭-↑∗ N—[ps*]↑→∗N‴)
+                          (blocksDeliveredInEvolution-↑∗ N—[ps*]↑→∗N‴)

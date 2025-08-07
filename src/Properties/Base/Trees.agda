@@ -30,16 +30,6 @@ open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Sta
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Function.Bundles using (_⇔_; Equivalence; Inverse)
 
-blocksDeliveredInEvolution-↑ : ∀ {N N′ N″ : GlobalState} {p : Party} →
-    N₀ ↝⋆ N
-  → _ ⊢ N —[ N .execOrder ]↑→∗ N″
-  → _ ⊢ N —[ p ]↑→ N′
-  → Honest p
-  → p ∈ N .execOrder
-  → ∀ {p′ : Party} {d : Delay} →
-      blocksDeliveredIn p′ d N′ ⊆ˢ blocksDeliveredIn p′ d N″
-blocksDeliveredInEvolution-↑ = {!!}
-
 opaque
 
   unfolding honestBlockMaking
