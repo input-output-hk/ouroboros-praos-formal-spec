@@ -215,13 +215,6 @@ positiveClock = positiveClock′ ∘ Star⇒Starʳ
           with ih N₀ₜ<Nₜ
         ... | N′ , N₀↝⋆N′ , N′↝⋆N° , N′Ready , N′ₜ≡N°ₜ-1 = N′ , N₀↝⋆N′ , N′↝⋆N° ◅◅ (N°↝N ◅ ε) , N′Ready , N′ₜ≡N°ₜ-1
 
-noPrematureHonestBlocksAtReady : ∀ {N : GlobalState} →
-    N₀ ↝⋆ N
-  → ForgingFree N
-  → N .progress ≡ ready
-  → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
-noPrematureHonestBlocksAtReady = {!!}
-
 ∃ReadyBetweenSlots : ∀ {N N′ : GlobalState} {sl : Slot} →
     N .progress ≡ ready
   → N ↝⋆ N′
