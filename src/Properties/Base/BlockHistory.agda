@@ -763,6 +763,33 @@ opaque
           goal (permuteParties _) = ih
           goal (permuteMsgs    _) = ih
 
+  noPrematureHonestBlocksAtReady : ∀ {N : GlobalState} →
+      N₀ ↝⋆ N
+    → ForgingFree N
+    → N .progress ≡ ready
+    → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
+  noPrematureHonestBlocksAtReady = noPrematureHonestBlocksAtReadyʳ ∘ Star⇒Starʳ
+    where
+      open RTC; open Starʳ
+      noPrematureHonestBlocksAtReadyʳ : ∀ {N : GlobalState} →
+          N₀ ↝⋆ʳ N
+        → ForgingFree N
+        → N .progress ≡ ready
+        → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
+      noPrematureHonestBlocksAtReadyʳ εʳ _ _ = []
+      noPrematureHonestBlocksAtReadyʳ {N} (_◅ʳ_ {j = N′} N₀↝⋆ʳN′ N′↝N) ffN NReady = goal N′↝N
+        where
+          ffN′ : ForgingFree N′
+          ffN′ = ForgingFreePrev (N′↝N ◅ ε) ffN
+
+          ih : N′ .progress ≡ ready → L.All.All ((_< N′ .clock) ∘ slot) (honestBlockHistory N′)
+          ih = noPrematureHonestBlocksAtReadyʳ N₀↝⋆ʳN′ ffN′
+
+          goal : N′ ↝ N → L.All.All ((_< N .clock) ∘ slot) (honestBlockHistory N)
+          goal (advanceRound   _) = L.All.map (λ {_} → Nat.s≤s) $ noPrematureHonestBlocks (Starʳ⇒Star N₀↝⋆ʳN′) ffN′
+          goal (permuteParties _) = ih NReady
+          goal (permuteMsgs    _) = ih NReady
+
   noPrematureHonestBlocksAt↓ : ∀ {N : GlobalState} →
       N₀ ↝⋆ N
     → ForgingFree N
