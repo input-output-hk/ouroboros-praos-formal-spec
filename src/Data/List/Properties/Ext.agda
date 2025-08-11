@@ -227,6 +227,10 @@ module _ ⦃ _ : DecEq A ⦄ where
   | length-map (_+ n) (downFrom m)
   | length-downFrom m = refl
 
+ι-∷ʳ : ∀ n m → ι n m ∷ʳ (n + m) ≡ ι n (suc m)
+ι-∷ʳ n 0       rewrite +-identityʳ n              = refl
+ι-∷ʳ n (suc m) rewrite +-suc n m | ι-∷ʳ (suc n) m = refl
+
 ------------------------------------------------------------------------
 -- count
 

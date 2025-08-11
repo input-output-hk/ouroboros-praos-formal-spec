@@ -32,7 +32,7 @@ open import Data.Nat.Properties.Ext using (pred[n]<n)
 open import Data.Maybe.Properties.Ext using (≡just⇒Is-just)
 open import Data.List.Ext using (ι)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-findᵇ⁻; ∈-∷-≢⁻; x∈x∷xs; ∈-∷⁻; ∈×∉⇒≢)
-open import Data.List.Properties.Ext using (Px-findᵇ⁻; ∷≢[]; []≢∷ʳ; ≢[]⇒∷; find-∄)
+open import Data.List.Properties.Ext using (Px-findᵇ⁻; ∷≢[]; []≢∷ʳ; ≢[]⇒∷; find-∄; ι-∷ʳ)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (filterᵇ-mono; ∷⊆⇒∈; ∷-⊆)
 open import Data.List.Relation.Unary.All.Properties.Ext using (cartesianProduct⁻)
 open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
@@ -228,11 +228,37 @@ cfbInBlockListIsSubset {b} {bs} {c} bcfgbs [b+c]✓ c⊆gbs with b ≟ genesisBl
      chainFromBlock gb bs ≡                gb ⇒ ∣ chainFromBlock gb bs ∣ ≡ 1
 -}
 cfbLenghtsIsCountdown : ∀ {bs : List Block} {c : Chain} →
-    BlockListCollisionFree bs
+    BlockListCollisionFree (genesisBlock ∷ bs)
   → c ✓
   → c ⊆ˢ genesisBlock ∷ bs
   → L.map (λ b → ∣ chainFromBlock b bs ∣) c ≡ L.reverse (ι 1 ∣ c ∣) -- L.map suc (L.downFrom ∣ c ∣)
-cfbLenghtsIsCountdown = {!!}
+cfbLenghtsIsCountdown {bs} {[]} _ _ _ = refl
+cfbLenghtsIsCountdown {bs} {b ∷ c} cf[gb+bs] [b+c]✓ [b+c]⊆gb+bs with c in eq
+... | [] rewrite [b]✓⇔b≡gb .Equivalence.to [b+c]✓ | cfb[gb]≡[gb] {bs} = refl
+... | b′ ∷ c′ with ✓-∷ .Equivalence.from [b+c]✓
+...   | _ , _ , _ , [b′+c′]✓ = let open ≡-Reasoning in begin
+  ∣ chainFromBlock b bs ∣ ∷ ∣ chainFromBlock b′ bs ∣ ∷ map (λ b* → ∣ chainFromBlock b* bs ∣) c′
+    ≡⟨ cong (λ ◆ → ∣ chainFromBlock b bs ∣ ∷ map (λ b* → ∣ chainFromBlock b* bs ∣) ◆) (sym eq) ⟩
+  ∣ chainFromBlock b bs ∣ ∷ map (λ b* → ∣ chainFromBlock b* bs ∣) c
+    ≡⟨ cong (∣ chainFromBlock b bs ∣ ∷_) $ cfbLenghtsIsCountdown {bs} {c} cf[gb+bs] c✓ c⊆gb+bs ⟩
+  ∣ chainFromBlock b bs ∣ ∷ L.reverse (ι 1 ∣ c ∣)
+    ≡⟨ cong (λ ◆ → ∣ chainFromBlock b bs ∣ ∷ L.reverse (ι 1 ∣ ◆ ∣)) eq ⟩
+  ∣ chainFromBlock b bs ∣ ∷ L.reverse (1 ∷ ι 2 (∣ c′ ∣))
+    ≡⟨ cong (λ ◆ → ∣ ◆ ∣ ∷ L.reverse (1 ∷ ι 2 (∣ c′ ∣))) $ cfbInBlockListIsSubset cf[gb+bs] [b+c]✓ (∷-⊆ [b+c]⊆gb+bs) ⟩
+  suc (suc ∣ c′ ∣) ∷ L.reverse (1 ∷ ι 2 (∣ c′ ∣))
+    ≡⟨ sym $ L.reverse-++ (1 ∷ ι 2 (∣ c′ ∣)) [ suc (suc ∣ c′ ∣) ] ⟩
+  L.reverse (1 ∷ (ι 2 (∣ c′ ∣) L.∷ʳ (suc (suc ∣ c′ ∣))))
+    ≡⟨ cong (L.reverse ∘ (1 ∷_)) $ ι-∷ʳ 2 ∣ c′ ∣ ⟩
+  L.reverse (1 ∷ (ι 2 (suc ∣ c′ ∣)))
+    ≡⟨⟩
+  L.reverse (1 ∷ 2 ∷ ι 3 (∣ c′ ∣))
+    ∎
+  where
+    c✓ : c ✓
+    c✓ rewrite eq = [b′+c′]✓
+
+    c⊆gb+bs : c ⊆ˢ genesisBlock ∷ bs
+    c⊆gb+bs rewrite eq = ∷-⊆ [b+c]⊆gb+bs
 
 module _ where
 
