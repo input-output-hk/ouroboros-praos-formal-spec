@@ -372,10 +372,7 @@ adversaryHasAdvantage {N} N₀↝⋆N ffN cfN {p} {ls} hp lsp {c} {sl} c⊆fgb�
                             open import Tactic.Cong
 
                             p[c₃+c₁+b′+c₂]≡ιʳ : mapBlockPos (c₃ ++ c₁ ++ b′ ∷ c₂) ≡ L.reverse (ι 1 ∣ b′ ∷ c₂ ++ c₁ ++ c₃ ∣)
-                            p[c₃+c₁+b′+c₂]≡ιʳ = p[c*+c₁+b′+c₂]≡ιʳ c₃+lcs≡bc $ cfbLenghtsIsCountdown {blockHistory N} blcf[bhN] bc✓ bc⊆gb∷bhN
-                              where
-                                blcf[bhN] : BlockListCollisionFree (blockHistory N)
-                                blcf[bhN] = BlockListCollisionFree-⊆ (L.SubS.xs⊆x∷xs (blockHistory N) _) cfN
+                            p[c₃+c₁+b′+c₂]≡ιʳ = p[c*+c₁+b′+c₂]≡ιʳ c₃+lcs≡bc $ cfbLenghtsIsCountdown {blockHistory N} cfN bc✓ bc⊆gb∷bhN
 
                             p[c₃]+p[c₁]+p[b′+c₂]≡ιʳ :
                                    mapBlockPos c₃
@@ -424,7 +421,7 @@ adversaryHasAdvantage {N} N₀↝⋆N ffN cfN {p} {ls} hp lsp {c} {sl} c⊆fgb�
                           mapBlockPos c₄ ++ mapBlockPos (c₁ ++ b′ ∷ c₂)
                             ≡⟨ L.map-++ _ c₄ _ ⟨
                           mapBlockPos (c₄ ++ c₁ ++ b′ ∷ c₂)
-                            ≡⟨ p[c*+c₁+b′+c₂]≡ιʳ c₄+lcs≡c $ cfbLenghtsIsCountdown {blockHistory N} blcf[bhN] c✓ c⊆gb∷bhN ⟩
+                            ≡⟨ p[c*+c₁+b′+c₂]≡ιʳ c₄+lcs≡c $ cfbLenghtsIsCountdown {blockHistory N} cfN c✓ c⊆gb∷bhN ⟩
                           L.reverse (ι 1 ∣ b′ ∷ c₂ ++ c₁ ++ c₄ ∣)
                             ≡⟨ cong! (sym $ L.++-assoc (b′ ∷ c₂) c₁ _) ⟩
                           L.reverse (ι 1 ∣ (b′ ∷ c₂ ++ c₁) ++ c₄ ∣)
