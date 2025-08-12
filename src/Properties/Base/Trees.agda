@@ -23,6 +23,7 @@ open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.AssocList.Properties.Ext using (set-⁉)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-just)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; ∈-∷-≢⁻)
+open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (⊆-++-comm)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭)
 open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊆; ≡ˢ⇒⊇; ≡ˢ-refl)
@@ -146,7 +147,39 @@ honestLocalTreeInHonestGlobalTree : ∀ {N : GlobalState} {p : Party} {ls : Loca
   → Honest p
   → N .states ⁉ p ≡ just ls
   → allBlocks (ls .tree) ⊆ˢ allBlocks (honestTree N)
-honestLocalTreeInHonestGlobalTree = {!!}
+honestLocalTreeInHonestGlobalTree {N} {p} {ls} N₀↝⋆N hp lspN =
+  let open L.SubS.⊆-Reasoning Block in begin
+    allBlocks (ls .tree)
+      ⊆⟨ goal p∈eoN ⟩
+    genesisBlock ∷ L.concatMap (blocks N) (honestParties N)
+      ⊆⟨ ≡ˢ⇒⊇ (buildTreeUsesAllBlocks _) ⟩
+    allBlocks (honestTree N)
+      ∎
+  where
+    p∈eoN : p ∈ N .execOrder
+    p∈eoN = ∈-resp-↭ (execOrderPreservation-↭ N₀↝⋆N) (hasState⇔∈parties₀ N₀↝⋆N .Equivalence.to pHasInN)
+      where
+        pHasInN : p hasStateIn N
+        pHasInN = hasStateInAltDef {N} {p} .Equivalence.to (ls , lspN)
+
+    goal : ∀ {ps*} →
+        p ∈ ps*
+      → allBlocks (ls .tree) ⊆ˢ genesisBlock ∷ L.concatMap (blocks N) (L.filter ¿ Honest ¿¹ ps*)
+    goal {p* ∷ ps*} (here p≡p*) rewrite sym p≡p* | hp | lspN =
+      L.SubS.⊆-trans (L.SubS.xs⊆xs++ys (allBlocks (ls .tree)) _) (L.SubS.xs⊆x∷xs _ _)
+    goal {p* ∷ ps*} (there p∈p*+ps*) with ¿ Honest p* ¿
+    ... | yes hp* =
+      let
+        open L.SubS.⊆-Reasoning Block
+        bs = L.concatMap (blocks N) (L.filter ¿ Honest ¿¹ ps*)
+      in begin
+      allBlocks (ls .tree)                     ⊆⟨ goal {ps*} p∈p*+ps* ⟩
+      genesisBlock ∷ bs                        ⊆⟨ L.SubS.xs⊆ys++xs _ _ ⟩
+      blocks N p* ++ [ genesisBlock ] ++ bs    ≡⟨ L.++-assoc (blocks N p*) _ _ ⟨
+      (blocks N p* ++ [ genesisBlock ]) ++ bs  ⊆⟨ L.SubS.++⁺ˡ _ (⊆-++-comm (blocks N p*) [ genesisBlock ]) ⟩
+      (genesisBlock ∷ blocks N p*) ++ bs       ≡⟨ L.++-assoc [ genesisBlock ] (blocks N p*) _ ⟩
+      genesisBlock ∷ blocks N p* ++ bs         ∎
+    ... | no ¬hp* = goal {ps*} p∈p*+ps*
 
 honestLocalTreeEvolution-↓ :  ∀ {N N′ : GlobalState} {p : Party} {ls ls′ : LocalState} →
     Honest p
