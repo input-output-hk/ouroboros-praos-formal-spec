@@ -197,7 +197,58 @@ opaque
     → ForgingFree N′
     → N′ .progress ≡ msgsDelivered
     → honestBlockHistory N ≡ˢ honestBlockHistory N′
-  honestBlockHistoryPreservation-↝⋆⟨0⟩ = {!!}
+  honestBlockHistoryPreservation-↝⋆⟨0⟩ N₀↝⋆N NReady (N↝⋆N′ , Nₜ≡N′ₜ) =
+    honestBlockHistoryPreservation-↝⋆⟨0⟩ʳ N₀↝⋆N NReady (Star⇒Starʳ N↝⋆N′) Nₜ≡N′ₜ
+    where
+      open RTC; open Starʳ
+      honestBlockHistoryPreservation-↝⋆⟨0⟩ʳ : ∀ {N N′ : GlobalState} →
+          N₀ ↝⋆ N
+        → N .progress ≡ ready
+        → N ↝⋆ʳ N′
+        → N .clock ≡ N′ .clock
+        → ForgingFree N′
+        → N′ .progress ≡ msgsDelivered
+        → honestBlockHistory N ≡ˢ honestBlockHistory N′
+      honestBlockHistoryPreservation-↝⋆⟨0⟩ʳ _ _ εʳ _ _ _ = ≡ˢ-refl
+      honestBlockHistoryPreservation-↝⋆⟨0⟩ʳ {N} {N′} N₀↝⋆N NReady (_◅ʳ_ {j = N″} N↝⋆ʳN″ N″↝N′) Nₜ≡N′ₜ ffN′ N′MsgsDelivered =
+        goal N↝⋆ʳN″ N″↝N′
+        where
+          ffN″ : ForgingFree N″
+          ffN″ = ForgingFreePrev (N″↝N′ ◅ ε) ffN′
+
+          ih :
+              N .clock ≡ N″ .clock
+            → N″ .progress ≡ msgsDelivered
+            → honestBlockHistory N ≡ˢ honestBlockHistory N″
+          ih Nₜ≡N″ₜ = honestBlockHistoryPreservation-↝⋆⟨0⟩ʳ N₀↝⋆N NReady N↝⋆ʳN″ Nₜ≡N″ₜ ffN″
+
+          goal :
+              N ↝⋆ʳ N″
+            → N″ ↝ N′
+            → honestBlockHistory N ≡ˢ honestBlockHistory N′
+          goal N↝⋆ʳN″ (deliverMsgs {N′ = N‴} N″Ready N″—[eoN″]↓→∗N‴) =
+            ≡ˢ-trans
+              (hbhN≡hbhN* (trans Nₜ≡N′ₜ $ clockPreservation-↓∗ N″—[eoN″]↓→∗N‴) N″Ready N↝⋆ʳN″)
+              hbhN″≡hbhN‴
+            where
+              hbhN″≡hbhN‴ : honestBlockHistory N″ ≡ˢ honestBlockHistory N‴
+              hbhN″≡hbhN‴ = honestBlockHistoryPreservation-↓∗ (N₀↝⋆N ◅◅ Starʳ⇒Star N↝⋆ʳN″) N″—[eoN″]↓→∗N‴ ffN′ N″Ready
+
+              hbhN≡hbhN* : ∀ {N*} →
+                  N .clock ≡ N* .clock
+                → N* .progress ≡ ready
+                → N ↝⋆ʳ N*
+                → honestBlockHistory N ≡ˢ honestBlockHistory N*
+              hbhN≡hbhN* _ _ εʳ = ≡ˢ-refl
+              hbhN≡hbhN* Nₜ≡N*ₜ N*Ready (_◅ʳ_ {j = N°} ts* ts) with ts
+              ... | advanceRound _ = contradiction N°ₜ<N°ₜ (Nat.<-irrefl refl)
+                where
+                  N°ₜ<N°ₜ : N° .clock < N° .clock
+                  N°ₜ<N°ₜ rewrite sym Nₜ≡N*ₜ = clockMonotonicity (Starʳ⇒Star ts*)
+              ... | permuteParties _ = hbhN≡hbhN* Nₜ≡N*ₜ N*Ready ts*
+              ... | permuteMsgs    _ = hbhN≡hbhN* Nₜ≡N*ₜ N*Ready ts*
+          goal _ (permuteParties _) = ih Nₜ≡N′ₜ N′MsgsDelivered
+          goal _ (permuteMsgs    _) = ih Nₜ≡N′ₜ N′MsgsDelivered
 
 honestGlobalTreeInBlockHistory : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
