@@ -21,15 +21,18 @@ open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.AssocList.Properties.Ext using (set-⁉)
+open import Data.List.Relation.Binary.BagAndSetEquality using (∷-cong; concat-cong; map-cong; bag-=⇒; ↭⇒∼bag)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-just)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; ∈-∷-≢⁻)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (⊆-++-comm)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
-open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭; map⁺)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭)
 open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊆; ≡ˢ⇒⊇; ≡ˢ-refl)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Function.Bundles using (_⇔_; Equivalence; Inverse)
+open import Function.Related.Propositional as Related
 
 opaque
 
@@ -397,13 +400,129 @@ honestGlobalTreeInHonestLocalTree-↝⁺ {N} {N′} {p} {ls′} N₀↝⋆N hp N
     htN⊆tls″ : allBlocks (honestTree N) ⊆ˢ allBlocks (ls″ .tree)
     htN⊆tls″ = honestGlobalTreeInHonestLocalTree-↝⋆⟨1⟩ N₀↝⋆N hp NReady (N↝⋆N″ , sym N″ₜ≡Nₜ+1) N″Ready lsN″p
 
+notReadyAfterMsgsDelivered : ∀ {N N′ : GlobalState} →
+    N ↝⋆⟨ 0 ⟩ N′
+  → N .progress ≡ msgsDelivered
+  → N′ .progress ≢ ready
+notReadyAfterMsgsDelivered (N↝⋆N′ , Nₜ≡N′ₜ) = notReadyAfterMsgsDeliveredʳ (Star⇒Starʳ N↝⋆N′) Nₜ≡N′ₜ
+  where
+    open RTC; open Starʳ
+    notReadyAfterMsgsDeliveredʳ : ∀ {N N′ : GlobalState} →
+        N ↝⋆ʳ N′
+      → N .clock ≡ N′ .clock
+      → N .progress ≡ msgsDelivered
+      → N′ .progress ≢ ready
+    notReadyAfterMsgsDeliveredʳ εʳ _ NMsgsDelivered NReady = contradiction (trans (sym NReady) NMsgsDelivered) λ ()
+    notReadyAfterMsgsDeliveredʳ (_◅ʳ_ {j = N″} N↝⋆ʳN″ N″↝N′) Nₜ≡N′ₜ NMsgsDelivered
+      with
+        ih ← notReadyAfterMsgsDeliveredʳ N↝⋆ʳN″
+      | N″↝N′
+    ... | deliverMsgs    _ _ = λ ()
+    ... | makeBlock      _ _ = λ ()
+    ... | advanceRound   _   = contradiction N″ₜ<N″ₜ (Nat.<-irrefl refl)
+      where
+        N″ₜ<N″ₜ : N″ .clock < N″ .clock
+        N″ₜ<N″ₜ rewrite sym Nₜ≡N′ₜ = clockMonotonicity (Starʳ⇒Star N↝⋆ʳN″)
+    ... | permuteParties _    = ih Nₜ≡N′ₜ NMsgsDelivered
+    ... | permuteMsgs    _    = ih Nₜ≡N′ₜ NMsgsDelivered
+
+blockMadeAfterBlockMade : ∀ {N N′ : GlobalState} →
+    N ↝⋆⟨ 0 ⟩ N′
+  → N .progress ≡ blockMade
+  → N′ .progress ≡ blockMade
+blockMadeAfterBlockMade (N↝⋆N′ , Nₜ≡N′ₜ) = blockMadeAfterBlockMadeʳ (Star⇒Starʳ N↝⋆N′) Nₜ≡N′ₜ
+  where
+    open RTC; open Starʳ
+    blockMadeAfterBlockMadeʳ : ∀ {N N′ : GlobalState} →
+        N ↝⋆ʳ N′
+      → N .clock ≡ N′ .clock
+      → N .progress ≡ blockMade
+      → N′ .progress ≡ blockMade
+    blockMadeAfterBlockMadeʳ εʳ _ NBlockMade = NBlockMade
+    blockMadeAfterBlockMadeʳ {N} {N′} (_◅ʳ_ {j = N″} N↝⋆ʳN″ N″↝N′) Nₜ≡N′ₜ NBlockMade
+      with
+        ih ← blockMadeAfterBlockMadeʳ N↝⋆ʳN″
+      | N″↝N′
+    ... | deliverMsgs {N′ = N‴} N″Ready N″—[eoN″]↓→∗N‴ = contradiction blockMade≡ready λ ()
+      where
+        Nₜ≡N″ₜ : N .clock ≡ N″ .clock
+        Nₜ≡N″ₜ = trans Nₜ≡N′ₜ $ clockPreservation-↓∗ N″—[eoN″]↓→∗N‴
+
+        blockMade≡ready : blockMade ≡ ready
+        blockMade≡ready = trans (sym $ ih Nₜ≡N″ₜ NBlockMade) N″Ready
+    ... | makeBlock     _ _ = refl
+    ... | advanceRound  _   = contradiction N″ₜ<N″ₜ (Nat.<-irrefl refl)
+      where
+        N″ₜ<N″ₜ : N″ .clock < N″ .clock
+        N″ₜ<N″ₜ rewrite sym Nₜ≡N′ₜ = clockMonotonicity (Starʳ⇒Star N↝⋆ʳN″)
+    ... | permuteParties _  = ih Nₜ≡N′ₜ NBlockMade
+    ... | permuteMsgs    _  = ih Nₜ≡N′ₜ NBlockMade
+
 honestGlobalTreeBlocksPreservation : ∀ {N N′ : GlobalState} {pg : Progress} →
     N ↝⋆ N′
   → N .progress ≡ pg
   → N′ .progress ≡ pg
   → N .clock ≡ N′ .clock
   → allBlocks (honestTree N) ≡ˢ allBlocks (honestTree N′)
-honestGlobalTreeBlocksPreservation = {!!}
+honestGlobalTreeBlocksPreservation = honestGlobalTreeBlocksPreservationʳ ∘ Star⇒Starʳ
+  where
+    open RTC; open Starʳ
+    honestGlobalTreeBlocksPreservationʳ : ∀ {N N′ : GlobalState} {pg : Progress} →
+        N ↝⋆ʳ N′
+      → N .progress ≡ pg
+      → N′ .progress ≡ pg
+      → N .clock ≡ N′ .clock
+      → allBlocks (honestTree N) ≡ˢ allBlocks (honestTree N′)
+    honestGlobalTreeBlocksPreservationʳ εʳ _ _ _ = ≡ˢ-refl
+    honestGlobalTreeBlocksPreservationʳ {N} {N′} {pg} (_◅ʳ_ {j = N″} N↝⋆ʳN″ N″↝N′) pgN pgN′ Nₜ≡N′ₜ
+      with
+        ih ← honestGlobalTreeBlocksPreservationʳ N↝⋆ʳN″ pgN
+      | N″↝N′
+    ... | deliverMsgs {N′ = N‴} N″Ready N″—[eoN″]↓→∗N‴ = contradiction refl ready≢ready
+      where
+        NMsgsDelivered : N .progress ≡ msgsDelivered
+        NMsgsDelivered = trans pgN (sym pgN′)
+
+        Nₜ≡N″ₜ : N .clock ≡ N″ .clock
+        Nₜ≡N″ₜ = trans Nₜ≡N′ₜ $ clockPreservation-↓∗ N″—[eoN″]↓→∗N‴
+
+        ready≢ready : ready ≢ ready
+        ready≢ready = subst (_≢ ready) N″Ready $ notReadyAfterMsgsDelivered (Starʳ⇒Star N↝⋆ʳN″ , Nₜ≡N″ₜ) NMsgsDelivered
+    ... | makeBlock {N″} {N‴} N″MsgsDelivered N″—[eoN″]↑→∗N‴ = contradiction blockMade≡msgsDelivered λ ()
+      where
+        NBlockMade : N .progress ≡ blockMade
+        NBlockMade = trans pgN (sym pgN′)
+
+        Nₜ≡N″ₜ : N .clock ≡ N″ .clock
+        Nₜ≡N″ₜ = trans Nₜ≡N′ₜ $ clockPreservation-↑∗ N″—[eoN″]↑→∗N‴
+
+        blockMade≡msgsDelivered : blockMade ≡ msgsDelivered
+        blockMade≡msgsDelivered = trans (sym $ blockMadeAfterBlockMade (Starʳ⇒Star N↝⋆ʳN″ , Nₜ≡N″ₜ) NBlockMade) N″MsgsDelivered
+    ... | advanceRound _ = contradiction N″ₜ<N″ₜ (Nat.<-irrefl refl)
+      where
+        N″ₜ<N″ₜ : N″ .clock < N″ .clock
+        N″ₜ<N″ₜ rewrite sym Nₜ≡N′ₜ = clockMonotonicity (Starʳ⇒Star N↝⋆ʳN″)
+    ... | permuteParties {parties = ps} eoN″↭ps = goal
+      where
+        goal : allBlocks (honestTree N) ≡ˢ allBlocks (honestTree N′)
+        goal {b} = let open Related.EquationalReasoning in begin
+          b ∈ allBlocks (honestTree N)                                        ∼⟨ ih pgN′ Nₜ≡N′ₜ ⟩
+          b ∈ allBlocks (honestTree N″)                                       ∼⟨ buildTreeUsesAllBlocks _ ⟩
+          b ∈ genesisBlock ∷ (L.concatMap (blocks N″) (honestParties N″))
+            ∼⟨ ∷-cong refl (λ {b} → begin
+               b ∈ L.concatMap (blocks N″) (honestParties N″)
+                 ∼⟨ concat-cong (λ {b} → begin
+                    b ∈ (L.map (blocks N″) (honestParties N″))
+                      ∼⟨ bag-=⇒ $ ↭⇒∼bag $ map⁺ _ $ filter-↭ _ eoN″↭ps ⟩
+                    b ∈ (L.map (blocks N′) $ L.filter ¿ Honest ¿¹ ps)
+                  ∎
+                  ) ⟩
+               b ∈ (L.concatMap (blocks N′) $ L.filter ¿ Honest ¿¹ ps)
+                 ∎
+              ) ⟩
+          b ∈ genesisBlock ∷ (L.concatMap (blocks N′) $ L.filter ¿ Honest ¿¹ ps) ∼⟨ SK-sym $ buildTreeUsesAllBlocks _ ⟩
+          b ∈ allBlocks (honestTree N′)                                          ∎
+    ... | permuteMsgs _ = ih pgN′ Nₜ≡N′ₜ
 
 allGBsInHonestTree₀ :
     L.All.All (_≡ genesisBlock) (allBlocks (honestTree N₀))
