@@ -26,7 +26,7 @@ open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; ∈-∷-≢⁻)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (⊆-++-comm)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
-open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭; map⁺)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭; map⁺; shift; ++-comm)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭)
 open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊆; ≡ˢ⇒⊇; ≡ˢ-refl)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
@@ -36,7 +36,58 @@ open import Function.Related.Propositional as Related
 
 opaque
 
-  unfolding honestBlockMaking
+  unfolding honestMsgsDelivery honestBlockMaking
+
+  honestLocalTreeEvolution-↓ :  ∀ {N N′ : GlobalState} {p : Party} {ls ls′ : LocalState} →
+      Honest p
+    → N .states ⁉ p ≡ just ls
+    → _ ⊢ N —[ p ]↓→ N′
+    → N′ .states ⁉ p ≡ just ls′
+    → allBlocks (ls′ .tree) ≡ˢ allBlocks (ls .tree) ++ blocksDeliveredIn p 𝟘 N
+  honestLocalTreeEvolution-↓ {N} {N′} {p} {ls} {ls′} hp lspN N—[p]↓→N′ lspN′ with N—[p]↓→N′
+  ... | unknownParty↓ ls≡◇ = contradiction ls≡◇ ls≢◇
+    where
+      ls≢◇ : N .states ⁉ p ≢ nothing
+      ls≢◇ rewrite lspN = flip contradiction λ ()
+  ... | corruptParty↓ _ cp = contradiction hp $ corrupt⇒¬honest cp
+  ... | honestParty↓ {ls = ls*} ls*pN _ = goal
+    where
+      ls*≡ls : ls* ≡ ls
+      ls*≡ls = sym $ M.just-injective $ trans (sym lspN) ls*pN
+
+      add𝟘s : List Envelope → LocalState → LocalState
+      add𝟘s es ls = L.foldr (λ m ls′ → addBlock ls′ (projBlock m)) ls (map msg (L.filter ¿ flip Immediate p ¿¹ es))
+
+      ls+𝟘s≡ls′ : add𝟘s (N .messages) ls ≡ ls′
+      ls+𝟘s≡ls′ rewrite sym ls*≡ls | set-⁉ (N .states) p (add𝟘s (N .messages) ls*) = M.just-injective lspN′
+
+      goal : allBlocks (ls′ .tree) ≡ˢ allBlocks (ls .tree) ++ blocksDeliveredIn p 𝟘 N
+      goal rewrite sym ls+𝟘s≡ls′ = goal* (N .messages)
+        where
+          goal* : ∀ es* →
+            allBlocks (add𝟘s es* ls .tree)
+            ≡ˢ
+            allBlocks (ls .tree) ++ map (projBlock ∘ msg) (L.filter ¿ flip Immediate p ¿¹ es*)
+          goal* [] rewrite L.++-identityʳ (allBlocks (ls .tree)) = ≡ˢ-refl
+          goal* (e@(⦅ newBlock b , _ , _ ⦆) ∷ es*) with ¿ Immediate e p ¿
+          ... | no  ≢𝟘 rewrite L.filter-reject ¿ flip Immediate p ¿¹ {x = e} {xs = es*} ≢𝟘 = goal* es*
+          ... | yes ≡𝟘 rewrite L.filter-accept ¿ flip Immediate p ¿¹ {x = e} {xs = es*} ≡𝟘 = goal*-≡𝟘
+            where
+              goal*-≡𝟘 :
+                allBlocks (extendTree (add𝟘s es* ls .tree) b)
+                ≡ˢ
+                allBlocks (tree ls) ++ b ∷ map (projBlock ∘ msg) (L.filter ¿ flip Immediate p ¿¹ es*)
+              goal*-≡𝟘 {b′} = let open Related.EquationalReasoning in begin
+                b′ ∈ allBlocks (extendTree (add𝟘s es* ls .tree) b)
+                  ∼⟨ extendable _ _ ⟩
+                b′ ∈ allBlocks (add𝟘s es* ls .tree) ++ [ b ]
+                  ∼⟨ bag-=⇒ (↭⇒∼bag (++-comm _ [ b ])) ⟩
+                b′ ∈ b ∷ allBlocks (add𝟘s es* ls .tree)
+                  ∼⟨ ∷-cong refl (goal* es*) ⟩
+                b′ ∈ b ∷ allBlocks (tree ls) ++ map (projBlock ∘ msg) (L.filter ¿ flip Immediate p ¿¹ es*)
+                  ∼⟨ bag-=⇒ (↭⇒∼bag (↭-sym $ shift _ _ _)) ⟩
+                b′ ∈ allBlocks (tree ls) ++ b ∷ map (projBlock ∘ msg) (L.filter ¿ flip Immediate p ¿¹ es*)
+                  ∎
 
   honestLocalTreeEvolution-↑ : ∀ {N N′ N″ : GlobalState} {p : Party} {ls ls′ : LocalState} →
       N₀ ↝⋆ N
@@ -183,14 +234,6 @@ honestLocalTreeInHonestGlobalTree {N} {p} {ls} N₀↝⋆N hp lspN =
       (genesisBlock ∷ blocks N p*) ++ bs       ≡⟨ L.++-assoc [ genesisBlock ] (blocks N p*) _ ⟩
       genesisBlock ∷ blocks N p* ++ bs         ∎
     ... | no ¬hp* = goal {ps*} p∈p*+ps*
-
-honestLocalTreeEvolution-↓ :  ∀ {N N′ : GlobalState} {p : Party} {ls ls′ : LocalState} →
-    Honest p
-  → N .states ⁉ p ≡ just ls
-  → _ ⊢ N —[ p ]↓→ N′
-  → N′ .states ⁉ p ≡ just ls′
-  → allBlocks (ls′ .tree) ≡ˢ allBlocks (ls .tree) ++ blocksDeliveredIn p 𝟘 N -- TODO: same as immediateMsgs p N ???
-honestLocalTreeEvolution-↓ = {!!}
 
 honestLocalTreeBlocksMonotonicity :  ∀ {N N′ : GlobalState} {p : Party} {ls ls′ : LocalState} →
     N₀ ↝⋆ N
