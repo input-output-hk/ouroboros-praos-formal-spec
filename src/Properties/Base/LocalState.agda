@@ -21,7 +21,7 @@ open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[∷ʳ]→∗-split; —[[]]→∗ʳ⇒≡)
 open import Prelude.AssocList.Properties.Ext using (set-⁉; set-⁉-¬)
-open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷ʳ-≢⁻; ∈-∷ʳ⁻)
+open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷ʳ-≢⁻; ∈-∷ʳ⁻; ∉-∷ʳ⁻)
 open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
 open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
@@ -32,6 +32,7 @@ open import Relation.Binary.Structures using (IsEquivalence)
 open import Relation.Binary.PropositionalEquality using (≢-sym)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ)
+open import Function.Base using (∣_⟩-_)
 open import Function.Bundles using (_⇔_; mk⇔; Equivalence)
 open import Function.Properties.Equivalence using (⇔-isEquivalence)
 open import Function.Properties.Equivalence.Ext using (⊤⇎⊥)
@@ -124,7 +125,34 @@ opaque
       p ∉ ps
     → _ ⊢ N —[ ps ]↑→∗ N′
     → N′ .states ⁉ p ≡ N .states ⁉ p
-  localStatePreservation-∉-↑∗ = {!!}
+  localStatePreservation-∉-↑∗ {ps = ps} = ∣ flip (localStatePreservation-∉-↑∗ʳ (reverseView ps)) ⟩- —[]→∗⇒—[]→∗ʳ
+    where
+      open import Data.List.Reverse
+
+      localStatePreservation-∉-↑∗ʳ : ∀ {N N′ : GlobalState} {ps : List Party} {p : Party} →
+          Reverse ps
+        → _ ⊢ N —[ ps ]↑→∗ʳ N′
+        → p ∉ ps
+        → N′ .states ⁉ p ≡ N .states ⁉ p
+      localStatePreservation-∉-↑∗ʳ [] N—[ps]↑→∗ʳN′ _ rewrite sym $ —[[]]→∗ʳ⇒≡ N—[ps]↑→∗ʳN′ = refl
+      localStatePreservation-∉-↑∗ʳ {N} {N′} {_} {p} (ps′ ∶ ps′r ∶ʳ p′) N—[ps′∷ʳp′]↑→∗ʳN′ p∉ps′∷ʳp′
+        with —[∷ʳ]→∗-split (—[]→∗ʳ⇒—[]→∗ N—[ps′∷ʳp′]↑→∗ʳN′) | ∉-∷ʳ⁻ p∉ps′∷ʳp′
+      ... | N″ , N—[ps′]↑→∗N″ , N″—[p′]↑→N′ | p≢p′ , p∉ps′ = goal N″—[p′]↑→N′
+        where
+          ih : N″ .states ⁉ p ≡ N .states ⁉ p
+          ih = localStatePreservation-∉-↑∗ʳ ps′r (—[]→∗⇒—[]→∗ʳ N—[ps′]↑→∗N″) p∉ps′
+
+          goal : _ ⊢ N″ —[ p′ ]↑→ N′ → N′ .states ⁉ p ≡ N .states ⁉ p
+          goal (unknownParty↑ _) = ih
+          goal (corruptParty↑ _ _)
+            with makeBlockᶜ (N″ .clock) (N″ .history) (N″ .messages) (N″ .advState)
+          ...   | newMds , _ rewrite localStatePreservation-broadcastMsgsᶜ {N″} {newMds} = ih
+          goal (honestParty↑ {ls = ls} _ _)
+            with makeBlockʰ (N″ .clock) (txSelection (N″ .clock) p′) p′ ls
+          ...   | newMsgs , newLs rewrite localStatePreservation-broadcastMsgsʰ {updateLocalState p′ newLs N″} {newMsgs}
+              with p ≟ p′
+          ...     | yes p≡p′ = contradiction p≡p′ p≢p′
+          ...     | no _ rewrite set-⁉-¬ (N″ .states) p′ p newLs (≢-sym p≢p′) = ih
 
   hasState⇔-↑ : ∀ {N N′ : GlobalState} {p p′ : Party} →
       _ ⊢ N —[ p′ ]↑→ N′
