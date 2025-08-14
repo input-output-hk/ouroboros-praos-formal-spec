@@ -253,17 +253,70 @@ hasState⇒∈execOrder : ∀ {N : GlobalState} {p : Party} →
   → p ∈ N .execOrder
 hasState⇒∈execOrder = {!!}
 
-blocksDeliveredInEvolution-↑′ : ∀ {N N′ : GlobalState} {p : Party} →
-    _ ⊢ N —[ p ]↑→ N′
-  → ∀ {p′ : Party} {d : Delay} →
-      blocksDeliveredIn p′ d N ⊆ˢ blocksDeliveredIn p′ d N′
-blocksDeliveredInEvolution-↑′ = {!!}
+opaque
+
+  unfolding honestBlockMaking corruptBlockMaking
+
+  blocksDeliveredInEvolution-↑′ : ∀ {N N′ : GlobalState} {p : Party} →
+      _ ⊢ N —[ p ]↑→ N′
+    → ∀ {p′ : Party} {d : Delay} →
+        blocksDeliveredIn p′ d N ⊆ˢ blocksDeliveredIn p′ d N′
+  blocksDeliveredInEvolution-↑′ {N} {N′} {p} ts {p′} {d} with ts
+  ... | unknownParty↑ _ = L.SubS.⊆-refl
+  ... | corruptParty↑ _ _
+    with makeBlockᶜ (N .clock) (N .history) (N .messages) (N .advState)
+  ...   | newMds , _ = goal newMds
+    where
+      goal : ∀ (mds* : List (Message × DelayMap)) →
+        blocksDeliveredIn p′ d N ⊆ˢ blocksDeliveredIn p′ d (broadcastMsgsᶜ mds* N)
+      goal [] = L.SubS.⊆-refl
+      goal ((m , ϕ) ∷ mds*) = goal′
+        where
+          Nᶜ : GlobalState
+          Nᶜ = broadcastMsgsᶜ mds* N
+
+          dlv? : Decidable¹ λ e → DeliveredIn e p′ d
+          dlv? = λ e → ¿ DeliveredIn e ¿² p′ d
+
+          mkenv : Party → Envelope
+          mkenv = λ party → ⦅ m , party , ϕ party .value ⦆
+
+          goal′ : blocksDeliveredIn p′ d N ⊆ˢ L.map (projBlock ∘ msg) (filter dlv? (L.map mkenv (Nᶜ .execOrder) ++ Nᶜ .messages))
+          goal′
+            rewrite
+              L.filter-++ dlv? (map mkenv (Nᶜ .execOrder)) (Nᶜ .messages)
+            | L.map-++ (projBlock ∘ msg) (filter dlv? (map mkenv (Nᶜ .execOrder))) (filter dlv? (Nᶜ .messages))
+              = L.SubS.⊆-trans (goal mds*) $ L.SubS.xs⊆ys++xs _ _
+  blocksDeliveredInEvolution-↑′ {N} {N′} {p} ts {p′} {d}
+      | honestParty↑ {ls = ls} lspN hp with Params.winnerᵈ params {p} {N .clock}
+  ...   | ⁇ (no  _) = L.SubS.⊆-refl
+  ...   | ⁇ (yes _) = goal
+    where
+      nb : Block
+      nb = mkBlock (hash (tip (bestChain (N .clock ∸ 1) (ls .tree)))) (N .clock) (txSelection (N .clock) p) p
+
+      dlv? : Decidable¹ λ e → DeliveredIn e p′ d
+      dlv? = λ e → ¿ DeliveredIn e ¿² p′ d
+
+      mkenv : Party → Envelope
+      mkenv = λ party → ⦅ newBlock nb , party , 𝟙 ⦆
+
+      goal :
+        blocksDeliveredIn p′ d N
+        ⊆ˢ
+        map (projBlock ∘ msg) (filter dlv? (map mkenv (N .execOrder) ++ N .messages))
+      goal
+       rewrite
+         L.filter-++ dlv? (map mkenv (N .execOrder)) (N .messages)
+       | L.map-++ (projBlock ∘ msg) (filter dlv? (map mkenv (N .execOrder))) (filter dlv? (N .messages))
+         = L.SubS.xs⊆ys++xs _ _
 
 blocksDeliveredInEvolution-↑∗ : ∀ {N N′ : GlobalState} {ps : List Party} →
     _ ⊢ N —[ ps ]↑→∗ N′
   → ∀ {p′ : Party} {d : Delay} →
       blocksDeliveredIn p′ d N ⊆ˢ blocksDeliveredIn p′ d N′
-blocksDeliveredInEvolution-↑∗ = {!!}
+blocksDeliveredInEvolution-↑∗ []         = L.SubS.⊆-refl
+blocksDeliveredInEvolution-↑∗ (ts ∷ ts*) = L.SubS.⊆-trans (blocksDeliveredInEvolution-↑′ ts) (blocksDeliveredInEvolution-↑∗ ts*)
 
 opaque
 
