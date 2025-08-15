@@ -250,11 +250,6 @@ opaque
           goal _ (permuteParties _) = ih Nₜ≡N′ₜ N′MsgsDelivered
           goal _ (permuteMsgs    _) = ih Nₜ≡N′ₜ N′MsgsDelivered
 
-honestGlobalTreeInBlockHistory : ∀ {N : GlobalState} →
-    N₀ ↝⋆ N
-  → allBlocks (honestTree N) ⊆ˢ genesisBlock ∷ blockHistory N
-honestGlobalTreeInBlockHistory = {!!}
-
 opaque
 
   unfolding honestMsgsDelivery corruptMsgsDelivery honestBlockMaking corruptBlockMaking
@@ -1081,3 +1076,13 @@ opaque
           goal (advanceRound   _) = ih
           goal (permuteParties _) = ih
           goal (permuteMsgs    _) = ih
+
+honestGlobalTreeInBlockHistory : ∀ {N : GlobalState} →
+    N₀ ↝⋆ N
+  → allBlocks (honestTree N) ⊆ˢ genesisBlock ∷ blockHistory N
+honestGlobalTreeInBlockHistory {N} N₀↝⋆N {b} b∈htN with b ≟ genesisBlock
+... | yes b≡gb = here b≡gb
+... | no b≢gb = there (≢gb[htN] $ L.Mem.∈-filter⁺ _ b∈htN b≢gb)
+  where
+    ≢gb[htN] : filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N)) ⊆ˢ blockHistory N
+    ≢gb[htN] = honestGlobalTreeButGBInBlockHistory N₀↝⋆N
