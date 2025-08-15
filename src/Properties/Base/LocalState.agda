@@ -157,7 +157,19 @@ opaque
   hasState⇔-↑ : ∀ {N N′ : GlobalState} {p p′ : Party} →
       _ ⊢ N —[ p′ ]↑→ N′
     → p hasStateIn N ⇔ p hasStateIn N′
-  hasState⇔-↑ = {!!}
+  hasState⇔-↑ (unknownParty↑ _) = ⇔-refl
+  hasState⇔-↑ {N} {_} {p} {p′} (honestParty↑ {ls = ls} lsp′N _)
+    with makeBlockʰ (N .clock) (txSelection (N .clock) p′) p′ ls
+  ...   | newMsgs , newLs rewrite localStatePreservation-broadcastMsgsʰ {updateLocalState p′ newLs N} {newMsgs}
+      with p ≟ p′
+  ...     | yes p≡p′
+    rewrite sym p≡p′ | set-⁉ (N .states) p newLs | lsp′N
+      = mk⇔ (const $ M.Any.just tt) (const $ M.Any.just tt)
+  ...     | no p≢p′ rewrite set-⁉-¬ (N .states) p′ p newLs (≢-sym p≢p′) = ⇔-refl
+  hasState⇔-↑ {N} (corruptParty↑ _ _)
+    rewrite
+      localStatePreservation-broadcastMsgsᶜ
+        {N} {makeBlockᶜ (N .clock) (N .history) (N .messages) (N .advState) .proj₁} = ⇔-refl
 
   hasState⇔-↑∗ : ∀ {N N′ N″ : GlobalState} {ps : List Party} {p : Party} →
       _ ⊢ N —[ ps ]↑→∗ N′
