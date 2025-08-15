@@ -25,7 +25,7 @@ open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷ʳ-�
 open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
 open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
-open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭; map⁺)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭; map⁺; All-resp-↭)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness)
 open import Relation.Binary.Structures using (IsEquivalence)
@@ -277,15 +277,18 @@ opaque
     → p hasStateIn N
   localStatePrev-↓ = {!!}
 
-allPartiesHaveLocalState : ∀ {N : GlobalState} →
-    N₀ ↝⋆ N
-  → L.All.All (_hasStateIn N) (N .execOrder)
-allPartiesHaveLocalState = {!!}
-
 hasState⇔∈parties₀ : ∀ {N : GlobalState} {p : Party} →
     N₀ ↝⋆ N
   → p hasStateIn N ⇔ p ∈ parties₀
 hasState⇔∈parties₀ = {!!}
+
+allPartiesHaveLocalState : ∀ {N : GlobalState} →
+    N₀ ↝⋆ N
+  → L.All.All (_hasStateIn N) (N .execOrder)
+allPartiesHaveLocalState N₀↝⋆N =
+  All-resp-↭
+    (↭-sym $ execOrder-↭-parties₀ N₀↝⋆N)
+    (L.All.tabulate $ hasState⇔∈parties₀ N₀↝⋆N .Equivalence.from)
 
 hasState⇒∈execOrder : ∀ {N : GlobalState} {p : Party} →
     N₀ ↝⋆ N
