@@ -20,7 +20,7 @@ open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
-open import Prelude.AssocList.Properties.Ext using (set-⁉)
+open import Prelude.AssocList.Properties.Ext using (set-⁉; map-⁉-∈-just)
 open import Data.List.Relation.Binary.BagAndSetEquality using (∷-cong; concat-cong; map-cong; bag-=⇒; ↭⇒∼bag)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-just)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; ∈-∷-≢⁻)
@@ -567,10 +567,6 @@ honestGlobalTreeBlocksPreservation = honestGlobalTreeBlocksPreservationʳ ∘ St
           b ∈ allBlocks (honestTree N′)                                          ∎
     ... | permuteMsgs _ = ih pgN′ Nₜ≡N′ₜ
 
-allGBsInHonestTree₀ :
-    L.All.All (_≡ genesisBlock) (allBlocks (honestTree N₀))
-allGBsInHonestTree₀ = {!!}
-
 honestGlobalTreeBlockInSomeHonestLocalTree : ∀ {N : GlobalState} {b : Block} →
     N₀ ↝⋆ N
   → b ∈ allBlocks (honestTree N)
@@ -604,6 +600,20 @@ honestGlobalTreeBlockInSomeHonestLocalTree {N} {b} N₀↝⋆N b∈htN
 ... | here b≡gb rewrite b≡gb with L.Mem.Any↔ .Inverse.from (execOrderHasHonest N₀↝⋆N)
 ...   | p , p∈eoN , hp with hasStateInAltDef {N} {p} .Equivalence.from $ L.All.lookup (allPartiesHaveLocalState N₀↝⋆N) p∈eoN
 ...     | ls , lspN = p , ls , lspN , genesisBlockInAllBlocks (ls .tree) , hp , p∈eoN
+
+allGBsInHonestTree₀ :
+    L.All.All (_≡ genesisBlock) (allBlocks (honestTree N₀))
+allGBsInHonestTree₀ = L.All.tabulate allGBsInHonestTree₀′
+  where
+    allGBsInHonestTree₀′ : ∀ {b} → b ∈ allBlocks (honestTree N₀) → b ≡ genesisBlock
+    allGBsInHonestTree₀′ {b} b∈htN₀ with honestGlobalTreeBlockInSomeHonestLocalTree RTC.ε b∈htN₀
+    ... | p , ls , lspN₀ , b∈blk[tls] , hp , p∈ps₀ = L.Any.singleton⁻ b∈[gb]
+      where
+        tls≡t₀ : ls .tree ≡ tree₀
+        tls≡t₀ rewrite M.just-injective $ sym $ trans (sym $ map-⁉-∈-just _ p∈ps₀) lspN₀ = refl
+
+        b∈[gb] : b ∈ [ genesisBlock ]
+        b∈[gb] rewrite sym instantiated | sym tls≡t₀ = b∈blk[tls]
 
 honestGlobalTreeBlocksMonotonicity : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
