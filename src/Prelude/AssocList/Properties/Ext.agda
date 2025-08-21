@@ -2,13 +2,17 @@
 
 module Prelude.AssocList.Properties.Ext where
 
+open import Function.Bundles using (_⇔_; mk⇔; Equivalence)
+open import Relation.Binary.PropositionalEquality using (trans)
 open import Data.Product using (_,′_)
 open import Data.Product.Properties using (×-≡,≡→≡)
 open import Data.List.Properties.Ext using (updateAt-id-local)
+open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻)
+open import Data.Maybe.Properties.Ext using ({- Is-just⇒to-witness;-} Is-just⇒∃; ≡just⇒Is-just)
 open import Prelude.Init
 open import Class.Decidable using (¿_¿²)
-open import Prelude.Irrelevance using (AnyFirst-irrelevant; ·¬⇒¬)
-open import Class.DecEq using (DecEq)
+open import Prelude.Irrelevance using (AnyFirst-irrelevant; ·¬⇒¬; ¬⇒·¬)
+open import Class.DecEq using (DecEq; _≟_)
 open import Class.Default using (Default)
 open import Prelude.AssocList using (AssocList; _⁉_; _‼_; set; _∈ᵐ_; _∈ᵐ?_; modify; ∈ᵐ-irrelevant)
 
@@ -38,6 +42,43 @@ module _ ⦃ _ : DecEq K ⦄ where
   ... | yes First.[ refl ] | ≢k ∷ _ = contradiction refl (·¬⇒¬ ≢k)
   ... | yes (x ∷ p) | x′ ∷ p′ rewrite ∈ᵐ-irrelevant p p′ = cong just eq
   ... | no p | q = contradiction q p
+
+  ∈ᵐ⇒∈ : k ∈ᵐ m → k ∈ map proj₁ m
+  ∈ᵐ⇒∈ First.[ refl ] = here refl
+  ∈ᵐ⇒∈ (_ ∷ p)        = there (∈ᵐ⇒∈ p)
+
+  ∈⇒∈ᵐ : k ∈ map proj₁ m → k ∈ᵐ m
+  ∈⇒∈ᵐ {m = []}              = λ ()
+  ∈⇒∈ᵐ {m = _ ∷ _} (here px) = First.[ px ]
+  ∈⇒∈ᵐ {k = k} {m = (k′ , _) ∷ m} (there p) with k ≟ k′
+  ... | yes k≡k′ = First.[ k≡k′ ]
+  ... | no  k≢k′ = ¬⇒·¬ k≢k′ ∷ ∈⇒∈ᵐ p
+
+  map-⁉-≡ : ∀ {ks : List K} {k : K} (v : V) → map (_, v) (k ∷ ks) ⁉ k ≡ just v
+  map-⁉-≡ = {!!}
+
+  map-⁉-≢ : ∀ {ks : List K} {k k′ : K} (v : V) → k ≢ k′ → map (_, v) (k′ ∷ ks) ⁉ k ≡ map (_, v) ks ⁉ k
+  map-⁉-≢ = {!!}
+
+  map-⁉-∈ : ∀ {ks : List K} {k k′ : K} (v : V) → k ∈ ks → map (_, v) (k′ ∷ ks) ⁉ k ≡ map (_, v) ks ⁉ k
+  map-⁉-∈ = {!!}
+
+  map-just⇔∈ : ∀ (ks : List K) (k : K) (v : V) → M.Is-just (map (_, v) ks ⁉ k) ⇔ k ∈ ks
+  map-just⇔∈ []        _ _ = mk⇔ (λ ()) λ ()
+  map-just⇔∈ (k′ ∷ ks) k v = case k ≟ k′ of λ where
+    (yes k≡k′) → subst (λ ◆ → M.Is-just (map (_, v) (◆ ∷ ks) ⁉ k) ⇔ k ∈ ◆ ∷ ks) k≡k′ (mk⇔ (const $ here refl) (const $ ≡just⇒Is-just $ map-⁉-≡ v))
+    (no k≢k′) → mk⇔ (from k≢k′) (to k≢k′)
+      where
+        from : k ≢ k′ → M.Is-just (map (_, v) (k′ ∷ ks) ⁉ k) → k ∈ k′ ∷ ks
+        from k≢k′ p with map (_, v) ks ⁉ k in eq
+        ... | just _ = there $ map-just⇔∈ ks k v .Equivalence.to (≡just⇒Is-just eq)
+        ... | nothing with Is-just⇒∃ p
+        ...   | _ , ≡just = contradiction (trans (sym ≡just) (trans (map-⁉-≢ v k≢k′) eq)) λ ()
+
+        to : k ≢ k′ → k ∈ k′ ∷ ks → M.Is-just (map (_, v) (k′ ∷ ks) ⁉ k)
+        to k≢k′ p with ∈-∷⁻ p
+        ... | inj₁ k≡k′ = contradiction k≡k′ k≢k′
+        ... | inj₂ k∈ks = subst M.Is-just (sym (map-⁉-≢ v k≢k′)) (map-just⇔∈ ks k v .Equivalence.from k∈ks)
 
   module _ ⦃ Default-V : Default V ⦄ where
 

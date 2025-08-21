@@ -20,7 +20,7 @@ open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[∷ʳ]→∗-split; —[[]]→∗ʳ⇒≡)
-open import Prelude.AssocList.Properties.Ext using (set-⁉; set-⁉-¬)
+open import Prelude.AssocList.Properties.Ext using (set-⁉; set-⁉-¬; map-just⇔∈)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷ʳ-≢⁻; ∈-∷ʳ⁻; ∉-∷ʳ⁻)
 open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
 open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs)
@@ -34,6 +34,7 @@ open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Sta
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ)
 open import Function.Base using (∣_⟩-_)
 open import Function.Bundles using (_⇔_; mk⇔; Equivalence)
+open import Function.Construct.Symmetry using (⇔-sym)
 open import Function.Properties.Equivalence using (⇔-isEquivalence)
 open import Function.Properties.Equivalence.Ext using (⊤⇎⊥)
 open IsEquivalence {ℓ = 0ℓ} ⇔-isEquivalence renaming (refl to ⇔-refl; trans to ⇔-trans) hiding (sym)
@@ -280,7 +281,7 @@ opaque
 hasState⇔∈parties₀ : ∀ {N : GlobalState} {p : Party} →
     N₀ ↝⋆ N
   → p hasStateIn N ⇔ p ∈ parties₀
-hasState⇔∈parties₀ = {!!}
+hasState⇔∈parties₀ {N} {p} N₀↝⋆N = ⇔-trans (⇔-sym $ hasState⇔-↝⋆ N₀↝⋆N) (map-just⇔∈ parties₀ p (it .def))
 
 allPartiesHaveLocalState : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
