@@ -63,6 +63,9 @@ module _ ⦃ _ : DecEq K ⦄ where
   map-⁉-∈ : ∀ {ks : List K} {k k′ : K} (v : V) → k ∈ ks → map (_, v) (k′ ∷ ks) ⁉ k ≡ map (_, v) ks ⁉ k
   map-⁉-∈ = {!!}
 
+  map-⁉-∈-just : ∀ {ks : List K} {k : K} (v : V) → k ∈ ks → map (_, v) ks ⁉ k ≡ just v
+  map-⁉-∈-just = {!!}
+
   map-just⇔∈ : ∀ (ks : List K) (k : K) (v : V) → M.Is-just (map (_, v) ks ⁉ k) ⇔ k ∈ ks
   map-just⇔∈ []        _ _ = mk⇔ (λ ()) λ ()
   map-just⇔∈ (k′ ∷ ks) k v = case k ≟ k′ of λ where
