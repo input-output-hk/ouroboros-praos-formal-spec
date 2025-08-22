@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
-
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -54,7 +52,7 @@ hasStateInAltDef {N} {p} = mk⇔ to from
 
 opaque
 
-  unfolding honestMsgsDelivery honestBlockMaking
+  unfolding honestMsgsDelivery corruptMsgsDelivery honestBlockMaking
 
   localStatePreservation-broadcastMsgsʰ : ∀ {N : GlobalState} {ms : List Message} →
     broadcastMsgsʰ ms N .states ≡ N .states
@@ -317,7 +315,9 @@ opaque
       p hasStateIn N′
     → _ ⊢ N —[ p ]↓→ N′
     → p hasStateIn N
-  localStatePrev-↓ = {!!}
+  localStatePrev-↓     pHasLsInN′ (unknownParty↓ _)                = pHasLsInN′
+  localStatePrev-↓ {N} _          (honestParty↓  {ls = ls} lspN _) = hasStateInAltDef {N} .Equivalence.to (ls , lspN)
+  localStatePrev-↓ {N} _          (corruptParty↓ {ls = ls} lspN _) = hasStateInAltDef {N} .Equivalence.to (ls , lspN)
 
 hasState⇔∈parties₀ : ∀ {N : GlobalState} {p : Party} →
     N₀ ↝⋆ N
