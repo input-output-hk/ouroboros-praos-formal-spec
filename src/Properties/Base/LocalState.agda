@@ -120,7 +120,48 @@ opaque
       p ∉ ps
     → _ ⊢ N —[ ps ]↓→∗ N′
     → N′ .states ⁉ p ≡ N .states ⁉ p
-  localStatePreservation-∉-↓∗ = {!!}
+  localStatePreservation-∉-↓∗ {ps = ps} = ∣ flip (localStatePreservation-∉-↓∗ʳ (reverseView ps)) ⟩- —[]→∗⇒—[]→∗ʳ
+    where
+      open import Data.List.Reverse
+
+      localStatePreservation-∉-↓∗ʳ : ∀ {N N′ : GlobalState} {ps : List Party} {p : Party} →
+          Reverse ps
+        → _ ⊢ N —[ ps ]↓→∗ʳ N′
+        → p ∉ ps
+        → N′ .states ⁉ p ≡ N .states ⁉ p
+      localStatePreservation-∉-↓∗ʳ [] N—[ps]↓→∗ʳN′ _ rewrite sym $ —[[]]→∗ʳ⇒≡ N—[ps]↓→∗ʳN′ = refl
+      localStatePreservation-∉-↓∗ʳ {N} {N′} {_} {p} (ps′ ∶ ps′r ∶ʳ p′) N—[ps′∷ʳp′]↓→∗ʳN′ p∉ps′∷ʳp′
+        with —[∷ʳ]→∗-split (—[]→∗ʳ⇒—[]→∗ N—[ps′∷ʳp′]↓→∗ʳN′) | ∉-∷ʳ⁻ p∉ps′∷ʳp′
+      ... | N″ , N—[ps′]↓→∗N″ , N″—[p′]↓→N′ | p≢p′ , p∉ps′ =  goal N″—[p′]↓→N′
+        where
+          ih : N″ .states ⁉ p ≡ N .states ⁉ p
+          ih = localStatePreservation-∉-↓∗ʳ ps′r (—[]→∗⇒—[]→∗ʳ N—[ps′]↓→∗N″) p∉ps′
+
+          goal : _ ⊢ N″ —[ p′ ]↓→ N′ → N′ .states ⁉ p ≡ N .states ⁉ p
+          goal (unknownParty↓ _) = ih
+          goal (corruptParty↓ _ _)
+            rewrite
+              localStatePreservation-broadcastMsgsᶜ
+                {fetchNewMsgs p′ N″ .proj₂}
+                {processMsgsᶜ
+                  (fetchNewMsgs p′ N″ .proj₁)
+                  (fetchNewMsgs p′ N″ .proj₂ .clock)
+                  (fetchNewMsgs p′ N″ .proj₂ .history)
+                  (fetchNewMsgs p′ N″ .proj₂ .messages)
+                  (fetchNewMsgs p′ N″ .proj₂ .advState)
+                  .proj₁
+                 }
+              = ih
+          goal (honestParty↓ {ls = ls} lsN″p′ hp′) = trans goal′ ih
+            where
+              goal′ : honestMsgsDelivery p′ ls N″ .states ⁉ p ≡ N″ .states ⁉ p
+              goal′ with p ≟ p′
+              ... | yes p≡p′ = contradiction p≡p′ p≢p′
+              ... | no _
+                   rewrite
+                     set-⁉-¬ (N″ .states) p′ p
+                       (L.foldr (λ m ls″ → addBlock ls″ (projBlock m)) ls (map msg (immediateMsgs p′ N″))) (≢-sym p≢p′)
+                     = refl
 
   localStatePreservation-∉-↑∗ : ∀ {N N′ : GlobalState} {ps : List Party} {p : Party} →
       p ∉ ps
