@@ -38,7 +38,7 @@ open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness)
 open import Data.List.Properties using (filter-≐; filter-reject; filter-accept; length-++)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; x∈x∷xs)
 open import Data.List.Ext using (ι; undup; count)
-open import Data.List.Properties.Ext using (filter-∘-comm; filter-∘-×; ∈-ι⁺; filter-deduplicate-comm; filter-Empty; count-accept-∷ʳ; count-reject-∷ʳ; count-accept-∷; count-reject-∷; count-Empty; count-none; ≢[]⇒∷)
+open import Data.List.Properties.Ext using (filter-∘-comm; filter-∘-×; ∈-ι⁺; filter-deduplicate-comm; filter-Empty; count-accept-∷ʳ; count-reject-∷ʳ; count-accept-∷; count-reject-∷; count-Empty; count-none; ≢[]⇒∷; ι-++)
 open import Data.List.Properties.Undup using (count-undup)
 open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
 open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs; Unique-≡ˢ-#≡)
@@ -109,15 +109,37 @@ corruptSlotsInRange : Slot → Slot → List Slot
 corruptSlotsInRange = filter ¿ CorruptSlot ¿¹ ∘₂ slotsInRange
 
 slotsInRange-++ : ∀ {P : Pred Slot 0ℓ} (P? : Decidable¹ P) {sl₁ sl₂ sl₃ : Slot} →
+  sl₁ ≤ sl₂ → sl₂ ≤ sl₃ → slotsInRange sl₁ sl₃ ≡ slotsInRange sl₁ sl₂ ++ slotsInRange sl₂ sl₃
+slotsInRange-++ _ {sl₁} {sl₂} {sl₃} sl₁≤sl₂ sl₂≤sl₃ = let open ≡-Reasoning in begin
+  ι sl₁ (sl₃ ∸ sl₁)                                      ≡⟨ cong (ι sl₁) π₁ ⟩
+  ι sl₁ ((sl₂ ∸ sl₁) + (sl₃ ∸ sl₂))                      ≡⟨ ι-++ _ (sl₂ ∸ sl₁) (sl₃ ∸ sl₂) ⟩
+  ι sl₁ (sl₂ ∸ sl₁) ++ ι (sl₁ + (sl₂ ∸ sl₁)) (sl₃ ∸ sl₂) ≡⟨ cong (λ ◆ → ι sl₁ (sl₂ ∸ sl₁) ++ ι ◆ (sl₃ ∸ sl₂)) π₂ ⟩
+  ι sl₁ (sl₂ ∸ sl₁) ++ ι sl₂ (sl₃ ∸ sl₂)                 ∎
+  where
+    π₁ : sl₃ ∸ sl₁ ≡ (sl₂ ∸ sl₁) + (sl₃ ∸ sl₂)
+    π₁ = let open ≡-Reasoning in begin
+      sl₃ ∸ sl₁                 ≡⟨ sym $ cong (_∸ sl₁) $ Nat.m∸n+n≡m sl₂≤sl₃ ⟩
+      (sl₃ ∸ sl₂ + sl₂) ∸ sl₁   ≡⟨ Nat.+-∸-assoc (sl₃ ∸ sl₂) sl₁≤sl₂ ⟩
+      (sl₃ ∸ sl₂) + (sl₂ ∸ sl₁) ≡⟨ Nat.+-comm (sl₃ ∸ sl₂) _ ⟩
+      (sl₂ ∸ sl₁) + (sl₃ ∸ sl₂) ∎
+
+    π₂ : sl₁ + (sl₂ ∸ sl₁) ≡ sl₂
+    π₂ rewrite sym $ Nat.+-∸-assoc sl₁ sl₁≤sl₂ = Nat.m+n∸m≡n sl₁ _
+
+slotsInRange-filter-++ : ∀ {P : Pred Slot 0ℓ} (P? : Decidable¹ P) {sl₁ sl₂ sl₃ : Slot} →
   sl₁ ≤ sl₂ → sl₂ ≤ sl₃ → filter P? (slotsInRange sl₁ sl₃) ≡ filter P? (slotsInRange sl₁ sl₂) ++ filter P? (slotsInRange sl₂ sl₃)
-slotsInRange-++ = {!!}
+slotsInRange-filter-++ P? {sl₁} {sl₂} {sl₃} sl₁≤sl₂ sl₂≤sl₃
+  rewrite
+    sym $ L.filter-++ P? (ι sl₁ (sl₂ ∸ sl₁)) (ι sl₂ (sl₃ ∸ sl₂))
+  | slotsInRange-++ P? sl₁≤sl₂ sl₂≤sl₃
+    = refl
 
 slotsInRange-≤-+ : ∀ {P : Pred Slot 0ℓ} (P? : Decidable¹ P) (sl₁ sl₂ sl₃ : Slot) →
   length (filter P? (slotsInRange sl₁ sl₂)) ≤ length (filter P? (slotsInRange sl₁ (sl₂ + sl₃)))
 slotsInRange-≤-+ P? sl₁ sl₂ sl₃ with sl₁ ≤? sl₂
 ... | yes sl₁≤sl₂
   rewrite
-    slotsInRange-++ P? {sl₃ = sl₂ + sl₃} sl₁≤sl₂ (Nat.m≤m+n _ _)
+    slotsInRange-filter-++ P? {sl₃ = sl₂ + sl₃} sl₁≤sl₂ (Nat.m≤m+n _ _)
   | L.length-++ (filter P? (slotsInRange sl₁ sl₂)) {filter P? (slotsInRange sl₂ (sl₂ + sl₃))}
     = Nat.m≤m+n _ _
 ... | no sl₁≰sl₂ rewrite Nat.m≤n⇒m∸n≡0 $ Nat.≰⇒≥ sl₁≰sl₂ = Nat.z≤n
@@ -867,7 +889,7 @@ superSlots≡superBlocks = superSlots≡superBlocksʳ ∘ Star⇒Starʳ
                       ... | no ¬P′b rewrite filter-reject P′? {b} {bs} ¬P′b = []≡sb[sl₁,1+N′ₜ]* bs
               ... | yes sl₁≤N′ₜ = let open ≡-Reasoning in begin
                 length (superSlotsInRange sl₁ (1 + N′ .clock))
-                  ≡⟨ cong length $ slotsInRange-++ ¿ SuperSlot ¿¹ sl₁≤N′ₜ (Nat.n≤1+n (N′ .clock)) ⟩
+                  ≡⟨ cong length $ slotsInRange-filter-++ ¿ SuperSlot ¿¹ sl₁≤N′ₜ (Nat.n≤1+n (N′ .clock)) ⟩
                 length (superSlotsInRange sl₁ (N′ .clock) ++ superSlotsInRange (N′ .clock) (1 + N′ .clock))
                   ≡⟨ length-++ (superSlotsInRange sl₁ (N′ .clock)) ⟩
                 length (superSlotsInRange sl₁ (N′ .clock)) + length (superSlotsInRange (N′ .clock) (1 + N′ .clock))
