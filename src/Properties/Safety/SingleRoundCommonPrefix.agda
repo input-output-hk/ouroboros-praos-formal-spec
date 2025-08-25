@@ -805,7 +805,7 @@ adversaryHasAdvantage {N} N₀↝⋆N ffN cfN {p} {ls} hp lsp {c} {sl} c⊆fgb�
                                            bc ∎
 
             advπ₂ : ∣ c₁ ∣ + ∣ corruptBlocks c₃ ∣ + ∣ corruptBlocks c₄ ∣ ≤ 2 * length cs[b′ₜ+1:Nₜ+sl]
-            advπ₂ = subst (λ ◆ → ∣ c₁ ∣ + ∣ corruptBlocks c₃ ∣ + ∣ corruptBlocks c₄ ∣ ≤ 2 * length ◆) (sym $ slotsInRange-++ _ b′ₜ+1≤b*ₜ+1 b*ₜ+1≤Nₜ+sl) advπ₂′
+            advπ₂ = subst (λ ◆ → ∣ c₁ ∣ + ∣ corruptBlocks c₃ ∣ + ∣ corruptBlocks c₄ ∣ ≤ 2 * length ◆) (sym $ slotsInRange-filter-++ _ b′ₜ+1≤b*ₜ+1 b*ₜ+1≤Nₜ+sl) advπ₂′
               where
                 b′ₜ+1≤b*ₜ+1 : b′ .slot + 1 ≤ b* .slot + 1
                 b′ₜ+1≤b*ₜ+1 = Nat.+-monoˡ-≤ 1 b′ₜ≤b*ₜ
