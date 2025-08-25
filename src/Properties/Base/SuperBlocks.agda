@@ -108,13 +108,19 @@ superBlocksInRange N sl₁ sl₂ = filter (λ b → ¿ sl₁ ≤ b .slot × b .s
 corruptSlotsInRange : Slot → Slot → List Slot
 corruptSlotsInRange = filter ¿ CorruptSlot ¿¹ ∘₂ slotsInRange
 
-slotsInRange-≤-+ : ∀ {P : Pred Slot 0ℓ} (P? : Decidable¹ P) (sl₁ sl₂ sl₃ : Slot) →
-  length (filter P? (slotsInRange sl₁ sl₂)) ≤ length (filter P? (slotsInRange sl₁ (sl₂ + sl₃)))
-slotsInRange-≤-+ = {!!}
-
 slotsInRange-++ : ∀ {P : Pred Slot 0ℓ} (P? : Decidable¹ P) {sl₁ sl₂ sl₃ : Slot} →
   sl₁ ≤ sl₂ → sl₂ ≤ sl₃ → filter P? (slotsInRange sl₁ sl₃) ≡ filter P? (slotsInRange sl₁ sl₂) ++ filter P? (slotsInRange sl₂ sl₃)
 slotsInRange-++ = {!!}
+
+slotsInRange-≤-+ : ∀ {P : Pred Slot 0ℓ} (P? : Decidable¹ P) (sl₁ sl₂ sl₃ : Slot) →
+  length (filter P? (slotsInRange sl₁ sl₂)) ≤ length (filter P? (slotsInRange sl₁ (sl₂ + sl₃)))
+slotsInRange-≤-+ P? sl₁ sl₂ sl₃ with sl₁ ≤? sl₂
+... | yes sl₁≤sl₂
+  rewrite
+    slotsInRange-++ P? {sl₃ = sl₂ + sl₃} sl₁≤sl₂ (Nat.m≤m+n _ _)
+  | L.length-++ (filter P? (slotsInRange sl₁ sl₂)) {filter P? (slotsInRange sl₂ (sl₂ + sl₃))}
+    = Nat.m≤m+n _ _
+... | no sl₁≰sl₂ rewrite Nat.m≤n⇒m∸n≡0 $ Nat.≰⇒≥ sl₁≰sl₂ = Nat.z≤n
 
 slotsInRange-∈ : ∀ {sl₁ sl₂ sl : Slot} → sl₁ ≤ sl → sl < sl₂ → sl ∈ slotsInRange sl₁ sl₂
 slotsInRange-∈ {sl₁} {sl₂} {sl} sl₁≤sl sl<sl₂ = ∈-ι⁺ sl₁≤sl $
