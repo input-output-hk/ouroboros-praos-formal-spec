@@ -134,7 +134,19 @@ prune-⪯-trans : ∀ {c₁ c₂ c₃ : Chain} {sl : Slot} →
     prune sl c₁ ⪯ c₂
   → prune sl c₂ ⪯ c₃
   → prune sl c₁ ⪯ c₃
-prune-⪯-trans = {!!}
+prune-⪯-trans {c₁} {c₂} {c₃} {sl} c₁↯sl⪯c₂ c₂↯sl⪯c₃
+  with ⪯⇔∃ .Equivalence.to c₁↯sl⪯c₂ | ⪯⇔∃ .Equivalence.to c₂↯sl⪯c₃
+...  | c₄ , c₄+c₁↯sl≡c₂              | c₅ , c₅++c₂↯sl≡c₃
+  = ⪯⇔∃ .Equivalence.from (c₅ ++ prune sl c₄ , [c₅+c₄↯sl]+c₁↯sl≡c₃)
+  where
+    [c₅+c₄↯sl]+c₁↯sl≡c₃ : (c₅ ++ prune sl c₄) ++ prune sl c₁ ≡ c₃
+    [c₅+c₄↯sl]+c₁↯sl≡c₃ = let open ≡-Reasoning in begin
+      (c₅ ++ prune sl c₄) ++ prune sl c₁            ≡⟨ cong ((c₅ ++ prune sl c₄) ++_) (sym $ L.filter-idem _ c₁) ⟩
+      (c₅ ++ prune sl c₄) ++ prune sl (prune sl c₁) ≡⟨ L.++-assoc c₅ _ _ ⟩
+      c₅ ++ prune sl c₄ ++ prune sl (prune sl c₁)   ≡⟨ cong (c₅ ++_) (sym $ L.filter-++ _ c₄ _) ⟩
+      c₅ ++ prune sl (c₄ ++ prune sl c₁)            ≡⟨ cong (λ ◆ → c₅ ++ prune sl ◆) c₄+c₁↯sl≡c₂ ⟩
+      c₅ ++ prune sl c₂                             ≡⟨ c₅++c₂↯sl≡c₃ ⟩
+      c₃                                            ∎
 
 _⟵_ : Rel Block _
 b ⟵ b′ = prev b ≡ hash b′
