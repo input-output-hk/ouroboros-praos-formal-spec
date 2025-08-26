@@ -278,7 +278,26 @@ opaque
       b .slot ≤ sl
     → DecreasingSlots (b ∷ c)
     → prune sl (b ∷ c) ≡ b ∷ c
-  pruneIdentity = {!!}
+  pruneIdentity {c} {b} {sl} bₜ≤sl ds[b+c]
+    rewrite
+      L.filter-accept ((_≤? sl) ∘ slot) {x = b} {xs = c} bₜ≤sl
+      = cong (b ∷_) (goal p)
+    where
+      p : L.All.All (_>ˢ_ b) c
+      p = ∷-DecreasingSlots ds[b+c] .proj₂
+
+      goal : ∀ {c : Chain} → L.All.All (_>ˢ_ b) c → prune sl c ≡ c
+      goal {[]}      _    = refl
+      goal {b′ ∷ c′} p    = let open ≡-Reasoning in begin
+        prune sl (b′ ∷ c′)  ≡⟨ L.filter-accept ((_≤? sl) ∘ slot) {x = b′} {xs = c′} b′ₜ≤sl ⟩
+        b′ ∷ prune sl c′    ≡⟨ cong (b′ ∷_) ih ⟩
+        b′ ∷ c′             ∎
+        where
+          ih : prune sl c′ ≡ c′
+          ih = goal {c′} (L.All.tail p)
+
+          b′ₜ≤sl : b′ .slot ≤ sl
+          b′ₜ≤sl = Nat.<⇒≤ $ Nat.<-≤-trans (L.All.head p) bₜ≤sl
 
   prune-⪯ : ∀ {c : Chain} (sl : Slot) → DecreasingSlots c → prune sl c ⪯ c
   prune-⪯ = {!!}
