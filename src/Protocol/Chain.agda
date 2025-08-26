@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
-
 open import Protocol.Prelude using (Default)
 open import Protocol.Params using (Params)
 open import Protocol.Crypto using (Hashable)
@@ -300,7 +298,13 @@ opaque
           b′ₜ≤sl = Nat.<⇒≤ $ Nat.<-≤-trans (L.All.head p) bₜ≤sl
 
   prune-⪯ : ∀ {c : Chain} (sl : Slot) → DecreasingSlots c → prune sl c ⪯ c
-  prune-⪯ = {!!}
+  prune-⪯ {[]}      _  _        = ⪯-refl
+  prune-⪯ {b′ ∷ c′} sl ds[b′+c] with b′ .slot ≤? sl
+  ... | yes b′ₜ≤sl rewrite pruneIdentity b′ₜ≤sl ds[b′+c] = ⪯-refl
+  ... | no  b′ₜ≰sl rewrite L.filter-reject ((_≤? sl) ∘ slot) {x = b′} {xs = c′} b′ₜ≰sl = ⪯-trans ih (⪯-++ c′ [ b′ ])
+    where
+      ih : prune sl c′ ⪯ c′
+      ih = prune-⪯ {c′} sl (∷-DecreasingSlots ds[b′+c] .proj₁)
 
 {-# TERMINATING #-}
 -- TODO: Prove termination using `WellFounded`.
