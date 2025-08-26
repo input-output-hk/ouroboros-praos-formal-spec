@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
-
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -44,7 +42,8 @@ open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
 open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs; Unique-≡ˢ-#≡)
 open import Data.List.Relation.Unary.Unique.DecPropositional.Properties (_≟_ {A = Block}) using (deduplicate-!)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (∷⊆⇒∈)
-open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (↭-length)
+open import Data.List.Relation.Binary.Permutation.Propositional using (module PermutationReasoning)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (↭-length; ++⁺ʳ; ++-comm)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭)
 open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊆×⊇; filter-cong; deduplicate-id; deduplicate-cong)
 
@@ -166,7 +165,47 @@ blocksInRangeSplit : ∀ (bs : List Block) {sl₁ sl₂ sl : Slot} →
     filter (λ b → ¿ sl₁ ≤ b .slot × b .slot < sl ¿) bs
     ++
     filter (λ b → ¿ sl ≤ b .slot × b .slot < sl₂ ¿) bs
-blocksInRangeSplit = {!!}
+blocksInRangeSplit [] _ _ = _↭_.refl
+blocksInRangeSplit (b′ ∷ bs) {sl₁} {sl₂} {sl} sl₁≤sl sl≤sl₂
+  with
+    ih ← blocksInRangeSplit bs sl₁≤sl sl≤sl₂
+         | sl₁ ≤? b′ .slot | sl ≤? b′ .slot | b′ .slot <? sl | b′ .slot <? sl₂
+...      | yes sl₁≤b′ₜ     | yes sl≤b′ₜ     | yes b′ₜ<sl     | yes b′ₜ<sl₂ = contradiction (Nat.≤-<-trans sl≤b′ₜ b′ₜ<sl) (Nat.<-irrefl refl)
+...      | yes sl₁≤b′ₜ     | no  sl≰b′ₜ     | yes b′ₜ<sl     | yes b′ₜ<sl₂
+  rewrite
+    L.filter-accept (λ b → ¿ sl₁ ≤ b .slot × b .slot < sl₂ ¿) {x = b′} {xs = bs} (sl₁≤b′ₜ , b′ₜ<sl₂)
+  | L.filter-accept (λ b → ¿ sl₁ ≤ b .slot × b .slot < sl  ¿) {x = b′} {xs = bs} (sl₁≤b′ₜ , b′ₜ<sl)
+  | L.filter-reject (λ b → ¿ sl  ≤ b .slot × b .slot < sl₂ ¿) {x = b′} {xs = bs} (dec-de-morgan₂ (inj₁ sl≰b′ₜ))
+    = _↭_.prep b′ ih
+...      | yes sl₁≤b′ₜ     | yes sl≤b′ₜ     | no  b′ₜ≮sl     | yes b′ₜ<sl₂
+  rewrite
+    L.filter-accept (λ b → ¿ sl₁ ≤ b .slot × b .slot < sl₂ ¿) {x = b′} {xs = bs} (sl₁≤b′ₜ , b′ₜ<sl₂)
+  | L.filter-reject (λ b → ¿ sl₁ ≤ b .slot × b .slot < sl  ¿) {x = b′} {xs = bs} (dec-de-morgan₂ (inj₂ b′ₜ≮sl))
+  | L.filter-accept (λ b → ¿ sl  ≤ b .slot × b .slot < sl₂ ¿) {x = b′} {xs = bs} (sl≤b′ₜ  , b′ₜ<sl₂)
+    = lemma _ _ _ _ ih
+  where
+    lemma : ∀ {a} {A : Set a} (xs ys zs : List A) (x : A) → xs ↭ ys ++ zs → x ∷ xs ↭ ys ++ x ∷ zs
+    lemma xs ys zs x xs↭ys++zs = let open PermutationReasoning in begin
+      x ∷ xs                ↭⟨ _↭_.prep x xs↭ys++zs ⟩
+      x ∷ ys ++ zs          ≡⟨ L.++-assoc [ x ] ys zs ⟨
+      ([ x ] ++ ys) ++ zs   ↭⟨ ++⁺ʳ zs $ ++-comm [ x ] _ ⟩
+      (ys ++ [ x ]) ++ zs   ≡⟨ L.++-assoc ys [ x ] zs ⟩
+      ys ++ x ∷ zs          ∎
+...      | yes sl₁≤b′ₜ     | yes sl≤b′ₜ     | no  b′ₜ≮sl     | no  b′ₜ≮sl₂
+  rewrite
+    L.filter-reject (λ b → ¿ sl₁ ≤ b .slot × b .slot < sl₂ ¿) {x = b′} {xs = bs} (dec-de-morgan₂ (inj₂ b′ₜ≮sl₂))
+  | L.filter-reject (λ b → ¿ sl₁ ≤ b .slot × b .slot < sl  ¿) {x = b′} {xs = bs} (dec-de-morgan₂ (inj₂ b′ₜ≮sl))
+  | L.filter-reject (λ b → ¿ sl  ≤ b .slot × b .slot < sl₂ ¿) {x = b′} {xs = bs} (dec-de-morgan₂ (inj₂ b′ₜ≮sl₂))
+    = ih
+...      | yes sl₁≤b′ₜ     | no  sl≰b′ₜ     | no  b′ₜ≮sl     | _           = contradiction (Nat.≮⇒≥ b′ₜ≮sl) sl≰b′ₜ
+...      | yes sl₁≤b′ₜ     | _              | yes b′ₜ<sl     | no  b′ₜ≮sl₂ = contradiction (Nat.<-≤-trans b′ₜ<sl sl≤sl₂) b′ₜ≮sl₂
+...      | no  sl₁≰b′ₜ     | no  sl≰b′ₜ     | _              | _
+  rewrite
+    L.filter-reject (λ b → ¿ sl₁ ≤ b .slot × b .slot < sl₂ ¿) {x = b′} {xs = bs} (dec-de-morgan₂ (inj₁ sl₁≰b′ₜ))
+  | L.filter-reject (λ b → ¿ sl₁ ≤ b .slot × b .slot < sl  ¿) {x = b′} {xs = bs} (dec-de-morgan₂ (inj₁ sl₁≰b′ₜ))
+  | L.filter-reject (λ b → ¿ sl  ≤ b .slot × b .slot < sl₂ ¿) {x = b′} {xs = bs} (dec-de-morgan₂ (inj₁ sl≰b′ₜ))
+    = ih
+...      | no  sl₁≰b′ₜ     | yes sl≤b′ₜ     | _              | _           = contradiction (Nat.≤-trans sl₁≤sl sl≤b′ₜ) sl₁≰b′ₜ
 
 superBlocksPreservation-↓∗ : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
@@ -604,7 +643,10 @@ opaque
                                   goal-∷ʳ-hwp′-0-h-* {b* ∷ bs*} cnt≡0 nb∈b*∷bs*
                                       | inj₁ nb≡b* rewrite sym nb≡b* with ¿ nb ∈ bs* ¿
                                   ... |   yes nb∈bs* = goal-∷ʳ-hwp′-0-h-* {bs*} cnt≡0 nb∈bs*
-                                  ... |   no  nb∉bs* = contradiction cnt≡0 λ ()
+                                  ... |   no  nb∉bs*
+                                            rewrite
+                                              L.filter-accept ¿ P′ ¿¹ {x = nb} {xs = undup bs*} (refl , hp′ , refl)
+                                              = contradiction cnt≡0 λ ()
                               ... | no nb∉bhN‴
                                 rewrite
                                   dec-no ¿ nb ∈ blockHistory N‴ ¿ nb∉bhN‴
