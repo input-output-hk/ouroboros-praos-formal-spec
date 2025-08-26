@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
-
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -17,6 +15,7 @@ open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.TreeType ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
+open import Protocol.Chain.Properties ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Safety.ChainFromBlock ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.SuperBlocks ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
@@ -47,15 +46,40 @@ open import Data.List.Relation.Binary.Permutation.Propositional using (↭-refl;
 open import Function.Related.Propositional as Related
 open import Function.Bundles
 
-≡tips⇒≡chains : ∀ {N : GlobalState} {c c′ : Chain} {b : Block} →
+✓-impossibility : ∀ {w : Level} {Whatever : Set w} {c : Chain} {b b′ : Block} → [ b ] ✓ → (b ∷ b′ ∷ c) ✓ → Whatever
+✓-impossibility {c = c} {b = b} {b′ = b′} [b]✓ [b+b′+c]✓ = contradiction ([gb+c]✓⇔c≡[] .Equivalence.to [gb+b′+c]✓) λ ()
+  where
+    b≡gb : b ≡ genesisBlock
+    b≡gb = [b]✓⇔b≡gb .Equivalence.to [b]✓
+
+    [gb+b′+c]✓ : (genesisBlock ∷ b′ ∷ c) ✓
+    [gb+b′+c]✓ rewrite sym b≡gb = [b+b′+c]✓
+
+≡tips⇒≡chains : ∀ {N : GlobalState} {c₁ c₂ : Chain} {b : Block} →
     N₀ ↝⋆ N
   → CollisionFree N
-  → (b ∷ c) ✓
-  → (b ∷ c′) ✓
-  → c ⊆ˢ genesisBlock ∷ blockHistory N
-  → c′ ⊆ˢ genesisBlock ∷ blockHistory N
-  → c ≡ c′
-≡tips⇒≡chains = {!!}
+  → (b ∷ c₁) ✓
+  → (b ∷ c₂) ✓
+  → c₁ ⊆ˢ genesisBlock ∷ blockHistory N
+  → c₂ ⊆ˢ genesisBlock ∷ blockHistory N
+  → c₁ ≡ c₂
+≡tips⇒≡chains {_} {[]}        {[]}        _     _   _       _       _         _         = refl
+≡tips⇒≡chains {_} {[]}        {_ ∷ _}     _     _   [b+c₁]✓ [b+c₂]✓ _         _         = ✓-impossibility [b+c₁]✓ [b+c₂]✓
+≡tips⇒≡chains {_} {_ ∷ _}     {[]}        _     _   [b+c₁]✓ [b+c₂]✓ _         _         = ✓-impossibility [b+c₂]✓ [b+c₁]✓
+≡tips⇒≡chains {N} {b₁′ ∷ c₁′} {b₂′ ∷ c₂′} N₀↝⋆N cfN [b+c₁]✓ [b+c₂]✓ c₁⊆gb+bhN c₂⊆gb+bhN
+  with
+    ✓-∷ .Equivalence.from [b+c₁]✓ | ✓-∷ .Equivalence.from [b+c₂]✓
+... | _ , b⟵b₁′ , _ , [b₁′+c₁′]✓  | _ , b⟵b₂′ , _ , [b₂′+c₂′]✓
+  = subst₂ ((_≡ b₂′ ∷ c₂′) ∘₂ _∷_) (sym b₁′≡b₂′) (sym c₁′≡c₂′) refl
+  where
+    b₁′≡b₂′ : b₁′ ≡ b₂′
+    b₁′≡b₂′ = L.All.lookup cfN (L.Mem.∈-cartesianProduct⁺ (∷⊆⇒∈ c₁⊆gb+bhN) (∷⊆⇒∈ c₂⊆gb+bhN)) (trans (sym b⟵b₁′) b⟵b₂′)
+
+    c₁′≡c₂′ : c₁′ ≡ c₂′
+    c₁′≡c₂′ = ≡tips⇒≡chains N₀↝⋆N cfN [b₁′+c₁′]✓ [b₁′+c₂′]✓ (∷-⊆ c₁⊆gb+bhN) (∷-⊆ c₂⊆gb+bhN)
+      where
+        [b₁′+c₂′]✓ : (b₁′ ∷ c₂′) ✓
+        [b₁′+c₂′]✓ rewrite b₁′≡b₂′ = [b₂′+c₂′]✓
 
 opaque
 
