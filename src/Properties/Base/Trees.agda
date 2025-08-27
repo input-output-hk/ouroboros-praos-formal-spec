@@ -20,6 +20,7 @@ open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Liveness.ChainGrowth ⦃ params ⦄ ⦃ assumptions ⦄ using (honestGlobalTreeInHonestLocalTree)
 open import Prelude.AssocList.Properties.Ext using (set-⁉; map-⁉-∈-just)
 open import Data.List.Relation.Binary.BagAndSetEquality using (∷-cong; concat-cong; map-cong; bag-=⇒; ↭⇒∼bag)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-just)
@@ -323,16 +324,6 @@ honestLocalTreeBlocksMonotonicity N₀↝⋆N hp lspN N↝⋆N′ = honestLocalT
         goal (advanceRound   _) = ih lspN′
         goal (permuteParties _) = ih lspN′
         goal (permuteMsgs    _) = ih lspN′
-
-honestGlobalTreeInHonestLocalTree : ∀ {N N′ : GlobalState} {p : Party} {ls : LocalState} →
-    N₀ ↝⋆ N
-  → Honest p
-  → N .progress ≡ ready
-  → N′ .progress ≡ msgsDelivered
-  → N ↝⋆⟨ 0 ⟩ N′
-  → N′ .states ⁉ p ≡ just ls
-  → allBlocks (honestTree N) ⊆ˢ allBlocks (ls .tree)
-honestGlobalTreeInHonestLocalTree = {!!}
 
 honestGlobalTreeInHonestLocalTree-↝⋆⟨1⟩ : ∀ {N N′ : GlobalState} {p : Party} {ls′ : LocalState} →
     N₀ ↝⋆ N

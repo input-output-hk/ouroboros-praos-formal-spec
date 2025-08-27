@@ -25,6 +25,7 @@ open import Properties.Base.CollisionFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.BlockHistory ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Liveness.ChainGrowth ⦃ params ⦄ ⦃ assumptions ⦄ using (honestGlobalTreeInHonestLocalTree)
 open import Data.Nat.Properties.Ext using (pred[n]<n; suc-≢-injective)
 open import Data.Sum.Algebra.Ext using (¬A⊎B⇒A→B)
 open import Data.List.Properties.Ext using ([]≢∷ʳ; ≢[]⇒∷; ∷≢[]; length0⇒[]; filter-acceptʳ; filter-rejectʳ)
