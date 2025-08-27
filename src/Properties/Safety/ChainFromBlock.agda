@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
-
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -24,7 +22,7 @@ open import Protocol.Chain ⦃ params ⦄
 open import Protocol.Chain.Properties ⦃ params ⦄ ⦃ assumptions ⦄ using ([gb+c]✓⇔c≡[]; [b]✓⇔b≡gb; ✓⇒Unique)
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
-open import Protocol.TreeType ⦃ params ⦄
+open import Protocol.Tree ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[[]]→∗ʳ⇒≡; —[∷ʳ]→∗-split)
 open import Data.Bool.Properties using (T-≡)
@@ -51,13 +49,6 @@ open import Class.DecEq.WithK using (≟-refl)
 
 cfb[gb]≡[gb] : ∀ {bs : List Block} → chainFromBlock genesisBlock bs ≡ [ genesisBlock ]
 cfb[gb]≡[gb] rewrite ≟-refl genesisBlock = refl
-
-cfbInBlockListIsSubset′ : ∀ {b : Block} {bs : List Block} {c : Chain} →
-    BlockListCollisionFree bs
-  → (b ∷ c) ✓
-  → c ⊆ˢ bs
-  → chainFromBlock b bs ≡ b ∷ c
-cfbInBlockListIsSubset′ = {!!}
 
 prevBlockUniqueness : ∀ {bs c : List Block} {b b₁ b₂ : Block} →
   let
@@ -872,7 +863,7 @@ opaque
                         N‴⁺ : GlobalState
                         N‴⁺ = updateLocalState p′ (addBlock ls nb) N‴
 
-                        tnb : Tree
+                        tnb : TreeImpl
                         tnb = extendTree (ls .tree) nb
 
                         blocksN‴⁺≡p′ : blocks N‴⁺ p′ ≡ allBlocks tnb

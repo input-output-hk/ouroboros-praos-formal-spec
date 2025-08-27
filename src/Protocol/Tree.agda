@@ -3,7 +3,7 @@ open import Protocol.Params using (Params)
 open import Protocol.Crypto using (Hashable)
 open import Protocol.Block using (Block)
 
-module Protocol.TreeType
+module Protocol.Tree
   ⦃ params : _ ⦄ (open Params params)
   ⦃ _ : Hashable Block ⦄
   ⦃ _ : Default Block ⦄
@@ -23,7 +23,7 @@ open import Protocol.Chain ⦃ params ⦄
 ∣_∣ : List Block → ℕ
 ∣_∣ = length
 
-record TreeType (T : Type) : Type₁ where
+record Tree (T : Type) : Type₁ where
   field
     tree₀      : T
     extendTree : T → Block → T
@@ -100,4 +100,4 @@ record TreeType (T : Type) : Type₁ where
         xs ++ [ x ] ++ ys    ≡⟨ L.++-assoc xs [ x ] ys ⟨
         (xs ++ [ x ]) ++ ys  ∎
 
-open TreeType ⦃ ... ⦄ public
+open Tree ⦃ ... ⦄ public

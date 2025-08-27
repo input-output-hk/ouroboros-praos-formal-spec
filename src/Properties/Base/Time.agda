@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
-
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -13,7 +11,7 @@ open import Protocol.BaseTypes using (Slot; Honesty)
 open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
 open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
-open import Protocol.TreeType ⦃ params ⦄
+open import Protocol.Tree ⦃ params ⦄
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Properties.Base.ForgingFree ⦃ params ⦄ ⦃ assumptions ⦄

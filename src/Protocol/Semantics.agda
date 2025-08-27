@@ -13,7 +13,7 @@ open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄
-open import Protocol.TreeType ⦃ params ⦄
+open import Protocol.Tree ⦃ params ⦄
 open Hashable ⦃ ... ⦄
 open Honesty
 open Envelope
@@ -24,7 +24,7 @@ open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Sta
 
 record LocalState : Type where
   field
-    tree : Tree
+    tree : TreeImpl
 
   addBlock : Block → LocalState
   addBlock b = record { tree = extendTree tree b }
@@ -83,7 +83,7 @@ record GlobalState : Type where
     nothing   → []
     (just ls) → allBlocks (ls .tree)
 
-  honestTree : Tree
+  honestTree : TreeImpl
   honestTree = buildTree (L.concatMap blocks honestParties)
 
 open GlobalState public

@@ -11,14 +11,14 @@ open import Protocol.Chain ⦃ params ⦄
 open import Protocol.Crypto ⦃ params ⦄ using (Hashable)
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄
-open import Protocol.TreeType ⦃ params ⦄
+open import Protocol.Tree ⦃ params ⦄
 open Hashable ⦃ ... ⦄
 open Honesty
 open Envelope
 
 record Assumptions : Type₁ where
   field
-    Tree              : Type
+    TreeImpl          : Type
     AdversarialState  : Type
     honestyOf         : Party → Honesty
     txSelection       : Slot → Party → Txs
@@ -43,7 +43,7 @@ record Assumptions : Type₁ where
 
     ⦃ Hashable-Block     ⦄ : Hashable Block
     ⦃ Default-Block      ⦄ : Default Block
-    ⦃ TreeType-Tree      ⦄ : TreeType Tree
+    ⦃ Tree-TreeImpl      ⦄ : Tree TreeImpl
     ⦃ parties₀Uniqueness ⦄ : Unique parties₀
     ⦃ parties₀HasHonest  ⦄ : L.Any.Any ((_≡ honest) ∘ honestyOf) parties₀
     ⦃ genesisBlockSlot   ⦄ : genesisBlock .slot ≡ 0
@@ -89,5 +89,5 @@ record Assumptions : Type₁ where
   ∷-⊆ʰ {bs} {_} {b} bh p rewrite bh = L.SubS.⊆-trans (L.SubS.xs⊆x∷xs (honestBlocks bs) b) p
 
   instance
-    Default-Tree : Default Tree
-    Default-Tree .def = tree₀
+    Default-TreeImpl : Default TreeImpl
+    Default-TreeImpl .def = tree₀
