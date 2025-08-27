@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
-
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -51,13 +49,6 @@ open import Class.DecEq.WithK using (≟-refl)
 
 cfb[gb]≡[gb] : ∀ {bs : List Block} → chainFromBlock genesisBlock bs ≡ [ genesisBlock ]
 cfb[gb]≡[gb] rewrite ≟-refl genesisBlock = refl
-
-cfbInBlockListIsSubset′ : ∀ {b : Block} {bs : List Block} {c : Chain} →
-    BlockListCollisionFree bs
-  → (b ∷ c) ✓
-  → c ⊆ˢ bs
-  → chainFromBlock b bs ≡ b ∷ c
-cfbInBlockListIsSubset′ = {!!}
 
 prevBlockUniqueness : ∀ {bs c : List Block} {b b₁ b₂ : Block} →
   let
