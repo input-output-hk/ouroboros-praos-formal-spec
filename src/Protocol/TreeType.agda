@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
-
 open import Protocol.Prelude using (Default)
 open import Protocol.Params using (Params)
 open import Protocol.Crypto using (Hashable)
@@ -71,7 +69,11 @@ record TreeType (T : Type) : Type₁ where
     λ {b} b∈best → L.Mem.∈-filter⁻ _ {xs = allBlocks t} (selfContained t sl b∈best) .proj₂
 
   genesisBlockInAllBlocks : ∀ (t : T) → genesisBlock ∈ allBlocks t
-  genesisBlockInAllBlocks = {!!}
+  genesisBlockInAllBlocks t = L.SubS.⊆-trans (selfContained t 0) (L.SubS.filter-⊆ _ _) $ gb∈bc
+    where
+      gb∈bc : genesisBlock ∈ bestChain 0 t
+      gb∈bc with ✓⇒gbIsHead (valid t 0)
+      ... | c , c+gb≡bc rewrite sym c+gb≡bc = L.Mem.∈-++⁺ʳ c (here refl)
 
   allBlocksBuildTree-++ : ∀ (bs bs′ : List Block) → allBlocks (buildTree (bs ++ bs′)) ≡ˢ allBlocks (buildTree bs) ++ allBlocks (buildTree bs′)
   allBlocksBuildTree-++ [] bs′ {b} = let open Related.EquationalReasoning in begin
