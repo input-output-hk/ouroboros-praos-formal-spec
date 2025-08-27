@@ -22,7 +22,7 @@ open import Protocol.Chain ⦃ params ⦄
 open import Protocol.Chain.Properties ⦃ params ⦄ ⦃ assumptions ⦄ using ([gb+c]✓⇔c≡[]; [b]✓⇔b≡gb; ✓⇒Unique)
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
-open import Protocol.TreeType ⦃ params ⦄
+open import Protocol.Tree ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[[]]→∗ʳ⇒≡; —[∷ʳ]→∗-split)
 open import Data.Bool.Properties using (T-≡)
@@ -863,7 +863,7 @@ opaque
                         N‴⁺ : GlobalState
                         N‴⁺ = updateLocalState p′ (addBlock ls nb) N‴
 
-                        tnb : Tree
+                        tnb : TreeImpl
                         tnb = extendTree (ls .tree) nb
 
                         blocksN‴⁺≡p′ : blocks N‴⁺ p′ ≡ allBlocks tnb
