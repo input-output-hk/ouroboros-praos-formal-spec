@@ -73,12 +73,10 @@ opaque
           ...   | yes eᵣ≡p
                     rewrite
                       eϕ≡𝟘
-                    | L.filter-accept ¿ flip Immediate p ¿¹ {x = e} {xs = [≢𝟘,p′] es} (eϕ≡𝟘 , eᵣ≡p)
                       = cong (e ∷_) $ goal* es p≢p′
           ...   | no eᵣ≢p
                     rewrite
                       eϕ≡𝟘
-                    | L.filter-reject ¿ flip Immediate p ¿¹ {x = e} {xs = [≢𝟘,p′] es} (dec-de-morgan₂ (inj₂ eᵣ≢p))
                       = goal* es p≢p′
 
           goal : _ ⊢ N″ —[ p′ ]↓→ N′ → immediateMsgs p N′ ≡ immediateMsgs p N

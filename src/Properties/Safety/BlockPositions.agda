@@ -240,7 +240,7 @@ opaque
                       step : _ ⊢ N‴ —[ p′ ]↑→ N* → blockPos b′ N* < blockPos b N*
                       step (unknownParty↑ _) = ih* b∈hbhN*
                       step (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
-                      ... | ⁇ (yes isWinner) rewrite lsπ = step-honestParty↑
+                      ... | ⁇ (yes isWinner) = step-honestParty↑
                         where
                           lsN′ : N′ .states ⁉ p′ ≡ just ls
                           lsN′ rewrite sym $ localStatePreservation-∉-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆) = lsπ
@@ -523,7 +523,7 @@ opaque
                       step : _ ⊢ N‴ —[ p′ ]↑→ N″ → 1 < blockPos b N″
                       step (unknownParty↑ _) = ih′ b∈hbhN″
                       step (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
-                      ... | ⁇ (yes isWinner) rewrite lsπ = step-honestParty↑
+                      ... | ⁇ (yes isWinner) = step-honestParty↑
                         where
                           best : Chain
                           best = bestChain (N‴ .clock ∸ 1) (ls .tree)
@@ -838,7 +838,7 @@ opaque
                               step : _ ⊢ N‴ —[ p′ ]↑→ N* → blockPos sb Nᴿ ≢ blockPos b N* ⊎ sb ≡ b
                               step (unknownParty↑ _) = ih* b∈hbhN*
                               step (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
-                              ... | ⁇ (yes isWinner) rewrite lsπ = step-honestParty↑
+                              ... | ⁇ (yes isWinner) = step-honestParty↑
                                 where
                                   lsN′ : N′ .states ⁉ p′ ≡ just ls
                                   lsN′ rewrite sym $ localStatePreservation-∉-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆) = lsπ

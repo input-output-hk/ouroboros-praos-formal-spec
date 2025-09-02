@@ -175,22 +175,22 @@ opaque
 -- The messages delivery phase for a specific party.
 data _↝[_]↓_ : GlobalState → Party → GlobalState → Type where
 
-  unknownParty↓ : ∀ {N : GlobalState} {p : Party} →
-    ∙ N .states ⁉ p ≡ nothing
-    ────────────────────────────────────
-    N ↝[ p ]↓ N
+  unknownParty↓ : ∀ {N : GlobalState} {p : Party}
+    → N .states ⁉ p ≡ nothing
+    -------------------------------
+    → N ↝[ p ]↓ N
 
-  honestParty↓ : ∀ {N : GlobalState} {p : Party} {ls : LocalState} →
-    ∙ N .states ⁉ p ≡ just ls
-    ∙ Honest p
-    ────────────────────────────────────
-    N ↝[ p ]↓ honestMsgsDelivery p ls N
+  honestParty↓ : ∀ {N : GlobalState} {p : Party} {ls : LocalState}
+    → N .states ⁉ p ≡ just ls
+    → Honest p
+    -------------------------------------
+    → N ↝[ p ]↓ honestMsgsDelivery p ls N
 
-  corruptParty↓ : ∀ {N : GlobalState} {p : Party} {ls : LocalState} →
-    ∙ N .states ⁉ p ≡ just ls
-    ∙ Corrupt p
-    ────────────────────────────────────
-    N ↝[ p ]↓ corruptMsgsDelivery p N
+  corruptParty↓ : ∀ {N : GlobalState} {p : Party} {ls : LocalState}
+    → N .states ⁉ p ≡ just ls
+    → Corrupt p
+    -------------------------------------
+    → N ↝[ p ]↓ corruptMsgsDelivery p N
 
 record ↓Tag : Type where
 
@@ -231,22 +231,22 @@ opaque
 -- The block making phase for a specific party.
 data _↝[_]↑_ : GlobalState → Party → GlobalState → Type where
 
-  unknownParty↑ : ∀ {N : GlobalState} {p : Party} →
-    ∙ N .states ⁉ p ≡ nothing
-    ────────────────────────────────────
-    N ↝[ p ]↑ N
+  unknownParty↑ : ∀ {N : GlobalState} {p : Party}
+    → N .states ⁉ p ≡ nothing
+    ------------------------------------
+    → N ↝[ p ]↑ N
 
-  honestParty↑ : ∀ {N : GlobalState} {p : Party} {ls : LocalState} →
-    ∙ N .states ⁉ p ≡ just ls
-    ∙ Honest p
-    ────────────────────────────────────
-    N ↝[ p ]↑ honestBlockMaking p ls N
+  honestParty↑ : ∀ {N : GlobalState} {p : Party} {ls : LocalState}
+    → N .states ⁉ p ≡ just ls
+    → Honest p
+    ------------------------------------
+    → N ↝[ p ]↑ honestBlockMaking p ls N
 
-  corruptParty↑ : ∀ {N : GlobalState} {p : Party} {ls : LocalState} →
-    ∙ N .states ⁉ p ≡ just ls
-    ∙ Corrupt p
-    ────────────────────────────────────
-    N ↝[ p ]↑ corruptBlockMaking p N
+  corruptParty↑ : ∀ {N : GlobalState} {p : Party} {ls : LocalState}
+    → N .states ⁉ p ≡ just ls
+    → Corrupt p
+    ----------------------------------
+    → N ↝[ p ]↑ corruptBlockMaking p N
 
 record ↑Tag : Type where
 
@@ -266,32 +266,32 @@ _⊢_—[_]↑→∗ʳ_ = _⊢_—[_]→∗ʳ_
 -- The global state reachability relation.
 data _↝_ : Rel GlobalState 0ℓ where
 
-  deliverMsgs : ∀ {N N′ : GlobalState} →
-    ∙ N .progress ≡ ready
-    ∙ _ ⊢ N —[ N .execOrder ]↓→∗ N′
-    ────────────────────────────────────
-    N ↝ record N′ { progress = msgsDelivered }
+  deliverMsgs : ∀ {N N′ : GlobalState}
+    → N .progress ≡ ready
+    → _ ⊢ N —[ N .execOrder ]↓→∗ N′
+    --------------------------------------------
+    → N ↝ record N′ { progress = msgsDelivered }
 
-  makeBlock : ∀ {N N′ : GlobalState} →
-    ∙ N .progress ≡ msgsDelivered
-    ∙ _ ⊢ N —[ N .execOrder ]↑→∗ N′
-    ────────────────────────────────────
-    N ↝ record N′ { progress = blockMade }
+  makeBlock : ∀ {N N′ : GlobalState}
+    → N .progress ≡ msgsDelivered
+    → _ ⊢ N —[ N .execOrder ]↑→∗ N′
+    ----------------------------------------
+    → N ↝ record N′ { progress = blockMade }
       
-  advanceRound : ∀ {N : GlobalState} →
-    ∙ N .progress ≡ blockMade
-    ────────────────────────────────────
-    N ↝ record (tick N) { progress = ready }
+  advanceRound : ∀ {N : GlobalState}
+    → N .progress ≡ blockMade
+    -------------------------------------------
+    →  N ↝ record (tick N) { progress = ready }
       
-  permuteParties : ∀ {N : GlobalState} {parties : List Party} →
-    ∙ N .execOrder ↭ parties
-    ────────────────────────────────────
-    N ↝ record N { execOrder = parties }
+  permuteParties : ∀ {N : GlobalState} {parties : List Party}
+    → N .execOrder ↭ parties
+    ------------------------------------
+    → N ↝ record N { execOrder = parties }
       
-  permuteMsgs : ∀ {N : GlobalState} {envelopes : List Envelope} →
-    ∙ N .messages ↭ envelopes
-    ────────────────────────────────────
-    N ↝ record N { messages = envelopes }
+  permuteMsgs : ∀ {N : GlobalState} {envelopes : List Envelope}
+    → N .messages ↭ envelopes
+    ------------------------------------
+    → N ↝ record N { messages = envelopes }
 
 
 ↝-refl : Reflexive _↝_
@@ -332,20 +332,20 @@ module _ where
   data _↷↓_ : Rel GlobalState 0ℓ where
 
     refine↓ :
-      ∙ N₁ ↝⋆ N₂
-      ────────────────────────────────────
-      N₁ ↷↓ N₂
+        N₁ ↝⋆ N₂
+      ------------------------------------
+      → N₁ ↷↓ N₂
 
     progress↓ :
-      ∙ record N₁ { progress = msgsDelivered } ↷↓ N₂
-      ────────────────────────────────────
-      N₁ ↷↓ N₂
+        record N₁ { progress = msgsDelivered } ↷↓ N₂
+      ----------------------------------------------
+      → N₁ ↷↓ N₂
 
-    delivery↓ : ∀ {N′ : GlobalState} {p : Party} →
-      ∙ _ ⊢ N₁ —[ p ]↓→ N′
-      ∙ N′ ↷↓ N₂
-      ────────────────────────────────────
-      N₁ ↷↓ N₂
+    delivery↓ : ∀ {N′ : GlobalState} {p : Party}
+      → _ ⊢ N₁ —[ p ]↓→ N′
+      → N′ ↷↓ N₂
+      ------------------------------------
+      → N₁ ↷↓ N₂
 
   ↷↓-refl : Reflexive _↷↓_
   ↷↓-refl = refine↓ ε
@@ -355,20 +355,20 @@ module _ where
   data _↷↑_ : Rel GlobalState 0ℓ where
 
     refine↑ :
-      ∙ N₁ ↝⋆ N₂
-      ────────────────────────────────────
-      N₁ ↷↑ N₂
+        N₁ ↝⋆ N₂
+      ------------------------------------
+      → N₁ ↷↑ N₂
 
     progress↑ :
-      ∙ record N₁ { progress = blockMade } ↷↑ N₂
-      ────────────────────────────────────
-      N₁ ↷↑ N₂
+        record N₁ { progress = blockMade } ↷↑ N₂
+      ------------------------------------------
+      → N₁ ↷↑ N₂
 
-    blockMaking↑ : ∀ {N′ : GlobalState} {p : Party} →
-      ∙ _ ⊢ N₁ —[ p ]↑→ N′
-      ∙ N′ ↷↑ N₂
-      ────────────────────────────────────
-      N₁ ↷↑ N₂
+    blockMaking↑ : ∀ {N′ : GlobalState} {p : Party}
+      → _ ⊢ N₁ —[ p ]↑→ N′
+      → N′ ↷↑ N₂
+      ------------------------------------
+      → N₁ ↷↑ N₂
 
   ↷↑-refl : Reflexive _↷↑_
   ↷↑-refl = refine↑ ε

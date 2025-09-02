@@ -59,17 +59,17 @@ filter-∘-comm : (P? : Decidable P) (Q? : Decidable Q) → filter P? ∘ filter
 filter-∘-comm P? Q? [] = refl
 filter-∘-comm P? Q? (x ∷ xs) with ih ← filter-∘-comm P? Q? xs | does (P? x) in eqp | does (Q? x) in eqq
 ... | true  | true  rewrite eqp | eqq | ih = refl
-... | true  | false rewrite eqp | eqq | ih = refl
-... | false | true  rewrite eqp | eqq | ih = refl
-... | false | false rewrite eqp | eqq | ih = refl
+... | true  | false rewrite eqq | ih       = refl
+... | false | true  rewrite eqp | ih       = refl
+... | false | false rewrite ih             = refl
 
 filter-∘-× : (P? : Decidable P) (Q? : Decidable Q) → filter (P? ∩? Q?) ≗ filter P? ∘ filter Q?
 filter-∘-× P? Q? [] = refl
 filter-∘-× P? Q? (x ∷ xs) with ih ← filter-∘-× P? Q? xs | does (P? x) in eqp | does (Q? x) in eqq
-... | true  | true  rewrite eqp | eqq | ih = refl
-... | true  | false rewrite eqp | eqq | ih = refl
-... | false | true  rewrite eqp | eqq | ih = refl
-... | false | false rewrite eqp | eqq | ih = refl
+... | true  | true  rewrite eqp | ih = refl
+... | true  | false rewrite ih       = refl
+... | false | true  rewrite eqp | ih = refl
+... | false | false rewrite ih       = refl
 
 filter-deduplicate-comm : ∀ ⦃ _ : DecEq A ⦄ {ℓ} {P : Pred A ℓ} {P? : Decidable P} → filter P? ∘ deduplicate _≟_ ≗ deduplicate  _≟_ ∘ filter P?
 filter-deduplicate-comm [] = refl

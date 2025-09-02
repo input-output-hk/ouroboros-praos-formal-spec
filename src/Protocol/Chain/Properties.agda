@@ -12,7 +12,7 @@ open import Protocol.Chain ⦃ params ⦄
 open import Function.Bundles using (_⇔_; mk⇔; Equivalence)
 open Function.Bundles.Equivalence using (from; to)
 open import Data.List.Relation.Unary.Linked
-open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (map⁻)
+open import Data.List.Relation.Unary.Unique.Propositional.Properties using (map⁻)
 
 opaque
   unfolding _✓
@@ -37,4 +37,4 @@ opaque
       fromπ c≡[] rewrite c≡[] = [b]✓⇔b≡gb .from refl
 
 ✓⇒Unique : ∀ {c : Chain} → c ✓ → Unique c
-✓⇒Unique = map⁻ (cong slot) ∘ DecreasingSlots⇒UniqueSlots ∘ ✓⇒ds
+✓⇒Unique = L.Unique.map⁻ ∘ DecreasingSlots⇒UniqueSlots ∘ ✓⇒ds

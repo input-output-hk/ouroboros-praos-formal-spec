@@ -42,11 +42,6 @@ private
 
 module _ {A : Set a} {B : Set b} where
 
-  -- TODO: Remove when upgrading to stdlib 2.3.
-  map⁻ : ∀ {f} → Congruent _≡_ _≡_ f →
-         ∀ {xs} → Unique (map f xs) → Unique xs
-  map⁻ = Setoid.map⁻ (setoid A) (setoid B)
-
   map⁺-∈ : ∀ {xs} {f : A → B} → (∀ {x y} → x ∈ xs → y ∈ xs → f x ≡ f y → x ≡ y) →
            Unique xs → Unique (map f xs)
   map⁺-∈ inj []           = []
