@@ -14,6 +14,7 @@ open import Protocol.Chain ⦃ params ⦄
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Tree ⦃ params ⦄
+open import Protocol.Tree.Properties ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄

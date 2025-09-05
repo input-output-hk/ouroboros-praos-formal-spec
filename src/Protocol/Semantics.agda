@@ -14,6 +14,7 @@ open import Protocol.Chain ⦃ params ⦄
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄
 open import Protocol.Tree ⦃ params ⦄
+open import Protocol.Tree.Properties ⦃ params ⦄
 open Hashable ⦃ ... ⦄
 open Honesty
 open Envelope

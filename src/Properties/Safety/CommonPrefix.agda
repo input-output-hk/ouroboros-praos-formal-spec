@@ -12,9 +12,11 @@ open import Protocol.BaseTypes using (Slot)
 open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
 open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
+open import Protocol.Chain.Properties ⦃ params ⦄
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Tree ⦃ params ⦄
+open import Protocol.Tree.Properties ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.BlockHistory ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ForgingFree ⦃ params ⦄ ⦃ assumptions ⦄
