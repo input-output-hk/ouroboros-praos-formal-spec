@@ -622,12 +622,8 @@ opaque
       N₀ ↝⋆ N
     → CollisionFree N
     → ForgingFree N
--- TODO: Bug reported in https://github.com/agda/agda/issues/7856 and fixed in Agda 2.8.0.
---    → L.All.All
---        (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
---        (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
     → L.All.All
-        (λ p → blockPos (p .proj₁) N ≢ blockPos (p .proj₂) N ⊎ p .proj₁ ≡ p .proj₂)
+        (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
         (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
   superBlockPositions = superBlockPositionsʳ ∘ Star⇒Starʳ
     where
