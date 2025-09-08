@@ -38,11 +38,8 @@ open LocalState public
 
 -- Honest behavior
 
-processMsgsʰ : List Message → Slot → LocalState → ⊤ × LocalState
-processMsgsʰ msgs _ ls =
-  _
-  ,
-  L.foldr (λ m ls′ → addBlock ls′ (projBlock m)) ls msgs
+processMsgsʰ : List Message → LocalState → LocalState
+processMsgsʰ msgs ls = L.foldr (λ m ls′ → addBlock ls′ (projBlock m)) ls msgs
 
 makeBlockʰ : Slot → Txs → Party → LocalState → List Message × LocalState
 makeBlockʰ sl txs p ls =
@@ -155,7 +152,7 @@ opaque
   honestMsgsDelivery p ls N =
     let
       (msgs , N′) = fetchNewMsgs p N
-      (_ , newLs) = processMsgsʰ msgs (N′ .clock) ls
+      newLs       = processMsgsʰ msgs ls
     in
       updateLocalState p newLs N′
 
