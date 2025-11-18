@@ -62,6 +62,19 @@ makeBlockʰ sl txs p ls =
 data Progress : Type where
   ready msgsDelivered blockMade : Progress
 
+instance
+  DecEq-Progress : DecEq Progress
+  DecEq-Progress ._≟_ = λ where
+    ready         ready         → yes refl
+    ready         msgsDelivered → no λ ()
+    ready         blockMade     → no λ ()
+    msgsDelivered msgsDelivered → yes refl
+    msgsDelivered ready         → no λ ()
+    msgsDelivered blockMade     → no λ ()
+    blockMade     blockMade     → yes refl
+    blockMade     ready         → no λ ()
+    blockMade     msgsDelivered → no λ ()
+
 record GlobalState : Type where
   field
     clock     : Slot
