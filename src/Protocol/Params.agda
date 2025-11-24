@@ -13,7 +13,7 @@ record Params : Type₁ where
   field
     Txs    : Type
     Hash   : Type
-    winner : Party → Slot → Type
+    winner : REL Party Slot _
 
     ⦃ DecEq-Txs   ⦄ : DecEq Txs
     ⦃ DecEq-Hash  ⦄ : DecEq Hash

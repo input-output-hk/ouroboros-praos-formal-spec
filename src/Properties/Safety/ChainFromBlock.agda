@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
-
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -21,10 +19,11 @@ open import Protocol.BaseTypes
 open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
 open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
-open import Protocol.Chain.Properties ⦃ params ⦄ ⦃ assumptions ⦄ using ([gb+c]✓⇔c≡[]; [b]✓⇔b≡gb; ✓⇒Unique)
+open import Protocol.Chain.Properties ⦃ params ⦄ ⦃ assumptions ⦄
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
-open import Protocol.TreeType ⦃ params ⦄
+open import Protocol.Tree ⦃ params ⦄
+open import Protocol.Tree.Properties ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[[]]→∗ʳ⇒≡; —[∷ʳ]→∗-split)
 open import Data.Bool.Properties using (T-≡)
@@ -51,13 +50,6 @@ open import Class.DecEq.WithK using (≟-refl)
 
 cfb[gb]≡[gb] : ∀ {bs : List Block} → chainFromBlock genesisBlock bs ≡ [ genesisBlock ]
 cfb[gb]≡[gb] rewrite ≟-refl genesisBlock = refl
-
-cfbInBlockListIsSubset′ : ∀ {b : Block} {bs : List Block} {c : Chain} →
-    BlockListCollisionFree bs
-  → (b ∷ c) ✓
-  → c ⊆ˢ bs
-  → chainFromBlock b bs ≡ b ∷ c
-cfbInBlockListIsSubset′ = {!!}
 
 prevBlockUniqueness : ∀ {bs c : List Block} {b b₁ b₂ : Block} →
   let
@@ -358,7 +350,7 @@ opaque
     → chainFromBlock nb (nb ∷ blockHistory N′) ≡ nb ∷ best
       ×
       (nb ∷ best) ✓
-  chainFromNewBlock {ls} {p} {ps} {N} {N′} N₀↝⋆N ts⋆ isWinner p∉ps lsπ hpπ cf[gb+nb+bhN′] rewrite dec-yes (Params.winnerᵈ params {p} {N′ .clock} .dec) isWinner .proj₂ = cfbInBlockListIsSubset cf[gb+nb+bhN′] nb∷best✓ bestInHist , nb∷best✓
+  chainFromNewBlock {ls} {p} {ps} {N} {N′} N₀↝⋆N ts⋆ isWinner p∉ps lsπ hpπ cf[gb+nb+bhN′] = cfbInBlockListIsSubset cf[gb+nb+bhN′] nb∷best✓ bestInHist , nb∷best✓
     where
       best : Chain
       best = bestChain (N′ .clock ∸ 1) (ls .tree)
@@ -551,8 +543,8 @@ opaque
                         where
                           cfb✓π : chainFromBlock b (blockHistory N‴) ✓
                           cfb✓π = ih′ b∈hbhN‴
-                      ... | inj₁ b≡nb rewrite b≡nb with chainFromNewBlock N₀↝⋆N′ ts⋆ isWinner p′∉ps′ lsπ hp′π cfN″
-                      ... |   cfbIsNb∷Best , nb∷best✓ = subst _✓ (sym cfbIsNb∷Best) nb∷best✓
+                      ... | inj₁ b≡nb rewrite b≡nb = case chainFromNewBlock N₀↝⋆N′ ts⋆ isWinner p′∉ps′ lsπ hp′π cfN″ of λ where
+                              (cfbIsNb∷Best , nb∷best✓) → subst _✓ (sym cfbIsNb∷Best) nb∷best✓
                   ... | ⁇ (no _) = ih′ b∈hbhN″
                   step (corruptParty↑ _ _) = step-corruptParty↑
                     where
@@ -855,7 +847,7 @@ opaque
                     step : _ ⊢ N‴ —[ p′ ]↑→ N* → chainFromBlock b (blockHistory N*) ⊆ˢ allBlocks (honestTree N*)
                     step (unknownParty↑ _) = ih* b∈hbhN*
                     step (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
-                    ... | ⁇ (yes isWinner) rewrite lsπ = step′
+                    ... | ⁇ (yes isWinner) = step′
                       where
                         lsN′ : N′ .states ⁉ p′ ≡ just ls
                         lsN′ rewrite sym $ localStatePreservation-∉-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆) = lsπ
@@ -872,14 +864,14 @@ opaque
                         N‴⁺ : GlobalState
                         N‴⁺ = updateLocalState p′ (addBlock ls nb) N‴
 
-                        tnb : Tree
+                        tnb : TreeImpl
                         tnb = extendTree (ls .tree) nb
 
                         blocksN‴⁺≡p′ : blocks N‴⁺ p′ ≡ allBlocks tnb
                         blocksN‴⁺≡p′ rewrite set-⁉ (N‴ .states) p′ (addBlock ls nb) = refl
 
                         blocksN‴⁺≢p′ : ∀ {p°} → p° ≢ p′ → blocks N‴ p° ≡ blocks N‴⁺ p°
-                        blocksN‴⁺≢p′ {p°} p°≢p′ rewrite lsπ | set-⁉-¬ (N‴ .states) p′ p° (addBlock ls nb) (≢-sym p°≢p′) = refl
+                        blocksN‴⁺≢p′ {p°} p°≢p′ rewrite set-⁉-¬ (N‴ .states) p′ p° (addBlock ls nb) (≢-sym p°≢p′) = refl
 
                         step′ : chainFromBlock b (nb ∷ blockHistory N‴) ⊆ˢ allBlocks (honestTree N‴⁺)
                         step′
@@ -919,13 +911,12 @@ opaque
                             step″ {[]} = L.SubS.⊆-refl
                             step″ {p° ∷ ps°} with honestyOf p° in hp°
                             ... | corrupt = step″ {ps°}
-                            ... | honest rewrite hp° with p° ≟ p′
+                            ... | honest with p° ≟ p′
                             ... |  yes p°≡p′
                               rewrite
                                 p°≡p′
                               | localStatePreservation-∉-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆)
-                              | lsN′
-                              | blocksN‴⁺≡p′ =
+                              | lsN′ =
                               let open L.SubS.⊆-Reasoning Block in begin
                                 allBlocks (buildTree (allBlocks (ls .tree)
                                 ++
@@ -1092,7 +1083,7 @@ opaque
                         step″ {[]} = L.SubS.⊆-refl
                         step″ {p° ∷ ps°} with honestyOf p° in hp°
                         ... | corrupt rewrite eq = step″ {ps°}
-                        ... | honest rewrite hp° = let open L.SubS.⊆-Reasoning Block in begin
+                        ... | honest = let open L.SubS.⊆-Reasoning Block in begin
                           allBlocks (buildTree (blocks N‴ p° ++ (L.concatMap (blocks N‴) $ L.filter ¿ Honest ¿¹ ps°)))
                             ⊆⟨ ≡ˢ⇒⊆×⊇ (allBlocksBuildTree-++ (blocks N‴ p°) _) .proj₁ ⟩
                           allBlocks (buildTree (blocks N‴ p°))
@@ -1117,7 +1108,7 @@ opaque
                             eqBlocks : blocks N‴⁺ p° ≡ blocks N‴ p°
                             eqBlocks with p° ≟ p′
                             ... | yes eq rewrite eq | lsπ | set-⁉   (N‴ .states) p′    ls             = refl
-                            ... | no neq rewrite      lsπ | set-⁉-¬ (N‴ .states) p′ p° ls (≢-sym neq) = refl
+                            ... | no neq rewrite            set-⁉-¬ (N‴ .states) p′ p° ls (≢-sym neq) = refl
 
                     step (corruptParty↑ _ _) = step′
                       where

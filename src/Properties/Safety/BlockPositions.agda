@@ -13,7 +13,7 @@ open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
-open import Protocol.TreeType ⦃ params ⦄
+open import Protocol.Tree ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Protocol.Chain.Properties ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Safety.ChainFromBlock ⦃ params ⦄ ⦃ assumptions ⦄
@@ -240,7 +240,7 @@ opaque
                       step : _ ⊢ N‴ —[ p′ ]↑→ N* → blockPos b′ N* < blockPos b N*
                       step (unknownParty↑ _) = ih* b∈hbhN*
                       step (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
-                      ... | ⁇ (yes isWinner) rewrite lsπ = step-honestParty↑
+                      ... | ⁇ (yes isWinner) = step-honestParty↑
                         where
                           lsN′ : N′ .states ⁉ p′ ≡ just ls
                           lsN′ rewrite sym $ localStatePreservation-∉-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆) = lsπ
@@ -523,7 +523,7 @@ opaque
                       step : _ ⊢ N‴ —[ p′ ]↑→ N″ → 1 < blockPos b N″
                       step (unknownParty↑ _) = ih′ b∈hbhN″
                       step (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
-                      ... | ⁇ (yes isWinner) rewrite lsπ = step-honestParty↑
+                      ... | ⁇ (yes isWinner) = step-honestParty↑
                         where
                           best : Chain
                           best = bestChain (N‴ .clock ∸ 1) (ls .tree)
@@ -622,12 +622,8 @@ opaque
       N₀ ↝⋆ N
     → CollisionFree N
     → ForgingFree N
--- TODO: Bug reported in https://github.com/agda/agda/issues/7856 and fixed in Agda 2.8.0.
---    → L.All.All
---        (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
---        (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
     → L.All.All
-        (λ p → blockPos (p .proj₁) N ≢ blockPos (p .proj₂) N ⊎ p .proj₁ ≡ p .proj₂)
+        (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
         (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
   superBlockPositions = superBlockPositionsʳ ∘ Star⇒Starʳ
     where
@@ -838,7 +834,7 @@ opaque
                               step : _ ⊢ N‴ —[ p′ ]↑→ N* → blockPos sb Nᴿ ≢ blockPos b N* ⊎ sb ≡ b
                               step (unknownParty↑ _) = ih* b∈hbhN*
                               step (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
-                              ... | ⁇ (yes isWinner) rewrite lsπ = step-honestParty↑
+                              ... | ⁇ (yes isWinner) = step-honestParty↑
                                 where
                                   lsN′ : N′ .states ⁉ p′ ≡ just ls
                                   lsN′ rewrite sym $ localStatePreservation-∉-↑∗ p′∉ps′ (—[]→∗ʳ⇒—[]→∗ ts⋆) = lsπ

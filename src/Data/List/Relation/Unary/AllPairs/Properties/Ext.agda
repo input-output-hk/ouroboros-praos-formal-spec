@@ -1,27 +1,20 @@
 module Data.List.Relation.Unary.AllPairs.Properties.Ext where
 
 open import Level using (Level)
-open import Function.Base using (_$_; _∘_)
-open import Relation.Binary.PropositionalEquality.Core using (sym; subst)
+open import Function.Base using (_∘_)
+open import Relation.Binary.PropositionalEquality.Core using (subst)
 open import Relation.Binary.Core using (Rel)
 open import Data.Product using (proj₁; proj₂; _×_; _,_)
-open import Data.List.Base using ([]; _∷_; _++_; _∷ʳ_; map)
+open import Data.List.Base using ([]; _∷_; _++_; _∷ʳ_)
 open import Data.List.Properties using (++-identityʳ)
 open import Data.List.Relation.Unary.All as All using (All; [])
-open import Data.List.Relation.Unary.All.Properties as All hiding (++⁻; map⁻)
+open import Data.List.Relation.Unary.All.Properties as All hiding (++⁻)
 open import Data.List.Relation.Unary.AllPairs as AllPairs using (AllPairs; []; _∷_)
 
 private
   variable
-    a b ℓ : Level
-    A B : Set a
-
--- TODO: Remove when upgrading to stdlib 2.3.
-module _ {R : Rel A ℓ} {f : B → A} where
-
-  map⁻ : ∀ {xs} → AllPairs R (map f xs) → AllPairs (λ x y → R (f x) (f y)) xs
-  map⁻ {[]}     _           = []
-  map⁻ {_ ∷ _} (x∉xs ∷ xs!) = All.map⁻ x∉xs ∷ map⁻ xs!
+    a ℓ : Level
+    A : Set a
 
 module _ {R : Rel A ℓ} where
 

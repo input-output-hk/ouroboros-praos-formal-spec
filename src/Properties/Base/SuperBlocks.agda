@@ -11,7 +11,7 @@ open import Protocol.BaseTypes using (Slot; Honesty)
 open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
 open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
-open import Protocol.TreeType ⦃ params ⦄
+open import Protocol.Tree ⦃ params ⦄
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
@@ -508,7 +508,7 @@ opaque
                                       ... |     yes b†ₜ≡N′ₜ = contradiction (subst (_< N′ .clock) b†ₜ≡N′ₜ b†ₜ<N′ₜ) (Nat.<-irrefl refl)
                                         where
                                           b†ₜ<N′ₜ : b† .slot < N′ .clock
-                                          b†ₜ<N′ₜ rewrite hb† = L.All.head π
+                                          b†ₜ<N′ₜ = L.All.head π
                                       ... |     no  b†ₜ≢N′ₜ
                                                   rewrite
                                                     count-reject-∷ ¿ P′ ¿¹ {x = b†} {xs = undup bs†}
@@ -551,7 +551,7 @@ opaque
                                           eqMakeBlockʰ rewrite sym $ clockPreservation-↑∗ ts†′ = refl
 
                                           ¬wp⁺ : ¬ winner p⁺ (N′ .clock)
-                                          ¬wp⁺ rewrite clockPreservation-↑ ts = ¬[p×q]×q⇒¬p ¬hwp⁺ hp⁺π
+                                          ¬wp⁺ = ¬[p×q]×q⇒¬p ¬hwp⁺ hp⁺π
 
                                           cnt≡0*-∷ʳ-h : count ¿ P′ ¿¹ (undup (blockHistory (honestBlockMaking p⁺ ls N†))) ≡ 0
                                           cnt≡0*-∷ʳ-h rewrite eqMakeBlockʰ | dec-no (winnerᵈ .dec) ¬wp⁺ = ih⁺
@@ -573,8 +573,6 @@ opaque
                                           cnt≡0*-∷ʳ-c
                                             rewrite
                                               eqMakeBlockᶜ
-                                            | sym $ count-undup ¿ P′ ¿¹ (blockHistory (broadcastMsgsᶜ mds N†))
-                                            | sym $ count-undup ¿ P′ ¿¹ (blockHistory N†)
                                             = cnt≡0*-∷ʳ-c-* {mds} sub
                                             where
                                               cnt≡0*-∷ʳ-c-* : ∀ {mds} →
@@ -649,8 +647,7 @@ opaque
                                               = contradiction cnt≡0 λ ()
                               ... | no nb∉bhN‴
                                 rewrite
-                                  dec-no ¿ nb ∈ blockHistory N‴ ¿ nb∉bhN‴
-                                | count-accept-∷ ¿ P′ ¿¹ {x = nb} {xs = undup (blockHistory N‴)} (refl , hp′ , refl)
+                                  count-accept-∷ ¿ P′ ¿¹ {x = nb} {xs = undup (blockHistory N‴)} (refl , hp′ , refl)
                                 | cnt≡0
                                 = ⇔-refl
                           ... |   corruptParty↑ _ cp′π = contradiction hp′ $ corrupt⇒¬honest cp′π
@@ -666,7 +663,7 @@ opaque
                           eqMakeBlockʰ rewrite sym $ clockPreservation-↑∗ ts⁺′ = refl
 
                           ¬wp′ : ¬ winner p′ (N′ .clock)
-                          ¬wp′ rewrite clockPreservation-↑ ts = ¬[p×q]×q⇒¬p ¬hwp′ hp′π
+                          ¬wp′ = ¬[p×q]×q⇒¬p ¬hwp′ hp′π
 
                           goal-∷ʳ-h¬wp′ :
                             count ¿ P ¿¹ (L.deduplicate _≟_ (blockHistory (honestBlockMaking p′ ls N‴))) ≡ 1
