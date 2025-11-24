@@ -11,9 +11,11 @@ open import Protocol.BaseTypes using (Slot)
 open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
 open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
+open import Protocol.Chain.Properties ⦃ params ⦄
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
-open import Protocol.TreeType ⦃ params ⦄
+open import Protocol.Tree ⦃ params ⦄
+open import Protocol.Tree.Properties ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ForgingFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.CollisionFree ⦃ params ⦄ ⦃ assumptions ⦄
@@ -168,8 +170,8 @@ adversaryHasAdvantage {N} N₀↝⋆N ffN cfN {p} {ls} hp lsp {c} {sl} c⊆fgb�
         mb′IsJust′ : ∀ c′ → M.Is-just $ L.find ¿ HonestBlock ¿¹ (c′ ++ [ genesisBlock ])
         mb′IsJust′ [] rewrite genesisHonesty = M.Any.just _
         mb′IsJust′ (b″ ∷ c′) with ¿ HonestBlock b″ ¿
-        ... | yes hb″ rewrite hb″ = M.Any.just _
-        ... | no ¬hb″ rewrite dec-no ¿ HonestBlock b″ ¿ ¬hb″ = mb′IsJust′ c′
+        ... | yes hb″ = M.Any.just _
+        ... | no ¬hb″ = mb′IsJust′ c′
 
     -- ... and we call it b′. In the following, we choose sl′ to be use b′.
     b′ = Block ∋ M.to-witness mb′IsJust
@@ -1246,8 +1248,7 @@ singleRoundCommonPrefix {N} {k} N₀↝⋆N ffN cfN {p₁} {p₂} {ls₁} {ls₂
         π2 : b .slot ≤ N .clock ∸ 1 + 0
         π2
           rewrite
-            Nat.+-suc (N .clock ∸ 1) 0
-          | Nat.+-identityʳ (N .clock ∸ 1)
+            Nat.+-identityʳ (N .clock ∸ 1)
           = L.All.lookup (bestChainSlotBounded (ls .tree) (N .clock ∸ 1)) b∈bc
 
     Goal-◆ = λ ◆ →

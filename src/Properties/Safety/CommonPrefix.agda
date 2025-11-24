@@ -12,9 +12,11 @@ open import Protocol.BaseTypes using (Slot)
 open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
 open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
+open import Protocol.Chain.Properties ⦃ params ⦄
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
-open import Protocol.TreeType ⦃ params ⦄
+open import Protocol.Tree ⦃ params ⦄
+open import Protocol.Tree.Properties ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.BlockHistory ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ForgingFree ⦃ params ⦄ ⦃ assumptions ⦄
@@ -431,3 +433,32 @@ commonPrefix {N₁} {N₂} {k} N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ {p₁
 
         ... | permuteParties _ = ih ls₂ lsp₂
         ... | permuteMsgs    _ = ih ls₂ lsp₂
+
+commonPrefixRephrased : ∀ {N₁ N₂ : GlobalState} {k : Slot} →
+    N₀ ↝⋆ N₁
+  → N₁ ↝⋆ N₂
+  → ForgingFree N₂
+  → CollisionFree N₂
+  → (∀ {sl′ sl″} →
+        sl′ ≤ k × N₁ .clock ≤ sl″ × sl″ ≤ N₂ .clock
+      → length (superSlotsInRange (sl′ + 1) (sl″ ∸ 1))
+        >
+        2 * length (corruptSlotsInRange (sl′ + 1) (sl″ + 1)))
+  → ∀ {p₁ p₂ : Party} {ls₁ ls₂ : LocalState}
+    → Honest p₁
+    → Honest p₂
+    → N₁ .states ⁉ p₁ ≡ just ls₁
+    → N₂ .states ⁉ p₂ ≡ just ls₂
+    → let bc₁ = bestChain (N₁ .clock ∸ 1) (ls₁ .tree)
+          bc₂ = bestChain (N₂ .clock ∸ 1) (ls₂ .tree)
+      in prune k bc₁ ⪯ bc₂
+commonPrefixRephrased N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ ¬adversaryAdvantage hp₁ hp₂ lsp₁ lsp₂
+  with commonPrefix N₀↝⋆N₁ N₁↝⋆N₂ ffN₂ cfN₂ hp₁ hp₂ lsp₁ lsp₂
+... | inj₁ bc₁⪯bc₂ = bc₁⪯bc₂
+... | inj₂ adversaryAdvantage =
+  contradiction
+    adversaryAdvantage
+    (λ (sl′ , sl″ , h₁ , h₂ , h₃ , h₄) →
+      contradiction
+        (¬adversaryAdvantage {sl′} {sl″} (h₁ , h₂ , h₃))
+        (Nat.≤⇒≯ h₄))

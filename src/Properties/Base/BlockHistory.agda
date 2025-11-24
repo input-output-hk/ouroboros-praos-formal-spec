@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
-
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -20,7 +18,8 @@ open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
-open import Protocol.TreeType ⦃ params ⦄
+open import Protocol.Tree ⦃ params ⦄
+open import Protocol.Tree.Properties ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[[]]→∗ʳ⇒≡; —[∷ʳ]→∗-split)
 open import Prelude.AssocList.Properties.Ext using (set-⁉; set-⁉-¬)
@@ -507,8 +506,6 @@ opaque
                           step* {_ ∷ mds} = L.SubS.⊆-trans (step* {mds}) (L.SubS.xs⊆x∷xs _ _)
                   step (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
                   ... | ⁇ (no ¬isWinner)
-                    rewrite
-                      dec-no ¿ winner p′ (N‴ .clock) ¿ ¬isWinner
                       = L.SubS.⊆-trans (L.SubS.filter⁺′ _ _ id (step* {N‴ .execOrder})) ih*
                     where
                       N‴⁺ : GlobalState
@@ -523,7 +520,7 @@ opaque
                       step* {[]} = L.SubS.⊆-refl
                       step* {p* ∷ ps*} with honestyOf p* in hp*
                       ... | corrupt = step* {ps*}
-                      ... | honest rewrite hp* = let open L.SubS.⊆-Reasoning Block in begin
+                      ... | honest = let open L.SubS.⊆-Reasoning Block in begin
                         allBlocks (buildTree (blocks N‴⁺ p* ++ L.concatMap (blocks N‴⁺) (L.filter ¿ Honest ¿¹ ps*)))
                           ⊆⟨ ≡ˢ⇒⊆×⊇ (allBlocksBuildTree-++ (blocks N‴⁺ p*) _) .proj₁ ⟩
                         allBlocks (buildTree (blocks N‴⁺ p*))
@@ -540,12 +537,12 @@ opaque
                           eqBlocks : blocks N‴⁺ p* ≡ blocks N‴ p*
                           eqBlocks with p* ≟ p′
                           ... | yes eq rewrite eq | lsπ | set-⁉   (N‴ .states) p′    ls             = refl
-                          ... | no neq rewrite      lsπ | set-⁉-¬ (N‴ .states) p′ p* ls (≢-sym neq) = refl
+                          ... | no neq rewrite            set-⁉-¬ (N‴ .states) p′ p* ls (≢-sym neq) = refl
 
                           tbksN‴⁺⊆tbksN‴ : allBlocks (buildTree (blocks N‴⁺ p*)) ⊆ˢ allBlocks (buildTree (blocks N‴ p*))
                           tbksN‴⁺⊆tbksN‴ rewrite eqBlocks = L.SubS.⊆-refl
 
-                  ... | ⁇ (yes isWinner) rewrite lsπ = let open L.SubS.⊆-Reasoning Block in begin
+                  ... | ⁇ (yes isWinner) = let open L.SubS.⊆-Reasoning Block in begin
                     filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N‴⁺))
                       ⊆⟨ L.SubS.filter⁺′ _ _ id $ step* {N‴ .execOrder} ⟩
                     filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N‴) ++ [ nb ])
@@ -568,14 +565,14 @@ opaque
                       N‴⁺ : GlobalState
                       N‴⁺ = updateLocalState p′ (addBlock ls nb) N‴
 
-                      tnb : Tree
+                      tnb : TreeImpl
                       tnb = extendTree (ls .tree) nb
 
                       blocksN‴⁺≡p′ : blocks N‴⁺ p′ ≡ allBlocks tnb
                       blocksN‴⁺≡p′ rewrite set-⁉ (N‴ .states) p′ (addBlock ls nb) = refl
 
                       blocksN‴⁺≢p′ : ∀ {p*} → p* ≢ p′ → blocks N‴ p* ≡ blocks N‴⁺ p*
-                      blocksN‴⁺≢p′ {p*} p*≢p′ rewrite lsπ | set-⁉-¬ (N‴ .states) p′ p* (addBlock ls nb) (≢-sym p*≢p′) = refl
+                      blocksN‴⁺≢p′ {p*} p*≢p′ rewrite set-⁉-¬ (N‴ .states) p′ p* (addBlock ls nb) (≢-sym p*≢p′) = refl
 
                       step* : ∀ {ps*} →
                         allBlocks (honestTree record N‴⁺ {execOrder = ps*})
@@ -584,7 +581,7 @@ opaque
                       step* {[]} = L.SubS.xs⊆xs++ys _ _
                       step* {p* ∷ ps*} with honestyOf p* in hp*
                       ... | corrupt = step* {ps*}
-                      ... | honest rewrite hp* = let open L.SubS.⊆-Reasoning Block in begin
+                      ... | honest = let open L.SubS.⊆-Reasoning Block in begin
                         allBlocks (buildTree (blocks N‴⁺ p* ++ L.concatMap (blocks N‴⁺) (L.filter ¿ Honest ¿¹ ps*)))
                           ⊆⟨ ≡ˢ⇒⊆×⊇ (allBlocksBuildTree-++ (blocks N‴⁺ p*) _) .proj₁ ⟩
                         allBlocks (buildTree (blocks N‴⁺ p*))
@@ -774,7 +771,7 @@ opaque
                   step* (unknownParty↑ _  ) = ih*
                   step* (honestParty↑ {ls = ls} lsπ hp) with Params.winnerᵈ params {p} {N‴ .clock}
                   ... | ⁇ (no ¬isWinner) = ih*
-                  ... | ⁇ (yes isWinner) rewrite lsπ | hp = nbₜ≤N′ₜ ∷ ih*
+                  ... | ⁇ (yes isWinner) rewrite hp = nbₜ≤N′ₜ ∷ ih*
                     where
                       best : Chain
                       best = bestChain (N‴ .clock  ∸ 1) (ls .tree)
@@ -1032,8 +1029,6 @@ opaque
                       step*′ {[]} _ = ih′
                       step*′ {(m , _) ∷ mds} sub with bᵐ ← projBlock m | ¿ HonestBlock bᵐ ¿
                       ... | no ¬hbᵐ
-                        rewrite
-                          sym $ L.filter-reject ¿ HonestBlock ¿¹ {bᵐ} {honestBlockHistory (broadcastMsgsᶜ mds N‴)} ¬hbᵐ
                           = step*′ {mds} sub
                       ... | yes hbᵐ with bᵐ .slot <? N .clock
                       ...   | yes bᵐₜ<Nₜ
