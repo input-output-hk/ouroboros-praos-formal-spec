@@ -75,7 +75,7 @@ data _—→_ : Rel GlobalState 0ℓ where
     to (permuteParties   p) = permuteParties (·↭⇒↭ p)
     to (permuteMsgs      p) = permuteMsgs    (·↭⇒↭ p)
 
-open import Prelude.Closures.Ext _—→_
+open import Prelude.Closures _—→_ hiding (Trace)
 
 data Action : Type where
 --  DeliverMsgs     : ??? → Action
