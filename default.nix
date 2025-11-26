@@ -94,7 +94,23 @@ let
     buildInputs = [ agdaStdlib agdaStdlibClasses agdaStdlibMeta ];
   };
 
-  deps = [ agdaStdlib agdaStdlibClasses agdaStdlibMeta agdaSets agdaIOGPrelude ];
+  agdaIrrelevance = agdaPackages.mkDerivation {
+    inherit (locales) LANG LC_ALL LOCALE_ARCHIVE;
+    pname = "agda-irrelevance";
+    version = "2.3";
+    src = pkgs.fetchFromGitHub {
+      repo = "agda-irrelevance";
+      owner = "omelkonian";
+      rev = "main";
+      sha256 = "sha256-7AvwgVPdiNe3/cuXF2Pm2LvQv0G645Gq90H5dgYbn+I=";
+    };
+    meta = { };
+    libraryFile = "agda-irrelevance.agda-lib";
+    everythingFile = "Irrelevance.agda";
+    buildInputs = [ agdaStdlib agdaStdlibClasses ];
+  };
+
+  deps = [ agdaStdlib agdaStdlibClasses agdaStdlibMeta agdaSets agdaIOGPrelude agdaIrrelevance ];
 
   fs = pkgs.lib.fileset;
   addToAgdaSrc = other: fs.toSource {
