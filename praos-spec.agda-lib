@@ -3,4 +3,5 @@ depend:
   standard-library
   standard-library-classes
   iog-prelude
+  agda-irrelevance
 include: src

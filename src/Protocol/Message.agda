@@ -12,3 +12,10 @@ data Message : Type where
 
 projBlock : Message → Block
 projBlock (newBlock b) = b
+
+instance
+  DecEq-Message : DecEq Message
+  DecEq-Message ._≟_ (newBlock b) (newBlock b′)
+    with b ≟ b′
+  ... | no  b≢b′ = no λ m≡m′ → contradiction (cong projBlock m≡m′) b≢b′
+  ... | yes b≡b′ = yes $ cong newBlock b≡b′
