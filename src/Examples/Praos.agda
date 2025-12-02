@@ -49,21 +49,34 @@ open import Protocol.Tree  ⦃ praosParams ⦄ ⦃ praosHashableBlock ⦄
 open import Protocol.Chain ⦃ praosParams ⦄ ⦃ praosHashableBlock ⦄
 
 -- NOTE: Implementation as described in the Praos paper
-record PraosTreeImpl : Type where
-  field
-    currChain : Chain      -- current best chain
-    chainPool : List Chain -- chains received so far in the slot
+PraosTreeImpl : Type
+PraosTreeImpl = List Chain -- chains received so far in the slot
 
-open PraosTreeImpl
+_fitsIn_ : Block → Op₁ Chain
+b fitsIn [] = []
+b fitsIn c′@(b′ ∷ c) = if b .prev == hash b′ then b ∷ c′ else c
+
+maxLength : PraosTreeImpl → ℕ
+maxLength cs = (case L.reverse $ sort $ map length cs of λ where
+  [] → 0
+  (l ∷ _) → l)
+  where
+    open import Data.Nat.Properties using (≤-decTotalOrder)
+    open import Data.List.Sort.InsertionSort ≤-decTotalOrder
+
+maxChain : PraosTreeImpl → Chain
+maxChain cs = case L.findᵇ ((_== maxLength cs) ∘ length) cs of λ where
+  nothing → []
+  (just c) → c
 
 instance
   praosTree : Tree PraosTreeImpl
   praosTree = record
     { -- Operations
-      tree₀         = record { currChain = [ genesisBlock ] ; chainPool = [] }
-    ; extendTree    = {!!}
-    ; allBlocks     = {!!}
-    ; bestChain     = λ sl t → {!!}
+      tree₀         = [ [ genesisBlock ] ]
+    ; extendTree    = λ cs b → map (b fitsIn_) cs
+    ; allBlocks     = L.deduplicateᵇ (_==_) ∘ L.concat
+    ; bestChain     = λ sl cs → maxChain cs
       -- Axioms
     ; instantiated  = {!!}
     ; extendable    = {!!}
