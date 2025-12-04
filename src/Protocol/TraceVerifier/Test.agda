@@ -13,42 +13,46 @@ open import Protocol.Message       ⦃ praosParams ⦄
 open import Protocol.Assumptions   ⦃ praosParams ⦄
 open import Protocol.Prelude
 open import Prelude.Closures _—→_ hiding (Trace; states)
-open import Irrelevance.List.Permutation using (_·↭_; ·↭-refl; ·↭-swap; module ·↭-Reasoning)
+open import Irrelevance.List.Permutation using (_·↭_; ·↭-refl; ·↭-swap)
 open Envelope
 open Assumptions praosAssumptions
 
 opaque
-  unfolding honestMsgsDelivery corruptMsgsDelivery
+  unfolding honestMsgsDelivery corruptMsgsDelivery honestBlockMaking corruptBlockMaking
 
   --
   -- An example of a derivation
   --
 
-  b₀ b₁ : Block
+  b₀ b₁ b₂ : Block
   b₀ = genesisBlock
   b₁ = mkBlock 1 10 _ 𝕃
+  b₂ = mkBlock 1  1 _ 𝕃
 
-  c₀ c₁ : Chain
-  c₀ = [ b₀ ]
-  c₁ = [ b₁ ⨾ b₀ ]
-
-  m₁ : Message
-  m₁ = newBlock b₁
-
-  e₁ : Envelope
-  e₁ = ⦅ m₁ , ℍ , 𝟘 ⦆
+  mb₁ mb₂ : Message
+  mb₁ = newBlock b₁
+  mb₂ = newBlock b₂
 
   _ : record N₀
-      { messages  = [ e₁ ] }
+      { messages  = [ ⦅ mb₁ , ℍ , 𝟘 ⦆ ] }
       —↠
       record N₀
       { progress  = ready
+      ; messages  = [ ⦅ mb₂ , 𝕃 , 𝟘 ⦆
+                    ⨾ ⦅ mb₂ , ℍ , 𝟘 ⦆
+                    ⨾ ⦅ mb₂ , ℂ , 𝟘 ⦆
+                    ]
+      ; history   = [ mb₂ ]
+      ; states    = [ (𝕃 , record { tree = [ [ b₂ ⨾ b₀ ] ] })
+                    ⨾ (ℍ , record { tree = [ [ b₁ ⨾ b₀ ] ] })
+                    ⨾ (ℂ , record { tree = [ [ b₀ ] ] })
+                    ]
       ; execOrder = [ ℍ ⨾ 𝕃 ⨾ ℂ ]
       ; clock     = 2
       }
   _ = begin
         record N₀
-        { messages = [ e₁ ] }
+        { messages = [ ⦅ mb₁ , ℍ , 𝟘 ⦆ ] }
       —→⟨ deliverMsgs
             refl
             ( honestParty↓  refl refl
@@ -60,23 +64,60 @@ opaque
         record N₀
         { progress  = msgsDelivered
         ; messages  = []
-        ; states    = [ (𝕃 , record { tree = [ c₀ ] })
-                      ⨾ (ℍ , record { tree = [ c₁ ] })
-                      ⨾ (ℂ , record { tree = [ c₀ ] })
+        ; states    = [ (𝕃 , record { tree = [ [ b₀ ] ] })
+                      ⨾ (ℍ , record { tree = [ [ b₁ ⨾ b₀ ] ] })
+                      ⨾ (ℂ , record { tree = [ [ b₀ ] ] })
                       ]
         }
-      —→⟨ {!!} ⟩ -- TODO: Replace by a `makeBlock` transition
+      —→⟨ makeBlock
+            refl
+            ( honestParty↑ {ls = record { tree = [ [ b₀ ] ] }} refl refl
+            ∷ honestParty↑ refl refl
+            ∷ corruptParty↑ refl refl
+            ∷ []
+            )
+        ⟩
         record N₀
-        { progress  = blockMade }
+        { progress  = blockMade
+        ; messages  = [ ⦅ mb₂ , 𝕃 , 𝟙 ⦆
+                      ⨾ ⦅ mb₂ , ℍ , 𝟙 ⦆
+                      ⨾ ⦅ mb₂ , ℂ , 𝟙 ⦆
+                      ]
+        ; history   = [ mb₂ ]
+        ; states    = [ (𝕃 , record { tree = [ [ b₂ ⨾ b₀ ] ] })
+                      ⨾ (ℍ , record { tree = [ [ b₁ ⨾ b₀ ] ] })
+                      ⨾ (ℂ , record { tree = [ [ b₀ ] ] })
+                      ]
+        }
       —→⟨ permuteParties (·↭-swap 𝕃 ℍ (·↭-refl [ ℂ ])) ⟩
         record N₀
         { progress  = blockMade
-        ; execOrder = [ ℍ ⨾ 𝕃 ⨾ ℂ ] }
+        ; messages  = [ ⦅ mb₂ , 𝕃 , 𝟙 ⦆
+                      ⨾ ⦅ mb₂ , ℍ , 𝟙 ⦆
+                      ⨾ ⦅ mb₂ , ℂ , 𝟙 ⦆
+                      ]
+        ; history   = [ mb₂ ]
+        ; states    = [ (𝕃 , record { tree = [ [ b₂ ⨾ b₀ ] ] })
+                      ⨾ (ℍ , record { tree = [ [ b₁ ⨾ b₀ ] ] })
+                      ⨾ (ℂ , record { tree = [ [ b₀ ] ] })
+                      ]
+        ; execOrder = [ ℍ ⨾ 𝕃 ⨾ ℂ ]
+        }
       —→⟨ advanceRound refl ⟩
         record N₀
         { progress  = ready
+        ; messages  = [ ⦅ mb₂ , 𝕃 , 𝟘 ⦆
+                      ⨾ ⦅ mb₂ , ℍ , 𝟘 ⦆
+                      ⨾ ⦅ mb₂ , ℂ , 𝟘 ⦆
+                      ]
+        ; history   = [ mb₂ ]
+        ; states    = [ (𝕃 , record { tree = [ [ b₂ ⨾ b₀ ] ] })
+                      ⨾ (ℍ , record { tree = [ [ b₁ ⨾ b₀ ] ] })
+                      ⨾ (ℂ , record { tree = [ [ b₀ ] ] })
+                      ]
         ; execOrder = [ ℍ ⨾ 𝕃 ⨾ ℂ ]
-        ; clock     = 2 }
+        ; clock     = 2
+        }
       ∎
 
 --
@@ -89,6 +130,8 @@ testTrace₁ = L.reverse $
   [ PermuteParties [ ℍ ⨾ 𝕃 ⨾ ℂ ]
   ⨾ PermuteParties [ ℂ ⨾ ℍ ⨾ 𝕃 ]
   ⨾ DeliverMsgs
+  ⨾ MakeBlock
+  ⨾ AdvanceRound
   ]
 
 _ : ¿ ValidTrace testTrace₁ ¿ᵇ ≡ true

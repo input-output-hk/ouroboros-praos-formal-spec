@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled in
-
 {-# OPTIONS --erasure #-}
 
 open import Protocol.Assumptions using (Assumptions)
@@ -59,6 +57,43 @@ deliverMsgsTo∗F-∷ N p ps = case Computational.decidable Computational-↝↓
 ↓→∗-deliverMsgsTo∗F : ∀ N ps → _ ⊢ N —[ ps ]↓→∗ deliverMsgsTo∗F ps N
 ↓→∗-deliverMsgsTo∗F N [] = []
 ↓→∗-deliverMsgsTo∗F N (p ∷ ps) rewrite deliverMsgsTo∗F-∷ N p ps = ↓→-deliverMsgsToF N p ∷ ↓→∗-deliverMsgsTo∗F (deliverMsgsToF p N) ps
+
+compute-↝↑-maybe′ : ∀ N p → M.maybe′ (const ⊤) ⊥ (compute-↝↑ N p)
+compute-↝↑-maybe′ N p = _
+
+compute-↝↑∗-maybe′ : ∀ N ps → M.maybe′ (const ⊤) ⊥ (compute-↝↑∗ N ps)
+compute-↝↑∗-maybe′ N ps rewrite Is-just⇒to-witness $ isJust⇒Is-just (compute-↝↑∗-total N ps) = _
+
+makeBlockForF : Party → Op₁ GlobalState
+makeBlockForF p N = fromJust (compute-↝↑ N p) {pr = compute-↝↑-maybe′ N p}
+
+makeBlockFor∗F : List Party → Op₁ GlobalState
+makeBlockFor∗F ps N = fromJust (compute-↝↑∗ N ps) {pr = compute-↝↑∗-maybe′ N ps}
+
+makeBlockF : Op₁ GlobalState
+makeBlockF N = record (makeBlockFor∗F (N .execOrder) N) { progress = blockMade }
+
+↑→-makeBlockForF : ∀ N p → _ ⊢ N —[ p ]↑→ makeBlockForF p N
+↑→-makeBlockForF N p = case Computational.decidable Computational-↝↑ N p of λ where
+  (no q)         → contradiction (↝↑-total N p) q
+  (yes (N′ , q)) → subst (λ ◆ → N ↝[ p ]↑ ◆) (just⇒fromJust {pr = compute-↝↑-maybe′ N p} (sym $ Computational.completeness Computational-↝↑ _ _ _ q)) q
+
+makeBlockFor∗F-∷ : ∀ N p ps → makeBlockFor∗F (p ∷ ps) N ≡ makeBlockFor∗F ps (makeBlockForF p N)
+makeBlockFor∗F-∷ N p ps = case Computational.decidable Computational-↝↑ N p of λ where
+  (no q) → contradiction (↝↑-total N p) q
+  (yes (N′ , q)) → (case Computational.decidable Computational-↝↑∗ N′ ps of λ where
+    (yes (N″ , r)) →
+      let
+        N″≡  = just⇒fromJust {pr = compute-↝↑∗-maybe′ N (p ∷ ps)} (sym $ Computational.completeness Computational-↝↑∗ _ _ _ (q ∷ r))
+        N′≡  = just⇒fromJust {pr = compute-↝↑-maybe′  N  p      } (sym $ Computational.completeness Computational-↝↑  _ _ _   q)
+        N″≡′ = just⇒fromJust {pr = compute-↝↑∗-maybe′ N′     ps } (sym $ Computational.completeness Computational-↝↑∗ _ _ _      r)
+      in
+        subst₂ (λ ◆ ◇ → ◆ ≡ makeBlockFor∗F ps ◇) (subst (_≡ makeBlockFor∗F (p ∷ ps) N) N″≡′ N″≡) N′≡ refl
+    (no r) → contradiction (↝↑∗-total N′ ps) r)
+
+↑→∗-makeBlockFor∗F : ∀ N ps → _ ⊢ N —[ ps ]↑→∗ makeBlockFor∗F ps N
+↑→∗-makeBlockFor∗F N [] = []
+↑→∗-makeBlockFor∗F N (p ∷ ps) rewrite makeBlockFor∗F-∷ N p ps = ↑→-makeBlockForF N p ∷ ↑→∗-makeBlockFor∗F (makeBlockForF p N) ps
 
 advanceRoundF : Op₁ GlobalState
 advanceRoundF N = record (tick N) { progress = ready }
@@ -120,7 +155,7 @@ open import Prelude.Closures _—→_ hiding (Trace)
 
 data Action : Type where
   DeliverMsgs     : Action
---  MakeBlock       : ??? → Action
+  MakeBlock       : Action
   AdvanceRound    : Action
   PermuteParties  : List Party → Action
   PermuteMsgs     : List Envelope → Action
@@ -135,6 +170,8 @@ private variable
 data ValidAction : Action → GlobalState → Type where
   DeliverMsgs : ⦃ _ : N .progress ≡ ready ⦄ →
     ValidAction DeliverMsgs N
+  MakeBlock : ⦃ _ : N .progress ≡ msgsDelivered ⦄ →
+    ValidAction MakeBlock N
   AdvanceRound : ⦃ _ : N .progress ≡ blockMade ⦄ →
     ValidAction AdvanceRound N
   PermuteParties : ∀ {parties} ⦃ _ : N .execOrder ·↭ parties ⦄ →
@@ -146,6 +183,8 @@ data ValidAction : Action → GlobalState → Type where
 ⟦_⟧ {α}{N} = λ where
   DeliverMsgs →
     deliverMsgsF N
+  MakeBlock →
+    makeBlockF N
   AdvanceRound →
     advanceRoundF N
   (PermuteParties {parties = ps}) →
@@ -168,6 +207,12 @@ instance
     = no λ where (DeliverMsgs ⦃ r ⦄) → ¬r r
   ... | yes r
     = yes $ DeliverMsgs ⦃ r ⦄
+  Dec-ValidAction {MakeBlock}{N} .dec
+    with N .progress ≟ msgsDelivered
+  ... | no ¬m
+    = no λ where (MakeBlock ⦃ m ⦄) → ¬m m
+  ... | yes m
+    = yes $ MakeBlock ⦃ m ⦄
   Dec-ValidAction {AdvanceRound}{N} .dec
     with N .progress ≟ blockMade
   ... | no ¬bm
@@ -207,6 +252,9 @@ Irr-ValidAction : Irrelevant (ValidAction α N)
 Irr-ValidAction (DeliverMsgs ⦃ r ⦄) (DeliverMsgs ⦃ r′ ⦄)
   rewrite ≡-irrelevant r r′
   = refl
+Irr-ValidAction (MakeBlock ⦃ m ⦄) (MakeBlock ⦃ m′ ⦄)
+  rewrite ≡-irrelevant m m′
+  = refl
 Irr-ValidAction (AdvanceRound ⦃ bm ⦄) (AdvanceRound ⦃ bm′ ⦄)
   rewrite ≡-irrelevant bm bm′
   = refl
@@ -238,12 +286,12 @@ instance
   ... | yes vα = yes $ _ ∷ vαs ⊣ vα
 
 getLabel : N —→ N′ → Action
-getLabel {N}{N′} = λ where
-  (deliverMsgs _ _) → DeliverMsgs
-  (advanceRound _) → AdvanceRound
-  (permuteParties {parties = ps} _) → PermuteParties ps
-  (permuteMsgs {envelopes = es} _) → PermuteMsgs es
-  (makeBlock _ _) → {!!}
+getLabel {N} {N′} = λ where
+  (deliverMsgs                     _ _) → DeliverMsgs
+  (makeBlock                       _ _) → MakeBlock
+  (advanceRound                    _  ) → AdvanceRound
+  (permuteParties {parties   = ps} _  ) → PermuteParties ps
+  (permuteMsgs    {envelopes = es} _  ) → PermuteMsgs es
 
 getLabels : (N′ ↞— N) → List Action
 getLabels = λ where
@@ -254,20 +302,21 @@ ValidAction-sound :
   (va : ValidAction α N) →
   N —→ ⟦ va ⟧
 ValidAction-sound = λ where
-  (DeliverMsgs {N} ⦃ r ⦄) → deliverMsgs r (↓→∗-deliverMsgsTo∗F N (N .execOrder))
-  (AdvanceRound ⦃ bm ⦄) → advanceRound bm
-  (PermuteParties ⦃ eo↭ ⦄) → permuteParties eo↭
-  (PermuteMsgs ⦃ ms↭ ⦄) → permuteMsgs ms↭
+  (DeliverMsgs    {N} ⦃ r   ⦄) → deliverMsgs    r  (↓→∗-deliverMsgsTo∗F N (N .execOrder))
+  (MakeBlock      {N} ⦃ m   ⦄) → makeBlock      m  (↑→∗-makeBlockFor∗F  N (N .execOrder))
+  (AdvanceRound       ⦃ bm  ⦄) → advanceRound   bm
+  (PermuteParties     ⦃ eo↭ ⦄) → permuteParties eo↭
+  (PermuteMsgs        ⦃ ms↭ ⦄) → permuteMsgs    ms↭
 
 ValidAction-complete :
   (st : N —→ N′) →
   ValidAction (getLabel st) N
 ValidAction-complete = λ where
-  (deliverMsgs r _) → DeliverMsgs ⦃ r ⦄
-  (advanceRound bm) → AdvanceRound ⦃ bm ⦄
-  (permuteParties eo↭) → (PermuteParties ⦃ eo↭ ⦄)
-  (permuteMsgs ms↭) → (PermuteMsgs ⦃ ms↭ ⦄)
-  (makeBlock _ _) → {!!}
+  (deliverMsgs    r  _) → DeliverMsgs    ⦃ r   ⦄
+  (makeBlock      m  _) → MakeBlock      ⦃ m   ⦄
+  (advanceRound   bm  ) → AdvanceRound   ⦃ bm  ⦄
+  (permuteParties eo↭ ) → PermuteParties ⦃ eo↭ ⦄
+  (permuteMsgs    ms↭ ) → PermuteMsgs    ⦃ ms↭ ⦄
 
 ValidAction-⟦⟧ : (st : N —→ N′) → ⟦ ValidAction-complete st ⟧ ≡ N′
 ValidAction-⟦⟧ {N} (deliverMsgs {N′ = N″} _ ts) =
@@ -277,10 +326,16 @@ ValidAction-⟦⟧ {N} (deliverMsgs {N′ = N″} _ ts) =
     ≡⟨ cong (λ ◆ → record ◆ { progress = msgsDelivered }) (Computational.functional Computational-↝↓∗ (↓→∗-deliverMsgsTo∗F N (N .execOrder)) ts) ⟩
       record N″ { progress = msgsDelivered }
     ≡-∎
-ValidAction-⟦⟧ (makeBlock _ _) = {!!}
-ValidAction-⟦⟧ (advanceRound _) = refl
+ValidAction-⟦⟧ {N} (makeBlock {N′ = N″} _ ts) =
+  let open ≡-Reasoning renaming (begin_ to ≡-begin_; _∎ to _≡-∎) in
+    ≡-begin
+      record (makeBlockFor∗F (N .execOrder) N) { progress = blockMade }
+    ≡⟨ cong (λ ◆ → record ◆ { progress = blockMade }) (Computational.functional Computational-↝↑∗ (↑→∗-makeBlockFor∗F N (N .execOrder)) ts) ⟩
+      record N″ { progress = blockMade }
+    ≡-∎
+ValidAction-⟦⟧ (advanceRound   _) = refl
 ValidAction-⟦⟧ (permuteParties _) = refl
-ValidAction-⟦⟧ (permuteMsgs _) = refl
+ValidAction-⟦⟧ (permuteMsgs    _) = refl
 
 ValidTrace-sound :
   (tr : ValidTrace αs) →

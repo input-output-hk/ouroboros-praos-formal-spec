@@ -73,3 +73,43 @@ compute-↝↓∗-total N ps rewrite Computational.completeness Computational-�
 ↝↑-injective (corruptParty↑ π _) (unknownParty↑ π′  ) = contradiction π′ (subst (_≢ nothing) (sym π) λ ())
 ↝↑-injective (corruptParty↑ _ π) (honestParty↑  _ π′) = contradiction π′ $ corrupt⇒¬honest π
 ↝↑-injective (corruptParty↑ _ _) (corruptParty↑ _ _ ) = refl
+
+↝↑-total : ∀ N p → ∃[ N′ ] _ ⊢ N —[ p ]↑→ N′
+↝↑-total N p with N .states ⁉ p in eq
+... | nothing   = N , unknownParty↑ eq
+... | just ls with honestyOf p in honesty
+...   | honest  = honestBlockMaking  p ls N , honestParty↑  eq honesty
+...   | corrupt = corruptBlockMaking p    N , corruptParty↑ eq honesty
+
+instance
+  Computational-↝↑ : Computational _⊢_—[_]↑→_
+  Computational-↝↑ = record {go} where module go where
+
+    functional : ∀ {N p} → Functional (_ ⊢ N —[ p ]↑→_)
+    functional {N} {p} {s} {s′} = sym ∘₂ ↝↑-injective {N} {N′ = s} {N″ = s′} {p = p}
+
+    decidable : ∀ N p → Dec $ ∃ (_ ⊢ N —[ p ]↑→_)
+    decidable = yes ∘₂ ↝↑-total
+
+compute-↝↑ = Computational.compute Computational-↝↑
+
+compute-↝↑-total : ∀ N p → isJust $ compute-↝↑ N p
+compute-↝↑-total N p = _
+
+↝↑∗-total : ∀ N ps → ∃[ N′ ] _ ⊢ N —[ ps ]↑→∗ N′
+↝↑∗-total N [] = N , []
+↝↑∗-total N (p ∷ ps) =
+  let
+    (N′ , q) = ↝↑-total N p
+    (N″ , r) = ↝↑∗-total N′ ps
+  in
+    N″ , q ∷ r
+
+instance
+  Computational-↝↑∗ : Computational _⊢_—[_]↑→∗_
+  Computational-↝↑∗ = Computational∗
+
+compute-↝↑∗ = Computational.compute Computational-↝↑∗
+
+compute-↝↑∗-total : ∀ N ps → isJust $ compute-↝↑∗ N ps
+compute-↝↑∗-total N ps rewrite Computational.completeness Computational-↝↑∗ _ _ _ (↝↑∗-total N ps .proj₂) = _
