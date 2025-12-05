@@ -28,7 +28,18 @@ record Envelope : Type where
   Immediate : Pred Party 0ℓ
   Immediate = flip DeliveredIn 𝟘
 
-open Envelope ⦃ ... ⦄
+open Envelope
+
+open import Function.Nary.NonDependent using (congₙ)
+
+instance
+  DecEq-Envelope : DecEq Envelope
+  DecEq-Envelope ._≟_ e e′
+    with e .msg ≟ e′ .msg | e .rcv ≟ e′ .rcv | e .cd ≟ e′ .cd
+  ... | yes msg≡ | yes rcv≡ | yes cd≡ = yes $ congₙ 3 ⦅_,_,_⦆ msg≡ rcv≡ cd≡
+  ... | no ¬msg≡ | _        | _       = no λ e≡e′ → contradiction (cong msg e≡e′) ¬msg≡
+  ... | _        | no ¬rcv≡ | _       = no λ e≡e′ → contradiction (cong rcv e≡e′) ¬rcv≡
+  ... | _        | _        | no ¬cd≡ = no λ e≡e′ → contradiction (cong cd  e≡e′) ¬cd≡
 
 decreaseDelay : Envelope → Envelope
 decreaseDelay ev = record ev { cd = Fi.pred (ev .cd) }
