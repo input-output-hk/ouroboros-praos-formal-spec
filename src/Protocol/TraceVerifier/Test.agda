@@ -120,29 +120,29 @@ opaque
         }
       ∎
 
---
--- Tests of valid and invalid traces
---
+  --
+  -- Tests of valid and invalid traces
+  --
 
--- A valid trace:
-testTrace₁ : Trace
-testTrace₁ = L.reverse $
-  [ PermuteParties [ ℍ ⨾ 𝕃 ⨾ ℂ ]
-  ⨾ PermuteParties [ ℂ ⨾ ℍ ⨾ 𝕃 ]
-  ⨾ DeliverMsgs
-  ⨾ MakeBlock
-  ⨾ AdvanceRound
-  ]
+  -- A valid trace:
+  testTrace₁ : Trace
+  testTrace₁ = L.reverse $
+    [ PermuteParties [ ℍ ⨾ 𝕃 ⨾ ℂ ]
+    ⨾ DeliverMsgs
+    ⨾ MakeBlock
+    ⨾ PermuteParties [ ℂ ⨾ 𝕃 ⨾ ℍ ]
+    ⨾ AdvanceRound
+    ]
 
-_ : ¿ ValidTrace testTrace₁ ¿ᵇ ≡ true
-_ = refl
+  _ : ¿ ValidTrace testTrace₁ ¿ᵇ ≡ true
+  _ = refl
 
--- An invalid trace; `AdvanceRound` can only be executed when `progress` is `blockMade`:
-testTrace₂ : Trace
-testTrace₂ = L.reverse $
-  [ PermuteParties [ ℍ ⨾ 𝕃 ⨾ ℂ ]
-  ⨾ AdvanceRound
-  ]
+  -- An invalid trace; `AdvanceRound` can only be executed when `progress` is `blockMade`:
+  testTrace₂ : Trace
+  testTrace₂ = L.reverse $
+    [ PermuteParties [ ℍ ⨾ 𝕃 ⨾ ℂ ]
+    ⨾ AdvanceRound
+    ]
 
-_ : ¿ ValidTrace testTrace₂ ¿ᵇ ≡ false
-_ = refl
+  _ : ¿ ValidTrace testTrace₂ ¿ᵇ ≡ false
+  _ = refl
