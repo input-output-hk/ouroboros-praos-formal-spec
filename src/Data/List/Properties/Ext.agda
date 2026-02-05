@@ -9,12 +9,13 @@ open import Relation.Binary.PropositionalEquality using (refl; _≡_; _≢_; mod
 open import Data.Maybe using (nothing)
 open import Data.List using (List; []; [_]; _∷_; _∷ʳ_; _++_; map; filter; length; updateAt; _[_]%=_; lookup; findᵇ; find; upTo; downFrom; reverse; foldr; deduplicate; replicate)
 open import Data.List.Ext using (ι; count; undup)
-open import Data.List.Properties using (∷ʳ-injective; filter-++; filter-accept; filter-reject; ++-identityʳ; unfold-reverse; ++-cancelˡ; ∷-injectiveˡ; ∷-injectiveʳ; reverse-selfInverse; length-map; length-downFrom; length-reverse; filter-all; filter-none)
+open import Data.List.Properties using (∷ʳ-injective; filter-++; filter-accept; filter-reject; ++-identityʳ; unfold-reverse; ++-cancelˡ; ∷-injectiveˡ; ∷-injectiveʳ; reverse-selfInverse; length-map; length-downFrom; length-reverse; filter-all; filter-none; reverse-++; ++-assoc)
 open import Data.List.Membership.Propositional using (_∈_; _∉_)
 open import Data.List.Membership.Propositional.Properties using (∈-deduplicate⁻)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; ∉-filter⁺)
 open import Data.List.Relation.Unary.Any using (here; there)
 open import Data.List.Relation.Unary.All using (All; tabulate) renaming (map to mapA)
+open import Data.List.Relation.Unary.All.Properties using (∷ʳ⁺)
 open import Data.List.Relation.Unary.All.Properties.Ext using (All-∁∅)
 open import Relation.Unary using (Pred; Decidable; ∅; Empty)
 open import Relation.Unary.Properties using (_∩?_)
@@ -140,6 +141,10 @@ module _ {a p} {A : Set a} ⦃ _ : DecEq A ⦄ {P : Pred A p} (P? : Decidable P)
 length0⇒[] : ∀ {a} {A : Set a} {xs : List A} → length xs ≡ 0 → xs ≡ []
 length0⇒[] {xs = []} p = refl
 
+all-reverse : ∀ {ℓ ℓ′} {A : Set ℓ} {P : Pred A ℓ′} (P? : Decidable P) {xs : List A} → All P xs → All P (reverse xs)
+all-reverse P? {xs = []} All.[] = All.[]
+all-reverse P? {xs = x ∷ xs} (Px All.∷ Pxs) rewrite reverse-++ [ x ] xs = ∷ʳ⁺ (all-reverse P?{xs = xs} Pxs) Px
+
 module _ (P? : Decidable P) where
 
  filter-rejectʳ : ∀ {x xs} → ¬ P x → filter P? (xs ∷ʳ x) ≡ filter P? xs
@@ -153,6 +158,13 @@ module _ (P? : Decidable P) where
  ... | yes Px′ = [] , xs , subst (λ ◆ → x ∷ xs ≡ ◆ ∷ xs) (sym $ just-injective p) refl , subst P (just-injective p) Px′ , All.[]
  ... | no ¬Px′ with find-∃ {x} {xs} p
  ... |   (ys′ , zs′ , ys′+x+zs′≡xs , Px , ¬Pys′) = x′ ∷ ys′ , zs′ , cong (x′ ∷_) ys′+x+zs′≡xs , Px , ¬Px′ All.∷ ¬Pys′
+
+ find-∃ʳ : ∀ {x xs} → find P? (reverse xs) ≡ just x → ∃[ ys ] ∃[ zs ] ys ++ [ x ] ++ zs ≡ xs × P x × All (¬_ ∘ P) zs
+ find-∃ʳ {x} {xs} p with find-∃ {xs = reverse xs} p
+ ... | ys , zs , ys+x+zs≡rev[xs] , Px , ¬Pys = reverse zs , reverse ys , eq , Px , all-reverse (¬? ∘ P?) ¬Pys
+   where
+     eq : reverse zs ++ x ∷ reverse ys ≡ xs
+     eq rewrite sym $ reverse-++ ys [ x ] | sym $ reverse-++ (ys ∷ʳ x) zs | ++-assoc ys [ x ] zs = subst (reverse (ys ++ x ∷ zs) ≡_) (reverse-selfInverse refl) (cong reverse ys+x+zs≡rev[xs])
 
  open import Data.List.Relation.Unary.Any using (Any; here; there)
 

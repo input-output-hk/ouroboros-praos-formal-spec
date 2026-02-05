@@ -1,12 +1,15 @@
 module Data.List.Relation.Unary.All.Properties.Ext where
 
-open import Function.Base using (_∘_)
-open import Relation.Unary using (Pred; U; ∁; ∅)
+open import Function.Base using (_∘_; _$_)
+open import Relation.Unary using (Pred; U; ∁; ∅; Decidable)
 open import Relation.Unary.Properties.Ext using (U⊆∁∅)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; subst)
 open import Data.Unit using (tt)
 open import Data.Product using (_×_; _,_)
-open import Data.List using (List; cartesianProduct)
+open import Data.List using (List; []; _∷_; _++_; cartesianProduct; filter; reverse)
 open import Data.List.Relation.Unary.All using (All; lookup; tabulate; map)
+open import Data.List.Relation.Unary.All.Properties using (singleton⁻; ++⁺; ++⁻)
+open import Data.List.Properties using (filter-reject; unfold-reverse)
 open import Data.List.Membership.Propositional using (_∈_)
 open import Data.List.Membership.Propositional.Properties using (∈-cartesianProduct⁺)
 
@@ -21,3 +24,16 @@ All-U _ = tabulate λ {_} _ → tt
 
 All-∁∅ : ∀ {ℓ} {A : Set ℓ} (xs : List A) → All (∁ ∅) xs
 All-∁∅ {A = A} = map (λ {x} → U⊆∁∅ {A = A} {x}) ∘ All-U
+
+All-∁-filter : ∀ {ℓ ℓ′} {A : Set ℓ} {P : Pred A ℓ′} {P? : Decidable P} {xs : List A} → All (∁ P) xs → filter P? xs ≡ []
+All-∁-filter           {xs = []}     All.[] = refl
+All-∁-filter {P? = P?} {xs = x ∷ xs} (∁Px All.∷ ∁Pxs) rewrite filter-reject P? {xs = xs} ∁Px = All-∁-filter ∁Pxs
+
+All-reverse⁺ : ∀ {ℓ ℓ′} {A : Set ℓ} {P : Pred A ℓ′} {xs : List A} → All P xs → All P (reverse xs)
+All-reverse⁺ {xs = []}     All.[] = All.[]
+All-reverse⁺ {xs = x ∷ xs} (Px All.∷ Pxs) rewrite unfold-reverse x xs = ++⁺ (All-reverse⁺ Pxs)  (Px All.∷ All.[])
+
+All-reverse⁻ : ∀ {ℓ ℓ′} {A : Set ℓ} {P : Pred A ℓ′} {xs : List A} → All P (reverse xs) → All P xs
+All-reverse⁻ {xs = []} p = p
+All-reverse⁻ {P = P} {xs = x ∷ xs} p with ++⁻ (reverse xs) (subst (All P) (unfold-reverse x xs) p)
+... | Prxs , P[x] = singleton⁻ P[x] All.∷ All-reverse⁻ Prxs

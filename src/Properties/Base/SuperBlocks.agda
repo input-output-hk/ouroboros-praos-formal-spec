@@ -74,6 +74,14 @@ superBlocksAltDef N
     | sym $ filter-∘-× ¿ Honest ∘ pid ¿¹ ¿ SuperSlot ∘ slot ¿¹ (blockHistory N)
     = refl
 
+-- Lucky slots: Slots where there are at least one honest winner.
+
+LuckySlotIn : REL (List Party) Slot 0ℓ
+LuckySlotIn ps sl = L.Any.Any (λ p → winner p sl × Honest p) ps
+
+LuckySlot : Pred Slot 0ℓ
+LuckySlot sl = LuckySlotIn parties₀ sl
+
 {--------
 -- NOTE: In Coq this is defined as:
 -- length (filter (λ p → ¿ winner p sl × Corrupt p ¿) $ L.allFin numParties) > 1
@@ -103,6 +111,9 @@ superSlotsInRange = filter ¿ SuperSlot ¿¹ ∘₂ slotsInRange
 
 superBlocksInRange : GlobalState → Slot → Slot → List Block
 superBlocksInRange N sl₁ sl₂ = filter (λ b → ¿ sl₁ ≤ b .slot × b .slot < sl₂ ¿) (superBlocks N)
+
+luckySlotsInRange : Slot → Slot → List Slot
+luckySlotsInRange = filter ¿ LuckySlot ¿¹ ∘₂ slotsInRange
 
 corruptSlotsInRange : Slot → Slot → List Slot
 corruptSlotsInRange = filter ¿ CorruptSlot ¿¹ ∘₂ slotsInRange

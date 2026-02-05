@@ -59,6 +59,17 @@ module _ {a p} {A : Set a} ⦃ _ : DecEq A ⦄ {P : Pred A p} (P? : Decidable P)
   ... | no  _ = there (∈-find⁻ {xs = xs′} eqf)
   ... | yes _ = here (sym (just-injective eqf))
 
+  open import Data.List.Relation.Unary.Any using (Any)
+  open import Data.Maybe using (Is-just)
+  open import Data.Maybe.Relation.Unary.Any using () renaming (just to justM)
+  open import Relation.Nullary.Decidable using (dec-yes)
+
+  Any⇒Is-just∘find : ∀ {xs : List A} → Any P xs → Is-just (find P? xs)
+  Any⇒Is-just∘find (here {x} Px) rewrite dec-yes (P? x) Px .proj₂ = justM _
+  Any⇒Is-just∘find (there {x} Pxs) with P? x
+  ... | yes _ = justM _
+  ... | no _ = Any⇒Is-just∘find Pxs
+
 ∈-∷ʳ⁻ : ∀ {a} {A : Set a} {xs : List A} {x y} → y ∈ xs ∷ʳ x → (y ∈ xs) ⊎ (y ≡ x)
 ∈-∷ʳ⁻ {xs = xs} {x = x} = ⊎-comm _ _ .Inverse.to ∘ ∈-∷⁻ ∘ ++-comm xs [ x ]
 
