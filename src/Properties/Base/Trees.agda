@@ -654,3 +654,9 @@ honestGlobalTreeBlocksMonotonicity {N} {N′} N₀↝⋆N N↝N′ {b} b∈htN
         ... | bs′ , b∈bs′ , bs′∈bss[ps*] with ¿ Honest p* ¿
         ...   | yes _ = bs′ , b∈bs′ , there bs′∈bss[ps*]
         ...   | no  _ = bs′ , b∈bs′ , bs′∈bss[ps*]
+
+honestTreeChainLengthMonotonicity : ∀ {N N′ : GlobalState} →
+    N₀ ↝⋆ N
+  → N ↝⋆ N′
+  → length (honestTreeChain N) ≤ length (honestTreeChain N′)
+honestTreeChainLengthMonotonicity = {!!}
