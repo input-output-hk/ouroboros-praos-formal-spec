@@ -75,3 +75,9 @@ module _ {T : Type} ⦃ _ : Tree T ⦄ where
         xs ++ ys ++ [ x ]    ↭⟨ ++⁺ˡ xs $ ++-comm ys _ ⟩
         xs ++ [ x ] ++ ys    ≡⟨ L.++-assoc xs [ x ] ys ⟨
         (xs ++ [ x ]) ++ ys  ∎
+
+  allBlocks⊆⇒|bestChain|≤ : ∀ {t t′ : T} (sl : Slot) → allBlocks t ⊆ˢ allBlocks t′ → length (bestChain sl t) ≤ length (bestChain sl t′)
+  allBlocks⊆⇒|bestChain|≤ {t} {t′} sl bks[t]⊆bks[t′] = optimal (bestChain sl t) t′ sl (valid t sl) (L.SubS.⊆-trans (selfContained t sl) $ L.SubS.filter⁺′ _ _ id bks[t]⊆bks[t′])
+
+  allBlocks⊆×≤ˢ⇒|bestChain|≤ : ∀ {t t′ : T} {sl sl′ : Slot} → allBlocks t ⊆ˢ allBlocks t′ → sl ≤ sl′ → length (bestChain sl t) ≤ length (bestChain sl′ t′)
+  allBlocks⊆×≤ˢ⇒|bestChain|≤ {t} {t′} {sl} {sl′} bks[t]⊆bks[t′] sl≤sl′ = optimal (bestChain sl t) t′ sl′ (valid t sl) (L.SubS.⊆-trans (selfContained t sl) (L.SubS.filter⁺′ _ _ (λ {b} bₜ≤sl → Nat.≤-trans bₜ≤sl sl≤sl′) bks[t]⊆bks[t′]))

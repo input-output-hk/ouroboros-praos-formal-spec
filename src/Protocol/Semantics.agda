@@ -99,6 +99,9 @@ record GlobalState : Type where
 
 open GlobalState public
 
+honestTreeChain : GlobalState → Chain
+honestTreeChain N = bestChain (N .clock ∸ 1) (honestTree N)
+
 honestBlockHistory : GlobalState → List Block
 honestBlockHistory = L.filter ¿ HonestBlock ¿¹ ∘ blockHistory
 
