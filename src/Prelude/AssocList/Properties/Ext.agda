@@ -4,17 +4,21 @@ module Prelude.AssocList.Properties.Ext where
 
 open import Function.Bundles using (_⇔_; mk⇔; Equivalence)
 open import Relation.Binary.PropositionalEquality using (trans)
+open import Relation.Binary.PropositionalEquality using (trans; subst₂)
 open import Data.Product using (_,′_)
 open import Data.Product.Properties using (×-≡,≡→≡)
 open import Data.List.Properties.Ext using (updateAt-id-local)
+open import Data.List.Membership.Propositional.Properties using (∈-map⁺)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻)
 open import Data.Maybe.Properties.Ext using ({- Is-just⇒to-witness;-} Is-just⇒∃; ≡just⇒Is-just)
+open import Data.Maybe.Properties.Ext using (Is-just⇒∃; ≡just⇒Is-just)
 open import Prelude.Init
 open import Class.Decidable using (¿_¿²)
 open import Prelude.Irrelevance using (AnyFirst-irrelevant; ·¬⇒¬; ¬⇒·¬)
 open import Class.DecEq using (DecEq; _≟_)
 open import Class.Default using (Default)
 open import Prelude.AssocList using (AssocList; _⁉_; _‼_; set; _∈ᵐ_; _∈ᵐ?_; modify; ∈ᵐ-irrelevant)
+open import Prelude.AssocList using (AssocList; _⁉_; _‼_; set; _∈ᵐ_; _∉ᵐ_; _∈ᵐ?_; modify; ∈ᵐ-irrelevant)
 
 private variable
   K V : Type
@@ -24,7 +28,32 @@ module _ ⦃ _ : DecEq K ⦄ where
   private variable
     m : AssocList K V
     k : K
+    k k′ : K
     v : V
+
+  ∈ᵐ-lookup : ∀ (k∈m : k ∈ᵐ m) → L.lookup m (L.First.index k∈m) .proj₁ ≡ k
+  ∈ᵐ-lookup First.[ refl ] = refl
+  ∈ᵐ-lookup {m = (k′ , v′) ∷ m′} (k≢k′ ∷ k∈m′) = ∈ᵐ-lookup {m = m′} k∈m′
+
+  ∉ᵐ⁻ : k ∉ᵐ ((k′ , v) ∷ m) → k ≢ k′ × k ∉ᵐ m
+  ∉ᵐ⁻ {k = k} {k′ = k′} {v = v} {m = m} k∉ᵐ[p∷m] = k≢k′ , k∉ᵐm
+    where
+      k≢k′ : k ≢ k′
+      k≢k′ with k ≟ k′
+      ... | yes k≡k′ = contradiction k∈ᵐ[p∷m] (·¬⇒¬ k∉ᵐ[p∷m])
+        where
+          k∈ᵐ[p∷m] : k ∈ᵐ ((k′ , v) ∷ m)
+          k∈ᵐ[p∷m] rewrite k≡k′ = First.[ refl ]
+      ... | no k≢k′ = k≢k′
+
+      k∉ᵐm : k ∉ᵐ m
+      k∉ᵐm k∈ᵐm = contradiction k∈ᵐ[p∷m] (·¬⇒¬ k∉ᵐ[p∷m])
+        where
+          k∈ᵐ[p∷m] : k ∈ᵐ ((k′ , v) ∷ m)
+          k∈ᵐ[p∷m] = ¬⇒·¬ k≢k′ ∷ k∈ᵐm
+
+  ∉ᵐ⇒⁉≡nothing : ∀ {m : AssocList K V} {k : K} → k ∉ᵐ m → m ⁉ k ≡ nothing
+  ∉ᵐ⇒⁉≡nothing {m = m} {k} k∉ᵐm rewrite dec-no (k ∈ᵐ? m) (·¬⇒¬ k∉ᵐm) = refl
 
   map-‼ : ∀ {ks : List K} → (k∈ks : k ∈ᵐ map (_, v) ks) → map (_, v) ks ‼ k∈ks ≡ v
   map-‼ {k = .k′} {v = _} {ks = k′ ∷ ks} First.[ refl ] = refl
@@ -56,15 +85,38 @@ module _ ⦃ _ : DecEq K ⦄ where
 
   map-⁉-≡ : ∀ {ks : List K} {k : K} (v : V) → map (_, v) (k ∷ ks) ⁉ k ≡ just v
   map-⁉-≡ = {!!}
+  map-⁉-≡ _ = let k∈ᵐm = First.[ refl ] in ‼⇒⁉ k∈ᵐm (map-‼ k∈ᵐm)
+
+  map-⁉-∈-just : ∀ {ks : List K} {k : K} (v : V) → k ∈ ks → map (_, v) ks ⁉ k ≡ just v
+  map-⁉-∈-just {ks = ks} {k} v k∈ks = let k∈ᵐm = ∈⇒∈ᵐ (∈-map⁺ _ $ ∈-map⁺ _ k∈ks) in ‼⇒⁉ k∈ᵐm (map-‼ k∈ᵐm)
 
   map-⁉-≢ : ∀ {ks : List K} {k k′ : K} (v : V) → k ≢ k′ → map (_, v) (k′ ∷ ks) ⁉ k ≡ map (_, v) ks ⁉ k
   map-⁉-≢ = {!!}
+  map-⁉-≢ {ks = ks} {k} {k′} v k≢k′ = case k ∈ᵐ? map (_, v) ks of λ where
+    (yes k∈ᵐm[ks]) → let
+        k∈ᵐm[k∷ks] = ¬⇒·¬ k≢k′ ∷ k∈ᵐm[ks]
+        p = ‼⇒⁉ k∈ᵐm[k∷ks] (map-‼ k∈ᵐm[k∷ks])
+        q = ‼⇒⁉ k∈ᵐm[ks] (map-‼ k∈ᵐm[ks])
+      in
+        subst₂ _≡_ (sym p) (sym q) refl
+    (no ¬k∈ᵐm) → trans (∉ᵐ⇒⁉≡nothing (k∉ᵐm[k′∷ks] ¬k∈ᵐm)) (sym $ ∉ᵐ⇒⁉≡nothing (¬⇒·¬ ¬k∈ᵐm))
+      where
+        k∉ᵐm[k′∷ks] : ¬ k ∈ᵐ map (_, v) ks → k ∉ᵐ map (_, v) (k′ ∷ ks)
+        k∉ᵐm[k′∷ks] ¬k∈ᵐm First.[ k≡k′ ] = contradiction k≡k′ k≢k′
+        k∉ᵐm[k′∷ks] ¬k∈ᵐm (k≢k′ ∷ k∈ᵐm[ks]) = contradiction k∈ᵐm[ks] ¬k∈ᵐm
 
   map-⁉-∈ : ∀ {ks : List K} {k k′ : K} (v : V) → k ∈ ks → map (_, v) (k′ ∷ ks) ⁉ k ≡ map (_, v) ks ⁉ k
   map-⁉-∈ = {!!}
 
   map-⁉-∈-just : ∀ {ks : List K} {k : K} (v : V) → k ∈ ks → map (_, v) ks ⁉ k ≡ just v
   map-⁉-∈-just = {!!}
+  map-⁉-∈ {ks = ks} {k} {k′} v k∈ks = case k ≟ k′ of λ where
+   (yes k≡k′) → let open ≡-Reasoning in begin
+     map (_, v) (k′ ∷ ks) ⁉ k   ≡⟨ cong (λ ◆ → map (_, v) (◆ ∷ ks) ⁉ k) (sym k≡k′) ⟩
+     map (_, v) (k ∷ ks) ⁉ k    ≡⟨ map-⁉-≡ v ⟩
+     just v                     ≡⟨ map-⁉-∈-just v k∈ks ⟨
+     map (_, v) ks ⁉ k          ∎
+   (no k≢k′) → map-⁉-≢ v k≢k′
 
   map-just⇔∈ : ∀ (ks : List K) (k : K) (v : V) → M.Is-just (map (_, v) ks ⁉ k) ⇔ k ∈ ks
   map-just⇔∈ []        _ _ = mk⇔ (λ ()) λ ()
