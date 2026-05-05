@@ -278,6 +278,137 @@ private
                 ... | yes hb* = λ b∈mds → sub (there b∈mds)
                 ... | no ¬hb* = sub
 
+  open RTC; open Starʳ
+
+  pastBestChainLength‡ : ∀ {N N′ b cₕ cₜ p ls N◆ N*} →
+      N◆ ↝⋆ʳ N*
+    → N* ↝⋆ N
+    → N′ ↝⋆ N◆
+    → N₀ ↝⋆ N′
+    → ForgingFree N
+    → CollisionFree N
+    → HonestBlock b
+    → N₀ ↝⋆ N
+    → (b ∷ cₕ) ✓
+    → Honest p
+    → N .states ⁉ p ≡ just ls
+    → cₜ ++ b ∷ cₕ ≡ bestChain (N .clock ∸ 1) (ls .tree)
+    → N◆ .clock ≡ b .slot
+    → N* .clock ≡ suc (b .slot)
+    → N◆ .progress ≡ ready
+    → N* .progress ≡ ready
+    → b ∈ blockHistory N*
+    → ∃[ ls′ ] N* .states ⁉ b .pid ≡ just ls′ × length (bestChain (N* .clock ∸ 1) (ls′ .tree)) ≡ length (b ∷ cₕ)
+  pastBestChainLength‡ εʳ _ _ _ _ _ _ _ _ _ _ _ N◆ₜ≡bₜ N◆ₜ≡bₜ+1 = contradiction (trans (sym N◆ₜ≡bₜ) N◆ₜ≡bₜ+1) λ ()
+  pastBestChainLength‡ {N} {N′} {b} {cₕ} {cₜ} {p} {ls} {N◆} {N*}
+    (_◅ʳ_ {j = N°} N◆↝⋆ʳN° N°↝N*) N*↝⋆N N′↝⋆N◆ N₀↝⋆N′ ffN cfN hb N₀↝⋆N [b+cₕ]✓ hp lspN cₜ+b+cₕ≡bcN
+    N◆ₜ≡bₜ N*ₜ≡bₜ+1 N◆Ready N*Ready b∈bhN* = goal′ N°↝N*
+    where
+      N°↝⋆N : N° ↝⋆ N
+      N°↝⋆N = N°↝N* ◅ N*↝⋆N
+
+      ih : N° .clock ≡ suc (b .slot) → N° .progress ≡ ready → b ∈ blockHistory N° → _
+      ih N°ₜ≡bₜ+1 N°Ready b∈bhN° =
+        pastBestChainLength‡ N◆↝⋆ʳN° N°↝⋆N N′↝⋆N◆ N₀↝⋆N′ ffN cfN hb N₀↝⋆N [b+cₕ]✓ hp lspN cₜ+b+cₕ≡bcN
+          N◆ₜ≡bₜ N°ₜ≡bₜ+1 N◆Ready N°Ready b∈bhN°
+
+      goal′ : N° ↝ N* → _
+      goal′ (permuteParties _) = ih N*ₜ≡bₜ+1 N*Ready b∈bhN*
+      goal′ (permuteMsgs    _) = ih N*ₜ≡bₜ+1 N*Ready b∈bhN*
+      goal′ (advanceRound N°BlockMade) = goal″ N◆↝⋆ʳN° N°↝⋆N N◆ₜ≡bₜ N°ₜ≡bₜ N◆Ready N°BlockMade b∈bhN*
+        where
+          N°ₜ≡bₜ : N° .clock ≡ b .slot
+          N°ₜ≡bₜ = Nat.suc-injective N*ₜ≡bₜ+1
+
+          goal″ : ∀ {N⁺} →
+              N◆ ↝⋆ʳ N⁺
+            → N⁺ ↝⋆ N
+            → N◆ .clock ≡ b .slot
+            → N⁺ .clock ≡ b .slot
+            → N◆ .progress ≡ ready
+            → N⁺ .progress ≡ blockMade
+            → b ∈ blockHistory N⁺
+            → ∃[ ls′ ] N⁺ .states ⁉ b .pid ≡ just ls′ × length (bestChain (N⁺ .clock) (ls′ .tree)) ≡ length (b ∷ cₕ)
+          goal″ εʳ _ _ _ N◆Ready N◆BlockMade _ = contradiction (trans (sym N◆Ready) N◆BlockMade) λ ()
+          goal″ {N⁺} (_◅ʳ_ {j = N⁼} N◆↝⋆ʳN⁼ N⁼↝N⁺) Ṇ⁺↝⋆N N◆ₜ≡bₜ N⁺ₜ≡bₜ N◆Ready N⁺BlockMade b∈bhN⁺ = goal‴ N⁼↝N⁺
+            where
+              N⁼↝⋆N : N⁼ ↝⋆ N
+              N⁼↝⋆N = N⁼↝N⁺ ◅ Ṇ⁺↝⋆N
+
+              goal‴ : N⁼ ↝ N⁺ → _
+              goal‴ (permuteParties _) = goal″ N◆↝⋆ʳN⁼ N⁼↝⋆N N◆ₜ≡bₜ N⁺ₜ≡bₜ N◆Ready N⁺BlockMade b∈bhN⁺
+              goal‴ (permuteMsgs    _) = goal″ N◆↝⋆ʳN⁼ N⁼↝⋆N N◆ₜ≡bₜ N⁺ₜ≡bₜ N◆Ready N⁺BlockMade b∈bhN⁺
+              goal‴ (makeBlock {N′ = N‴} N⁼MsgsDelivered N⁼—[eoN⁼]↑→∗N‴) = goal′*″
+                where
+                  N⁼ₜ≡bₜ : N⁼ .clock ≡ b .slot
+                  N⁼ₜ≡bₜ = trans (sym $ clockPreservation-↑∗ N⁼—[eoN⁼]↑→∗N‴) N⁺ₜ≡bₜ
+
+                  N₀↝⋆N⁼ : N₀ ↝⋆ N⁼
+                  N₀↝⋆N⁼ = N₀↝⋆N′ ◅◅ N′↝⋆N◆ ◅◅ (Starʳ⇒Star N◆↝⋆ʳN⁼)
+
+                  ffN⁼ : ForgingFree N⁼
+                  ffN⁼ = ForgingFreePrev N⁼↝⋆N ffN
+
+                  ffN⁺ : ForgingFree N⁺
+                  ffN⁺ = ForgingFreePrev Ṇ⁺↝⋆N ffN
+
+                  hasLspN⁼ : b .pid hasStateIn N⁼
+                  hasLspN⁼ = L.All.lookup (allPartiesHaveLocalState N₀↝⋆N⁼) bₚ∈N⁼
+                    where
+                      b∈hbhN⁺ : b ∈ honestBlockHistory N⁺
+                      b∈hbhN⁺ = L.Mem.∈-filter⁺ _ b∈bhN⁺ hb
+
+                      bₚ∈N⁺ : b .pid ∈ N⁺ .execOrder
+                      bₚ∈N⁺ = honestBlockPidInExecOrder (N₀↝⋆N⁼ ◅◅ N⁼↝N⁺ ◅ ε) ffN⁺ b∈hbhN⁺
+
+                      bₚ∈N⁼ : b .pid ∈ N⁼ .execOrder
+                      bₚ∈N⁼ = ∈-resp-↭ (↭-sym (execOrderPreservation-↭-↝ N⁼↝N⁺)) bₚ∈N⁺
+
+                  ls⁼ : LocalState
+                  ls⁼ = M.to-witness hasLspN⁼
+
+                  lsbₚN⁼ : N⁼ .states ⁉ b .pid ≡ just ls⁼
+                  lsbₚN⁼ = Is-just⇒to-witness hasLspN⁼
+
+                  b∉bhN⁼ : b ∉ blockHistory N⁼
+                  b∉bhN⁼ = ∉-filter⁻ _ b∉hbhN⁼ hb
+                    where
+                      <N⁼ₜ[hbhN⁼] : L.All.All ((_< N⁼ .clock) ∘ slot) (honestBlockHistory N⁼)
+                      <N⁼ₜ[hbhN⁼] = noPrematureHonestBlocksAt↓ N₀↝⋆N⁼ ffN⁼ N⁼MsgsDelivered
+
+                      b∉hbhN⁼ : b ∉ honestBlockHistory N⁼
+                      b∉hbhN⁼ rewrite sym $ All-filter {P? = (_<? N⁼ .clock) ∘ slot} <N⁼ₜ[hbhN⁼] = b∉<N⁼ₜ[hbhN⁼]
+                        where
+                          b∉<N⁼ₜ[hbhN⁼] : b ∉ filter ((_<? N⁼ .clock) ∘ slot) (honestBlockHistory N⁼)
+                          b∉<N⁼ₜ[hbhN⁼] = ∉-filter⁺ (honestBlockHistory N⁼) bₜ≮N⁼ₜ
+                            where
+                              bₜ≮N⁼ₜ : ¬ (b. slot < N⁼ .clock)
+                              bₜ≮N⁼ₜ rewrite N⁼ₜ≡bₜ = Nat.<-irrefl refl
+
+                  Nᵖ : GlobalState
+                  Nᵖ = honestBlockMaking (b .pid) ls⁼ N⁼
+
+                  ts : N⁼ ↝[ b .pid ]↑ Nᵖ
+                  ts = honestParty↑ lsbₚN⁼ hb
+
+                  lsN‴≡lsNᵖ  : N‴ .states ⁉ b .pid ≡ Nᵖ .states ⁉ b .pid
+                  lsN‴≡lsNᵖ = localStatePreservation-∈-↑∗ N₀↝⋆N⁼ N⁼—[eoN⁼]↑→∗N‴ ts
+
+                  goal′*″ : ∃[ ls′ ] (N‴ .states ⁉ b .pid) ≡ just ls′ × length
+                    (bestChain (N‴ .clock) (ls′ .tree)) ≡ length (b ∷ cₕ)
+                  goal′*″ rewrite N⁺ₜ≡bₜ | sym N⁼ₜ≡bₜ =
+                    subst (λ ◆ → ∃[ ls′ ] (◆ ≡ just ls′ × length (bestChain (N⁼ .clock) (ls′ .tree)) ≡ length (b ∷ cₕ)))
+                      (sym lsN‴≡lsNᵖ)
+                      (pastBestChainLength†
+                        N₀↝⋆N cfN N₀↝⋆N⁼ ts [b+cₕ]✓ b∉bhN⁼ refl hp lspN cₜ+b+cₕ≡bcN N⁼↝⋆N ffN⁺ hb
+                        (reverseView (N⁼ .execOrder)) N‴↷↑N‴[bM] N⁼Uniq b∈bhN⁺ ((—[]→∗⇒—[]→∗ʳ N⁼—[eoN⁼]↑→∗N‴)))
+                    where
+                      N‴↷↑N‴[bM] : N‴ ↷↑ record N‴ { progress = blockMade }
+                      N‴↷↑N‴[bM] = progress↑ (↷↑-refl)
+
+                      N⁼Uniq : Unique (N⁼ .execOrder)
+                      N⁼Uniq = execOrderUniqueness N₀↝⋆N⁼
+
 pastBestChainLength : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
   → ForgingFree N
@@ -377,7 +508,8 @@ pastBestChainLength {N} N₀↝⋆N ffN cfN {p} {ls} hp lspN {b} {cₜ} {cₕ} h
       with ∃ReadyBetweenSlots refl N₀↝⋆N″ (N₀ₜ≤bₜ , subst (b .slot ≤_) (sym N″ₜ≡bₜ+1) bₜ≤bₜ+1)
     ... | N′ , N′Ready , N′ₜ≡bₜ , N₀↝⋆N′ , N′↝⋆N″ =
       N″ , b .pid , N₀↝⋆N″ , N″↝⋆N , subst (_≡ suc (b .slot)) (sym N″ₜ≡bₜ+1) refl , N″Ready , hb ,
-      goal* (Star⇒Starʳ N′↝⋆N″) N″↝⋆N N′ₜ≡bₜ N″ₜ≡bₜ+1 N′Ready N″Ready b∈bhN″
+      pastBestChainLength‡
+        (Star⇒Starʳ N′↝⋆N″) N″↝⋆N ε N₀↝⋆N′ ffN cfN hb N₀↝⋆N [b+cₕ]✓ hp lspN cₜ+b+cₕ≡bcN N′ₜ≡bₜ N″ₜ≡bₜ+1 N′Ready N″Ready b∈bhN″
       where
         b∈bhN : b ∈ blockHistory N
         b∈bhN =
@@ -524,3 +656,111 @@ pastBestChainLength {N} N₀↝⋆N ffN cfN {p} {ls} hp lspN {b} {cₜ} {cₕ} h
 
                             N⁼Uniq : Unique (N⁼ .execOrder)
                             N⁼Uniq = execOrderUniqueness N₀↝⋆N⁼
+
+pastBestChainLength′ : ∀ {N N′ : GlobalState} →
+    N₀ ↝⋆ N′
+  → N′ ↝⋆ N
+  → ForgingFree N
+  → CollisionFree N
+  → N′ .progress ≡ ready
+  → ∀ {p : Party} {ls : LocalState}
+    → Honest p
+    → N .states ⁉ p ≡ just ls
+    → ∀ {b : Block} {cₕ cₜ : Chain}
+      → HonestBlock b
+      → N′ .clock ≤ b .slot
+      → cₕ ++ b ∷ cₜ ≡ bestChain (N .clock ∸ 1) (ls .tree)
+      → ∃₂[ N″ , p′ ]
+          N′ ↝⋆ N″
+        × N″ ↝⋆ N
+        × N″ .clock ≡ suc (b .slot)
+        × N″ .progress ≡ ready
+        × Honest p′
+        × ∃[ ls′ ]
+            N″ .states ⁉ p′ ≡ just ls′
+          × length (bestChain (N″ .clock ∸ 1) (ls′ .tree)) ≡ length (b ∷ cₜ)
+pastBestChainLength′ {N} {N′} N₀↝⋆N′ N′↝⋆N ffN cfN N′Ready {p} {ls} hp lspN {b} {cₜ} {cₕ} hb N′ₜ≤bₜ cₜ+b+cₕ≡bcN = goal
+  where
+    open import Function.Reasoning
+
+    bcN : Chain
+    bcN = bestChain (N .clock ∸ 1) (ls .tree)
+
+    _ : ∃₂[ cₕ′ , cₜ′ ] bcN ≡ cₜ′ ++ b ∷ cₕ′
+    _ = cₕ , cₜ , sym cₜ+b+cₕ≡bcN
+
+    bcN✓ : bcN ✓
+    bcN✓ = valid (ls .tree) (N .clock ∸ 1)
+
+    b∈bcN : b ∈ bcN
+    b∈bcN rewrite sym cₜ+b+cₕ≡bcN = L.Mem.∈-++⁺ʳ cₜ (here refl)
+
+    [b+cₕ]✓ : (b ∷ cₕ) ✓
+    [b+cₕ]✓ = ✓-++ʳ $ subst _✓ (sym cₜ+b+cₕ≡bcN) bcN✓
+
+    b≢gb : b ≢ genesisBlock
+    b≢gb b≡gb = contradiction (positiveClock N₀↝⋆N′) (Nat.≤⇒≯ N′ₜ≤0)
+      where
+        N′ₜ≤0 : N′ .clock ≤ 0
+        N′ₜ≤0 = subst (N′ .clock ≤_) genesisBlockSlot (subst ((N′ .clock ≤_) ∘ slot) b≡gb N′ₜ≤bₜ)
+
+    bₜ≤Nₜ-1 : b .slot ≤ N .clock ∸ 1
+    bₜ≤Nₜ-1 = L.All.lookup (bestChainSlotBounded (ls .tree) (N .clock ∸ 1)) b∈bcN
+
+    N₀↝⋆N : N₀ ↝⋆ N
+    N₀↝⋆N = N₀↝⋆N′ ◅◅ N′↝⋆N
+
+    N′ₜ≤bₜ+1 : N′ .clock ≤ suc (b .slot)
+    N′ₜ≤bₜ+1 = Nat.≤-trans N′ₜ≤bₜ (Nat.n≤1+n _)
+
+    bₜ+1≤Nₜ : suc (b .slot) ≤ N .clock
+    bₜ+1≤Nₜ = subst (suc (b .slot) ≤_) (Nat.suc-pred _ ⦃ Nat.>-nonZero $ positiveClock N₀↝⋆N ⦄) $ Nat.s≤s bₜ≤Nₜ-1
+
+    bₜ≤bₜ+1 : b .slot ≤ suc (b .slot)
+    bₜ≤bₜ+1 = Nat.n≤1+n _
+
+    open RTC; open Starʳ
+
+    goal : _
+    goal
+      with ∃ReadyBetweenSlots N′Ready N′↝⋆N (N′ₜ≤bₜ+1 , bₜ+1≤Nₜ)
+    ... | N″ , N″Ready , N″ₜ≡bₜ+1 , N′↝⋆N″ , N″↝⋆N
+      with ∃ReadyBetweenSlots N′Ready N′↝⋆N″ (N′ₜ≤bₜ , subst (b .slot ≤_) (sym N″ₜ≡bₜ+1) bₜ≤bₜ+1)
+    ... | N‴ , N‴Ready , N‴ₜ≡bₜ , N′↝⋆N‴ , N‴↝⋆N″ = N″ , b .pid , N′↝⋆N″ , N″↝⋆N , subst (_≡ suc (b .slot)) (sym N″ₜ≡bₜ+1) refl , N″Ready , hb ,
+      pastBestChainLength‡
+        (Star⇒Starʳ N‴↝⋆N″) N″↝⋆N N′↝⋆N‴ N₀↝⋆N′ ffN cfN hb N₀↝⋆N [b+cₕ]✓ hp lspN cₜ+b+cₕ≡bcN
+        N‴ₜ≡bₜ N″ₜ≡bₜ+1 N‴Ready N″Ready b∈bhN″
+      where
+        b∈bhN : b ∈ blockHistory N
+        b∈bhN =
+            b∈bcN ∶
+          b ∈ bcN
+            |> selfContained (ls .tree) (N .clock ∸ 1) ∶
+          b ∈ filter ((_≤? N .clock ∸ 1) ∘ slot) (allBlocks (ls .tree))
+            |> L.SubS.filter-⊆ _ _ ∶
+          b ∈ allBlocks (ls .tree)
+            |> honestLocalTreeInHonestGlobalTree N₀↝⋆N hp lspN ∶
+          b ∈ allBlocks (honestTree N)
+            |> flip (L.Mem.∈-filter⁺ _) b≢gb ∶
+          b ∈ filter ¿ _≢ genesisBlock ¿¹ (allBlocks (honestTree N))
+            |> honestGlobalTreeButGBInBlockHistory N₀↝⋆N ∶
+          b ∈ blockHistory N
+
+        bₜ<N″ₜ : b .slot < N″ .clock
+        bₜ<N″ₜ rewrite N″ₜ≡bₜ+1 = Nat.≤-refl
+
+        N₀↝⋆N″ : N₀ ↝⋆ N″
+        N₀↝⋆N″ = N₀↝⋆N′ ◅◅ N′↝⋆N″
+
+        b∈bhN″ : b ∈ blockHistory N″
+        b∈bhN″ =
+            L.Mem.∈-filter⁺ _ b∈bhN hb ∶
+          b ∈ honestBlockHistory N
+            |> flip (L.Mem.∈-filter⁺ _) bₜ<N″ₜ ∶
+          b ∈ filter ((_<? N″ .clock) ∘ slot) (honestBlockHistory N)
+            |> ≡ˢ⇒⊇ (honestBlocksBelowSlotPreservation N₀↝⋆N″ N″↝⋆N ffN) ∶
+          b ∈ filter ((_<? N″ .clock) ∘ slot) (honestBlockHistory N″)
+            |> L.SubS.filter-⊆ _ _ ∶
+          b ∈ honestBlockHistory N″
+            |> L.SubS.filter-⊆ _ _ ∶
+          b ∈ blockHistory N″
