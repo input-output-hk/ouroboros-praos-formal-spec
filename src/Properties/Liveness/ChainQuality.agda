@@ -44,30 +44,6 @@ open import Data.List.Ext using (ι)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness)
 open import Data.Nat.Properties.Ext using (n>0⇒pred[n]<n)
 
-pastBestChainLength′ : ∀ {N N′ : GlobalState} →
-    N₀ ↝⋆ N′
-  → N′ ↝⋆ N
-  → ForgingFree N
-  → CollisionFree N
-  → N′ .progress ≡ ready
-  → ∀ {p : Party} {ls : LocalState}
-    → Honest p
-    → N .states ⁉ p ≡ just ls
-    → ∀ {b : Block} {cₕ cₜ : Chain}
-      → HonestBlock b
-      → N′ .clock ≤ b .slot
-      → cₕ ++ b ∷ cₜ ≡ bestChain (N .clock ∸ 1) (ls .tree)
-      → ∃₂[ N″ , p′ ]
-          N′ ↝⋆ N″
-        × N″ ↝⋆ N
-        × N″ .clock ≡ suc (b .slot)
-        × N″ .progress ≡ ready
-        × Honest p′
-        × ∃[ ls′ ]
-            N″ .states ⁉ p′ ≡ just ls′
-          × length (bestChain (N″ .clock ∸ 1) (ls′ .tree)) ≡ length (b ∷ cₜ)
-pastBestChainLength′ = {!!}
-
 honestBlocksLowerBound : ∀ {sl₁ sl₂ : Slot} {bs : List Block} {w : ℕ} →
     L.All.All (λ b → sl₁ ≤ b .slot × b .slot < sl₂) bs
   → CorrectBlocks bs
