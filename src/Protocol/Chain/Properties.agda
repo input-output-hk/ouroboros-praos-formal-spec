@@ -224,6 +224,9 @@ opaque
       from′ {[]} (cbb ∷ cb[b′] , (b⟵b′ , b′≡gb) , b>b′ ∷ ds[b′]) = cbb , b⟵b′ , b>b′ , (cb[b′] , b′≡gb , ds[b′])
       from′ {b″ ∷ c′} (cbb ∷ cb[b′∷b″∷c′] , (b⟵b′ , pl[b′∷b″∷c′]) , b>b′ ∷ ds[b′∷b″∷c′]) = cbb , b⟵b′ , b>b′ , (cb[b′∷b″∷c′] , pl[b′∷b″∷c′] , ds[b′∷b″∷c′])
 
+  ✓-∃-∷ : ∀ {c : Chain} → c ✓ → ∃₂[ b , c′ ] b ∷ c′ ≡ c
+  ✓-∃-∷ {b ∷ c′} _ = b , c′ , refl
+
   open Function.Bundles.Equivalence using (from)
 
   ✓-++ʳ : ∀ {b : Block} {c c′ : Chain} → (c ++ b ∷ c′) ✓ → (b ∷ c′) ✓

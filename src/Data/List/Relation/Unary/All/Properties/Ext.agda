@@ -1,9 +1,11 @@
 module Data.List.Relation.Unary.All.Properties.Ext where
 
 open import Function.Base using (_∘_; _$_)
+open import Relation.Nullary.Negation using (contradiction)
+open import Relation.Nullary.Decidable using (yes; no)
 open import Relation.Unary using (Pred; U; ∁; ∅; Decidable)
 open import Relation.Unary.Properties.Ext using (U⊆∁∅)
-open import Relation.Binary.PropositionalEquality using (_≡_; refl; subst)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; subst; cong)
 open import Data.Unit using (tt)
 open import Data.Product using (_×_; _,_)
 open import Data.List using (List; []; _∷_; _++_; cartesianProduct; filter; reverse)
@@ -28,6 +30,12 @@ All-∁∅ {A = A} = map (λ {x} → U⊆∁∅ {A = A} {x}) ∘ All-U
 All-∁-filter : ∀ {ℓ ℓ′} {A : Set ℓ} {P : Pred A ℓ′} {P? : Decidable P} {xs : List A} → All (∁ P) xs → filter P? xs ≡ []
 All-∁-filter           {xs = []}     All.[] = refl
 All-∁-filter {P? = P?} {xs = x ∷ xs} (∁Px All.∷ ∁Pxs) rewrite filter-reject P? {xs = xs} ∁Px = All-∁-filter ∁Pxs
+
+All-filter : ∀ {ℓ ℓ′} {A : Set ℓ} {P : Pred A ℓ′} {P? : Decidable P} {xs : List A} → All P xs → filter P? xs ≡ xs
+All-filter {xs = []} All.[] = refl
+All-filter {P? = P?} {xs = x ∷ xs} (Px All.∷ Pxs) with P? x
+... | no ¬Px = contradiction Px ¬Px
+... | yes Px = cong (x ∷_) (All-filter Pxs)
 
 All-reverse⁺ : ∀ {ℓ ℓ′} {A : Set ℓ} {P : Pred A ℓ′} {xs : List A} → All P xs → All P (reverse xs)
 All-reverse⁺ {xs = []}     All.[] = All.[]

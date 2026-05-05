@@ -12,12 +12,14 @@ open import Protocol.Tree ⦃ params ⦄
 open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
 open import Protocol.Chain.Properties ⦃ params ⦄
+open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (∷-⊆; ∷⊆⇒∈)
 open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ⊆×⊇⇒≡ˢ; ≡⇒≡ˢ ; Any-resp-≡ˢ; ≡ˢ-refl; ≡ˢ-sym)
 open import Function.Related.Propositional as Related
 open import Data.List.Relation.Binary.Permutation.Propositional using (prep; ↭-sym; module PermutationReasoning)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∷↭∷ʳ; ++⁺ˡ; ++-comm)
 open import Data.List.Relation.Binary.BagAndSetEquality using (++-cong; ↭⇒∼bag; bag-=⇒)
-open import Function.Bundles using (mk⇔)
+open import Data.List.Membership.Propositional.Properties.Ext using (∈-[-]⁻)
+open import Function.Bundles using (_⇔_; mk⇔; Equivalence)
 
 module _ {T : Type} ⦃ _ : Tree T ⦄ where
 
@@ -81,3 +83,34 @@ module _ {T : Type} ⦃ _ : Tree T ⦄ where
 
   allBlocks⊆×≤ˢ⇒|bestChain|≤ : ∀ {t t′ : T} {sl sl′ : Slot} → allBlocks t ⊆ˢ allBlocks t′ → sl ≤ sl′ → length (bestChain sl t) ≤ length (bestChain sl′ t′)
   allBlocks⊆×≤ˢ⇒|bestChain|≤ {t} {t′} {sl} {sl′} bks[t]⊆bks[t′] sl≤sl′ = optimal (bestChain sl t) t′ sl′ (valid t sl) (L.SubS.⊆-trans (selfContained t sl) (L.SubS.filter⁺′ _ _ (λ {b} bₜ≤sl → Nat.≤-trans bₜ≤sl sl≤sl′) bks[t]⊆bks[t′]))
+
+  b∈allBlocks[t₀]⇔b≡gb : ∀ {b : Block} → b ∈ allBlocks (T ∋ tree₀) ⇔ b ≡ genesisBlock
+  b∈allBlocks[t₀]⇔b≡gb = mk⇔ to from
+    where
+      to : ∀ {b : Block} → b ∈ allBlocks (T ∋ tree₀) → b ≡ genesisBlock
+      to {b} b∈bks[t₀] = ∈-[-]⁻ $ subst (b ∈_) (instantiated {T = T}) b∈bks[t₀]
+
+      from : ∀ {b : Block} → b ≡ genesisBlock → b ∈ allBlocks (T ∋ tree₀)
+      from {b} b≡gb rewrite b≡gb = subst (genesisBlock ∈_) (sym $ instantiated {T = T}) (here refl)
+
+  bestChain[t₀]≡gb : ∀ (sl : Slot) → bestChain sl (T ∋ tree₀) ≡ [ genesisBlock ]
+  bestChain[t₀]≡gb sl = bestChain[t₀]≡gb′ (selfContained (T ∋ tree₀) sl) (valid (T ∋ tree₀) sl)
+    where
+      bestChain[t₀]≡gb′ : ∀ {c} → c ⊆ˢ filter ((_≤? sl) ∘ slot) (allBlocks (T ∋ tree₀)) → c ✓ → c ≡ [ genesisBlock ]
+      bestChain[t₀]≡gb′ {[]}    _    []✓    = contradiction refl (✓⇒≢[] []✓)
+      bestChain[t₀]≡gb′ {b ∷ c} b+c⊆ [b+c]✓ = let open ≡-Reasoning in begin
+        b ∷ c             ≡⟨ cong (_∷ c) b≡gb ⟩
+        genesisBlock ∷ c  ≡⟨ cong (genesisBlock ∷_) c≡[] ⟩
+        [ genesisBlock ]  ∎
+        where
+          b≡gb : b ≡ genesisBlock
+          b≡gb = b∈allBlocks[t₀]⇔b≡gb .Equivalence.to b∈bks[t₀]
+            where
+              b∈bks[t₀] : b ∈ allBlocks (T ∋ tree₀)
+              b∈bks[t₀] = L.SubS.filter-⊆ _ (allBlocks (T ∋ tree₀)) $ ∷⊆⇒∈ b+c⊆
+
+          c≡[] : c ≡ []
+          c≡[] = [gb+c]✓⇔c≡[] .Equivalence.to [gb+c]✓
+            where
+              [gb+c]✓ : (genesisBlock ∷ c) ✓
+              [gb+c]✓ rewrite b≡gb = [b+c]✓
