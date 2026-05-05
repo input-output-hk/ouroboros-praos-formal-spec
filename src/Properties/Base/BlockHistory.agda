@@ -1,3 +1,5 @@
+{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
+
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -24,12 +26,12 @@ open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[[]]→∗ʳ⇒≡; —[∷ʳ]→∗-split)
 open import Prelude.AssocList.Properties.Ext using (set-⁉; set-⁉-¬)
 open import Data.List.Properties.Ext using (foldr-preservesʳ'; []≢∷ʳ)
-open import Data.List.Membership.Propositional.Properties.Ext using (x∈x∷xs)
-open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_ ; ≡ˢ-refl; ≡ˢ⇒⊆×⊇; ⊆×⊇⇒≡ˢ; ≡ˢ-trans; filter-cong)
+open import Data.List.Membership.Propositional.Properties.Ext using (x∈x∷xs; ∈-∷⁻-∉)
+open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_ ; ≡ˢ-refl; ≡ˢ⇒⊆×⊇; ⊆×⊇⇒≡ˢ; ≡ˢ⇒⊆; ≡ˢ⇒⊇; ≡ˢ-trans; filter-cong)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭; map⁺)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭)
-open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (∷-⊆; ∷⊆⇒∈; ⊆-++-comm; ++-absorb)
+open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (∷-⊆; ∷⊆⇒∈; ⊆-++-comm; ++-absorb; ++⁻ˡ)
 open import Data.List.Relation.Binary.BagAndSetEquality using (∷-cong; concat-cong; map-cong; bag-=⇒; ↭⇒∼bag)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-just)
 open import Relation.Unary using (∁) renaming (_⊆_ to _⋐_)
@@ -1071,6 +1073,115 @@ opaque
           goal (advanceRound   _) = ih
           goal (permuteParties _) = ih
           goal (permuteMsgs    _) = ih
+
+  honestBlockPidInExecOrder : ∀ {N : GlobalState} {b : Block} →
+      N₀ ↝⋆ N
+    → ForgingFree N
+    → b ∈ honestBlockHistory N
+    → b .pid ∈ N .execOrder
+  honestBlockPidInExecOrder = honestBlockPidInExecOrderʳ ∘ Star⇒Starʳ
+      where
+        open RTC; open Starʳ
+
+        honestBlockPidInExecOrderʳ : ∀ {N : GlobalState} {b : Block} →
+            N₀ ↝⋆ʳ N
+          → ForgingFree N
+          → b ∈ honestBlockHistory N
+          → b .pid ∈ N .execOrder
+        honestBlockPidInExecOrderʳ {N} {b} (_◅ʳ_ {j = N′} N₀↝⋆ʳN′ N′↝N) ffN b∈hbhN = goal N′↝N
+          where
+            ffN′ : ForgingFree N′
+            ffN′ = ForgingFreePrev (N′↝N ◅ ε) ffN
+
+            ih : b ∈ honestBlockHistory N′ → b .pid ∈ N .execOrder
+            ih b∈hbhN′ = ∈-resp-↭ (execOrderPreservation-↭-↝ N′↝N) bₚ∈eoN′
+              where
+                bₚ∈eoN′ : pid b ∈ N′ .execOrder
+                bₚ∈eoN′ = honestBlockPidInExecOrderʳ {N′} {b} N₀↝⋆ʳN′ ffN′ b∈hbhN′
+
+            goal : N′ ↝ N → b .pid ∈ N .execOrder
+            goal (deliverMsgs {N′ = N″} N′Ready N′—[eoN′]↓→∗N″) = ih b∈hbhN′
+              where
+                b∈hbhN′ : b ∈ honestBlockHistory N′
+                b∈hbhN′ = ≡ˢ⇒⊇ (honestBlockHistoryPreservation-↓∗ (Starʳ⇒Star N₀↝⋆ʳN′) N′—[eoN′]↓→∗N″ ffN N′Ready) b∈hbhN
+            goal (makeBlock {N′} {N″} N′MsgsDelivered N′—[eoN′]↑→∗N″) =
+              goal* (reverseView (N′ .execOrder)) eoN′⊆eoN″ N″↷↑N″[bM] (—[]→∗⇒—[]→∗ʳ N′—[eoN′]↑→∗N″) b∈hbhN
+              where
+                eoN′⊆eoN″ : N′ .execOrder ⊆ˢ N″ .execOrder
+                eoN′⊆eoN″ = ≡ˢ⇒⊆ $ bag-=⇒ $ ↭⇒∼bag $ execOrderPreservation-↭-↑∗ N′—[eoN′]↑→∗N″
+
+                N″↷↑N″[bM] : N″ ↷↑ record N″ { progress = blockMade }
+                N″↷↑N″[bM] = progress↑ (↷↑-refl)
+
+                open import Data.List.Reverse
+
+                goal* : ∀ {N* ps} →
+                    Reverse ps
+                  → ps ⊆ˢ N* .execOrder
+                  → N* ↷↑ N
+                  → _ ⊢ N′ —[ ps ]↑→∗ʳ N*
+                  → b ∈ honestBlockHistory N*
+                  → b .pid ∈ N* .execOrder
+                goal* [] _ _ N′—[ps]↑→∗ʳN* b∈hbhN* rewrite sym $ —[[]]→∗ʳ⇒≡ N′—[ps]↑→∗ʳN* =
+                  ∈-resp-↭ (↭-sym $ execOrderPreservation-↭-↑∗ N′—[eoN′]↑→∗N″) (ih b∈hbhN*)
+                goal* {N*} (ps′ ∶ ps′r ∶ʳ p′) ps′∷ʳp′⊆eoN* N*↷↑N N′—[ps′∷ʳp′]↑→∗ʳN* b∈hbhN*
+                  with —[∷ʳ]→∗-split (—[]→∗ʳ⇒—[]→∗ N′—[ps′∷ʳp′]↑→∗ʳN*)
+                ... | N‴ , N′—[ps′]↑→∗N‴ , N‴—[p′]↑→N* = step* N‴—[p′]↑→N*
+                  where
+                    p′∈eoN* : p′ ∈ N* .execOrder
+                    p′∈eoN* = ps′∷ʳp′⊆eoN* $ L.Mem.∈-++⁺ʳ _ (here refl)
+
+                    p′∈eoN‴ : p′ ∈ N‴ .execOrder
+                    p′∈eoN‴ = ∈-resp-↭ (↭-sym $ execOrderPreservation-↭-↑ N‴—[p′]↑→N*) p′∈eoN*
+
+                    ps′⊆eoN‴ : ps′ ⊆ˢ N‴ .execOrder
+                    ps′⊆eoN‴ = L.SubS.⊆-respʳ-↭ (↭-sym $ execOrderPreservation-↭-↑ N‴—[p′]↑→N*) (++⁻ˡ ps′∷ʳp′⊆eoN*)
+
+                    ih* : b ∈ honestBlockHistory N‴ → b .pid ∈ N‴ .execOrder
+                    ih* = goal* {N‴} ps′r ps′⊆eoN‴ (blockMaking↑ N‴—[p′]↑→N* N*↷↑N) (—[]→∗⇒—[]→∗ʳ N′—[ps′]↑→∗N‴)
+
+                    step* : _ ⊢ N‴ —[ p′ ]↑→ N* → b .pid ∈ N* .execOrder
+                    step* (unknownParty↑ _) = ih* b∈hbhN*
+                    step* (corruptParty↑ _ _) = ∈-resp-↭ (execOrderPreservation-↭-↑ N‴—[p′]↑→N*) (ih* b∈hbhN‴)
+                      where
+                        mds : List (Message × DelayMap)
+                        mds = makeBlockᶜ (N‴ .clock) (N‴ .history) (N‴ .messages) (N‴ .advState) .proj₁
+
+                        sub : L.map (projBlock ∘ proj₁) mds ⊆ʰ blockHistory N‴
+                        sub = ffN .proj₂ (blockMaking↑ N‴—[p′]↑→N* N*↷↑N)
+
+                        b∈hbhN‴ : b ∈ honestBlockHistory N‴
+                        b∈hbhN‴ = ≡ˢ⇒⊇ (honestBlockHistoryPreservation-broadcastMsgsᶜ {N‴} {mds} sub) b∈hbhN*
+                    step* (honestParty↑ {ls = ls} lsπ hp′π) with Params.winnerᵈ params {p′} {N‴ .clock}
+                    ... | ⁇ (no _) = ih* b∈hbhN*
+                    ... | ⁇ (yes isWinner) with ¿ b ∈ honestBlockHistory N‴ ¿
+                    ...   | yes b∈hbhN‴ = ∈-resp-↭ (execOrderPreservation-↭-↑ N‴—[p′]↑→N*) (ih* b∈hbhN‴)
+                    ...   | no b∉hbhN‴ = bₚ∈eoN‴
+                      where
+                        bc : Chain
+                        bc = bestChain (N‴ .clock ∸ 1) (ls .tree)
+
+                        nb : Block
+                        nb = mkBlock (hash (tip bc)) (N‴ .clock) (txSelection (N‴ .clock) p′) p′
+
+                        hbhN*≡nb+hbhN‴ : honestBlockHistory N* ≡ nb ∷ honestBlockHistory N‴
+                        hbhN*≡nb+hbhN‴ rewrite
+                            dec-yes ¿ winner p′ (N‴ .clock) ¿ isWinner .proj₂
+                          | dec-yes ¿ Honest p′ ¿ hp′π .proj₂
+                          | L.filter-accept ¿ HonestBlock ¿¹ {x = nb} {xs = honestBlockHistory N‴} hp′π
+                          = refl
+
+                        b∈hbhN*′ : b ∈ honestBlockHistory N*
+                        b∈hbhN*′ rewrite dec-yes ¿ winner p′ (N‴ .clock) ¿ isWinner .proj₂ = b∈hbhN*
+
+                        b≡nb : b ≡ nb
+                        b≡nb = ∈-∷⁻-∉ (subst (b ∈_) hbhN*≡nb+hbhN‴ b∈hbhN*′) b∉hbhN‴
+
+                        bₚ∈eoN‴ : b .pid ∈ N‴ .execOrder
+                        bₚ∈eoN‴ rewrite b≡nb = p′∈eoN‴
+            goal (advanceRound   _) = ih b∈hbhN
+            goal (permuteParties _) = ih b∈hbhN
+            goal (permuteMsgs    _) = ih b∈hbhN
 
 honestGlobalTreeInBlockHistory : ∀ {N : GlobalState} →
     N₀ ↝⋆ N

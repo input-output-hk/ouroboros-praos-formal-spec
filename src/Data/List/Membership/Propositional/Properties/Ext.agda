@@ -1,5 +1,6 @@
 module Data.List.Membership.Propositional.Properties.Ext where
 
+import Data.List.Membership.Setoid.Properties.Ext as Membership
 open import Data.Maybe using (just)
 open import Data.Maybe.Properties using (just-injective)
 open import Data.Bool using (Bool; false; true)
@@ -9,16 +10,21 @@ open import Data.Product using (_×_; _,_; proj₁; proj₂)
 open import Data.List using (List; []; _∷_; findᵇ; find; filter; deduplicate; _∷ʳ_; [_])
 open import Data.List.Ext using (undup)
 open import Data.List.Membership.Propositional using (_∈_; _∉_)
+open import Data.List.Properties using (filter-reject)
 open import Data.List.Relation.Unary.Any using (here; there)
 open import Data.List.Relation.Unary.Any.Properties using (++-comm)
 open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; refl; sym; subst)
+open import Relation.Binary.PropositionalEquality.Properties as ≡ using (setoid)
 open import Relation.Nullary.Negation using (¬_; contradiction)
-open import Relation.Nullary.Decidable using (yes; no)
+open import Relation.Nullary.Decidable using (yes; no; dec-no)
 open import Relation.Unary using (Pred; Decidable)
-open import Function.Base using (case_of_)
+open import Function.Base using (case_of_; _$_)
 open import Function.Bundles using (Inverse)
 open import Class.DecEq using (DecEq)
 open DecEq ⦃...⦄
+
+∈-[-]⁻ : ∀ {a} {A : Set a} {x y : A} → y ∈ [ x ] → y ≡ x
+∈-[-]⁻ {A = A} = Membership.∈-[-]⁻ (≡.setoid A)
 
 x∈x∷xs : ∀ {a} {A : Set a} (xs : List A) {x} → x ∈ x ∷ xs
 x∈x∷xs xs = here refl
@@ -28,11 +34,18 @@ x∈x∷xs xs = here refl
 ∈-∷⁻ (here px) = inj₁ px
 ∈-∷⁻ (there p) = inj₂ p
 
+∈-∷⁻-∉ : ∀ {a} {A : Set a} {xs : List A} {x y} → y ∈ x ∷ xs → y ∉ xs → y ≡ x
+∈-∷⁻-∉ (here px) q = px
+∈-∷⁻-∉ (there p) q = contradiction p q
+
 open import Data.List.Relation.Unary.All.Properties.Core using (¬Any⇒All¬; All¬⇒¬Any)
 open import Data.List.Relation.Unary.All.Properties using (∷ʳ⁻)
 open import Data.List.Relation.Unary.All using (All; uncons)
 open import Function.Base using (_∘_)
 open import Relation.Binary.PropositionalEquality using (≢-sym)
+
+∉-∷⁺ : ∀ {a} {A : Set a} {xs : List A} {x y} → y ≢ x → y ∉ xs → y ∉ x ∷ xs
+∉-∷⁺ y≢x y∉xs = All¬⇒¬Any $ y≢x All.∷ ¬Any⇒All¬ _ y∉xs
 
 ∉-∷⁻ : ∀ {a} {A : Set a} {xs : List A} {x y} → y ∉ x ∷ xs → (y ≢ x) × (y ∉ xs)
 ∉-∷⁻ {_} {_} {xs} {x} {y} y∉x∷xs with uncons (¬Any⇒All¬ _ y∉x∷xs)
@@ -58,6 +71,15 @@ module _ {a p} {A : Set a} ⦃ _ : DecEq A ⦄ {P : Pred A p} (P? : Decidable P)
   ∈-find⁻ {xs = x′ ∷ xs′} eqf with P? x′
   ... | no  _ = there (∈-find⁻ {xs = xs′} eqf)
   ... | yes _ = here (sym (just-injective eqf))
+
+  ∉-filter⁻ : ∀ {x : A} {xs : List A} → x ∉ filter P? xs → P x → x ∉ xs
+  ∉-filter⁻ {xs = []} q Px = q
+  ∉-filter⁻ {x = x} {xs = x′ ∷ xs} q Px
+    with P? x′  | x ≟ x′
+  ... | yes Px′ | yes x≡x′ = contradiction x≡x′ (∉-∷⁻ q .proj₁)
+  ... | no ¬Px′ | yes x≡x′ = contradiction Px (subst (¬_ ∘ P) (sym x≡x′) ¬Px′)
+  ... | yes Px′ | no  x≢x′ = ∉-∷⁺ x≢x′ $ ∉-filter⁻ {xs = xs} (∉-∷⁻ q .proj₂) Px
+  ... | no ¬Px′ | no  x≢x′ = ∉-∷⁺ x≢x′ $ ∉-filter⁻ {xs = xs} q Px
 
   open import Data.List.Relation.Unary.Any using (Any)
   open import Data.Maybe using (Is-just)

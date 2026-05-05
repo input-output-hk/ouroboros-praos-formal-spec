@@ -10,45 +10,39 @@ module Properties.Liveness.ChainQuality
 
 open import Protocol.Prelude
 open import Protocol.BaseTypes using (Slot)
+open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
 open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
 open import Protocol.Tree ⦃ params ⦄
+open import Protocol.Message ⦃ params ⦄
+open import Protocol.Network ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Protocol.Chain.Properties ⦃ params ⦄
 open import Protocol.Tree.Properties ⦃ params ⦄
+open import Properties.Base.Trees ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ForgingFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.CollisionFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.SuperBlocks ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.BlockHistory ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Safety.BlockPositions ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Liveness.ChainGrowth ⦃ params ⦄ ⦃ assumptions ⦄
-open import Data.List.Membership.Propositional.Properties.Ext using (Any⇒Is-just∘find)
---open import Data.List.Membership.Propositional using (lose)
-open import Data.List.Relation.Unary.All.Properties.Ext using (All-∁-filter; All-reverse⁻)
+open import Properties.Liveness.ChainQuality.Properties ⦃ params ⦄ ⦃ assumptions ⦄
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
+open import Data.List.Membership.Propositional.Properties.Ext using (Any⇒Is-just∘find; ∈-∷ʳ-≢⁻; ∉-filter⁺; ∉-filter⁻)
+open import Data.List.Relation.Unary.All.Properties.Ext using (All-∁-filter; All-reverse⁻; All-filter)
+open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
+open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭)
+open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
+open import Data.List.Relation.Binary.SetEquality using (≡ˢ⇒⊇)
 open import Data.List.Properties.Ext using (++-injective; find-∃; find-∃ʳ; find-∄; ι-++)
 open import Data.List.Ext using (ι)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness)
 open import Data.Nat.Properties.Ext using (n>0⇒pred[n]<n)
-
-pastBestChainLength : ∀ {N : GlobalState} →
-    N₀ ↝⋆ N
-  → ForgingFree N
-  → CollisionFree N
-  → ∀ {p : Party} {ls : LocalState}
-    → Honest p
-    → N .states ⁉ p ≡ just ls
-    → ∀ {b : Block} {cₕ cₜ : Chain}
-      → HonestBlock b
-      → cₕ ++ b ∷ cₜ ≡ bestChain (N .clock ∸ 1) (ls .tree)
-      → ∃₂[ N′ , p′ ]
-          N₀ ↝⋆ N′
-        × N′ ↝⋆ N
-        × N′ .clock ≡ suc (b .slot)
-        × N′ .progress ≡ ready
-        × Honest p′
-        × ∃[ ls′ ]
-            N′ .states ⁉ p′ ≡ just ls′
-          × length (bestChain (N′ .clock ∸ 1) (ls′ .tree)) ≡ length (b ∷ cₜ)
-pastBestChainLength = {!!}
 
 pastBestChainLength′ : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N′

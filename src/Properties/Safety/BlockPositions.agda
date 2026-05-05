@@ -25,7 +25,7 @@ open import Properties.Base.CollisionFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.BlockHistory ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
-open import Properties.Liveness.ChainGrowth ⦃ params ⦄ ⦃ assumptions ⦄ using (honestGlobalTreeInHonestLocalTree)
+--open import Properties.Liveness.ChainGrowth ⦃ params ⦄ ⦃ assumptions ⦄ using (honestGlobalTreeInHonestLocalTree)
 open import Data.Nat.Properties.Ext using (pred[n]<n; suc-≢-injective)
 open import Data.Sum.Algebra.Ext using (¬A⊎B⇒A→B)
 open import Data.List.Properties.Ext using ([]≢∷ʳ; ≢[]⇒∷; ∷≢[]; length0⇒[]; filter-acceptʳ; filter-rejectʳ)
@@ -623,7 +623,9 @@ opaque
     → CollisionFree N
     → ForgingFree N
     → L.All.All
-        (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
+-- FIXME: Investigate why this doesn't work anymore.
+--        (λ where (sb , b) → blockPos sb N ≢ blockPos b N ⊎ sb ≡ b)
+        (λ p → blockPos (p .proj₁) N ≢ blockPos (p .proj₂) N ⊎ p .proj₁ ≡ p .proj₂)
         (L.cartesianProduct (superBlocks N) (honestBlockHistory N))
   superBlockPositions = superBlockPositionsʳ ∘ Star⇒Starʳ
     where
@@ -1385,7 +1387,9 @@ superBlockPositionsUniqueness {N} N₀↝⋆N ffN cfN = superBlockPositionsUniqu
 
     superBlockPositionsUniqueness′ :
       L.All.All
-        (λ{ (b , b′) → flip blockPos N b ≢ flip blockPos N b′ ⊎ b ≡ b′ })
+-- FIXME: Investigate why this doesn't work anymore.
+--        (λ where (b , b′) → blockPos b N ≢ blockPos b′ N ⊎ b ≡ b′)
+        (λ p → blockPos (p .proj₁) N ≢ blockPos (p .proj₂) N ⊎ p .proj₁ ≡ p .proj₂)
         (L.cartesianProduct sbs hbs)
       →
       Unique (map (flip blockPos N) sbs)
@@ -1396,7 +1400,7 @@ superBlockPositionsUniqueness {N} N₀↝⋆N ffN cfN = superBlockPositionsUniqu
 
         inj-sbs :
           L.All.All
-            (λ{ (b , b′) → flip blockPos N b ≡ flip blockPos N b′ → b ≡ b′ })
+            (λ where (b , b′) → blockPos b N ≡ blockPos b′ N → b ≡ b′)
             (L.cartesianProduct sbs sbs)
         inj-sbs = L.All.map ¬A⊎B⇒A→B $ L.All.anti-mono sbs×sbs⊆sbs×hbs inj
           where

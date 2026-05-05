@@ -21,7 +21,7 @@ open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
-open import Prelude.AssocList.Properties.Ext using (set-⁉; map-⁉-∈-just)
+open import Prelude.AssocList.Properties.Ext using (set-⁉; map-⁉-∈-just; map-⁉-≡; map-⁉-≢)
 open import Data.List.Relation.Binary.BagAndSetEquality using (∷-cong; concat-cong; map-cong; bag-=⇒; ↭⇒∼bag)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-just)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; ∈-∷-≢⁻)
@@ -660,3 +660,22 @@ honestTreeChainLengthMonotonicity : ∀ {N N′ : GlobalState} →
   → N ↝⋆ N′
   → length (honestTreeChain N) ≤ length (honestTreeChain N′)
 honestTreeChainLengthMonotonicity = {!!}
+
+tree₀InN₀ : ∀ {p : Party} {ls : LocalState} → N₀ .states ⁉ p ≡ just ls → ls .tree ≡ tree₀
+tree₀InN₀ {p} {ls} = tree₀InN₀′
+  where
+    tree₀InN₀′ : ∀ {ps} → map (_, it .def) ps ⁉ p ≡ just ls → ls .tree ≡ tree₀
+    tree₀InN₀′ {p′ ∷ ps′} eq = case p ≟ p′ of λ where
+      (yes p≡p′) →
+        sym $
+          cong tree $
+            M.just-injective $
+              trans (sym $ map-⁉-≡ _) $ subst (λ ◆ → map (_, it .def) (◆ ∷ ps′) ⁉ p ≡ just ls) (sym p≡p′) eq
+      (no  p≢p′) → tree₀InN₀′ {ps′} $ trans (sym $ map-⁉-≢ _ p≢p′) eq
+
+module _ {T : Type} ⦃ _ : Tree T ⦄ where
+
+  extendTreeLength : ∀ (t : T) (b : Block) →
+    let s = b .slot in
+      length (bestChain s (extendTree t b)) ≡ 1 + length (bestChain (s ∸ 1) t)
+  extendTreeLength = {!!}
