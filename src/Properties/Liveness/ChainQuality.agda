@@ -44,14 +44,6 @@ open import Data.List.Ext using (ι)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness)
 open import Data.Nat.Properties.Ext using (n>0⇒pred[n]<n)
 
-honestBlocksLowerBound : ∀ {sl₁ sl₂ : Slot} {bs : List Block} {w : ℕ} →
-    L.All.All (λ b → sl₁ ≤ b .slot × b .slot < sl₂) bs
-  → CorrectBlocks bs
-  → DecreasingSlots bs
-  → length (corruptSlotsInRange sl₁ sl₂) + w ≤ length bs
-  → w ≤ length (honestBlocks bs)
-honestBlocksLowerBound = {!!}
-
 chainQuality : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
   → ForgingFree N
