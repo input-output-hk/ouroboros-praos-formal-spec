@@ -1,3 +1,5 @@
+{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
+
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -25,8 +27,10 @@ open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ForgingFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.CollisionFree ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.SuperBlocks ⦃ params ⦄ ⦃ assumptions ⦄
 open import Data.Nat.Properties.Ext using (n>0⇒pred[n]<n)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness)
+open import Data.List.Properties.Ext using (count-partition)
 open import Data.List.Relation.Unary.All.Properties.Ext using (All-filter)
 open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
 open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs)
@@ -34,11 +38,13 @@ open import Data.List.Relation.Binary.SetEquality using (≡ˢ⇒⊇)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷ʳ-≢⁻; ∉-filter⁺; ∉-filter⁻)
+open import Data.List.Ext using (count)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[∷ʳ]→∗-split; —[[]]→∗ʳ⇒≡)
 open import Prelude.AssocList.Properties.Ext using (set-⁉)
 open import Function.Bundles using (Equivalence)
+open import Relation.Unary.Properties using (∁?)
 
 private
 
@@ -764,3 +770,30 @@ pastBestChainLength′ {N} {N′} N₀↝⋆N′ N′↝⋆N ffN cfN N′Ready {
           b ∈ honestBlockHistory N″
             |> L.SubS.filter-⊆ _ _ ∶
           b ∈ blockHistory N″
+
+corruptBlocksUpperBound : ∀ {sl₁ sl₂ : Slot} {bs : List Block} →
+    L.All.All (λ b → sl₁ ≤ b .slot × b .slot < sl₂) bs
+  → CorrectBlocks bs
+  → DecreasingSlots bs
+  → count (∁? ¿ HonestBlock ¿¹) bs ≤ length (corruptSlotsInRange sl₁ sl₂)
+corruptBlocksUpperBound = {!!}
+
+opaque
+  unfolding count
+
+  honestBlocksLowerBound : ∀ {sl₁ sl₂ : Slot} {bs : List Block} {w : ℕ} →
+      L.All.All (λ b → sl₁ ≤ b .slot × b .slot < sl₂) bs
+    → CorrectBlocks bs
+    → DecreasingSlots bs
+    → length (corruptSlotsInRange sl₁ sl₂) + w ≤ length bs
+    → w ≤ length (honestBlocks bs)
+  honestBlocksLowerBound {sl₁} {sl₂} {bs} {w} bs:[sl₁:sl₂] cb[bs] ds[bs] |cs[sl₁:sl₂]|+w≤|bs| =
+      subst (length (corruptSlotsInRange sl₁ sl₂) + w ≤_) (sym $ count-partition ¿ HonestBlock ¿¹ bs) |cs[sl₁:sl₂]|+w≤|bs| ∶
+    length (corruptSlotsInRange sl₁ sl₂) + w ≤ count ¿ HonestBlock ¿¹ bs + count (∁? ¿ HonestBlock ¿¹) bs
+      |> subst (_≤ count ¿ HonestBlock ¿¹ bs + count (∁? ¿ HonestBlock ¿¹) bs) (sym $ Nat.+-comm w _) ∶
+    w + length (corruptSlotsInRange sl₁ sl₂) ≤ count ¿ HonestBlock ¿¹ bs + count (∁? ¿ HonestBlock ¿¹) bs
+      |> flip Nat.≤-trans (Nat.+-monoʳ-≤ (count ¿ HonestBlock ¿¹ bs) (corruptBlocksUpperBound bs:[sl₁:sl₂] cb[bs] ds[bs])) ∶
+    w + length (corruptSlotsInRange sl₁ sl₂) ≤ count ¿ HonestBlock ¿¹ bs + length (corruptSlotsInRange sl₁ sl₂)
+      |> Nat.+-cancelʳ-≤ _ _ _ ∶
+    w ≤ length (honestBlocks bs)
+      where open import Function.Reasoning

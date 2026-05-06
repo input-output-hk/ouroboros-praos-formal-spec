@@ -18,7 +18,7 @@ open import Data.List.Relation.Unary.All using (All; tabulate) renaming (map to 
 open import Data.List.Relation.Unary.All.Properties using (∷ʳ⁺)
 open import Data.List.Relation.Unary.All.Properties.Ext using (All-∁∅)
 open import Relation.Unary using (Pred; Decidable; ∅; Empty)
-open import Relation.Unary.Properties using (_∩?_)
+open import Relation.Unary.Properties using (_∩?_; ∁?)
 open import Relation.Nullary.Negation using (¬_; contradiction; contraposition)
 open import Relation.Nullary.Decidable.Core using (does; yes; no; _×-dec_; ¬?)
 open import Data.List.Relation.Unary.All.Properties.Core using (¬Any⇒All¬)
@@ -283,6 +283,12 @@ module _ (P? : Decidable P) where
     count-none {x ∷ xs} p with P? x
     ... | yes Px = contradiction p λ ()
     ... | no ¬Px = ¬Px All.∷ count-none {xs} p
+
+    count-partition : ∀ xs → count P? xs + count (∁? P?) xs ≡ length xs
+    count-partition [] = refl
+    count-partition (x ∷ xs) with P? x
+    ... | yes Px = cong suc (count-partition xs)
+    ... | no ¬Px rewrite +-suc (count P? xs) (count (∁? P?) xs) = cong suc (count-partition xs)
 
 replicate-map-const : ∀ {a b} {A : Set a} {B : Set b} {xs : List A} {x : B} {n : ℕ} → replicate (length xs) x ≡ map (const x) xs
 replicate-map-const {xs = []}              = refl
