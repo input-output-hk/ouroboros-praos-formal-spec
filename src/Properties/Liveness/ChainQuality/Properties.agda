@@ -30,20 +30,22 @@ open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.SuperBlocks ⦃ params ⦄ ⦃ assumptions ⦄
 open import Data.Nat.Properties.Ext using (n>0⇒pred[n]<n)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness)
-open import Data.List.Properties.Ext using (count-partition)
+open import Data.List.Properties.Ext using (count-partition; ∈-ι⁺)
 open import Data.List.Relation.Unary.All.Properties.Ext using (All-filter)
 open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
-open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs)
+open import Data.List.Relation.Unary.Unique.Propositional.Properties.Ext using (Unique[xs∷ʳx]⇒x∉xs; Unique-⊆-#≤)
+open import Data.List.Relation.Unary.Linked.Properties using (filter⁺)
 open import Data.List.Relation.Binary.SetEquality using (≡ˢ⇒⊇)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭)
+open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (∷⊆⇒∈)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷ʳ-≢⁻; ∉-filter⁺; ∉-filter⁻)
-open import Data.List.Ext using (count)
+open import Data.List.Ext using (count; ι)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[∷ʳ]→∗-split; —[[]]→∗ʳ⇒≡)
 open import Prelude.AssocList.Properties.Ext using (set-⁉)
-open import Function.Bundles using (Equivalence)
+open import Function.Bundles using (Equivalence; Inverse)
 open import Relation.Unary.Properties using (∁?)
 
 private
@@ -771,15 +773,56 @@ pastBestChainLength′ {N} {N′} N₀↝⋆N′ N′↝⋆N ffN cfN N′Ready {
             |> L.SubS.filter-⊆ _ _ ∶
           b ∈ blockHistory N″
 
-corruptBlocksUpperBound : ∀ {sl₁ sl₂ : Slot} {bs : List Block} →
-    L.All.All (λ b → sl₁ ≤ b .slot × b .slot < sl₂) bs
-  → CorrectBlocks bs
-  → DecreasingSlots bs
-  → count (∁? ¿ HonestBlock ¿¹) bs ≤ length (corruptSlotsInRange sl₁ sl₂)
-corruptBlocksUpperBound = {!!}
-
 opaque
   unfolding count
+
+  corruptBlocksUpperBound : ∀ {sl₁ sl₂ : Slot} {bs : List Block} →
+      L.All.All (λ b → sl₁ ≤ b .slot × b .slot < sl₂) bs
+    → CorrectBlocks bs
+    → DecreasingSlots bs
+    → count (∁? ¿ HonestBlock ¿¹) bs ≤ length (corruptSlotsInRange sl₁ sl₂)
+  corruptBlocksUpperBound {sl₁} {sl₂} {bs} bs:[sl₁:sl₂] cb[bs] ds[bs] with sl₁ <? sl₂
+  ... | no sl₁≮sl₂ = goal-sl₁≮sl₂ bs:[sl₁:sl₂]
+    where
+      goal-sl₁≮sl₂ : ∀ {bs*} →
+          L.All.All (λ b → sl₁ ≤ b .slot × b .slot < sl₂) bs*
+        → count (∁? ¿ HonestBlock ¿¹) bs* ≤ length (corruptSlotsInRange sl₁ sl₂)
+      goal-sl₁≮sl₂ {[]} _ rewrite Nat.m≤n⇒m∸n≡0 (Nat.≮⇒≥ sl₁≮sl₂) = Nat.z≤n
+      goal-sl₁≮sl₂ {b* ∷ bs*} [b*+bs*]:[sl₁:sl₂] with L.All.lookup [b*+bs*]:[sl₁:sl₂] (here refl)
+      ... | sl₁≤b*ₜ , b*ₜ<sl₂ = contradiction (Nat.≤-<-trans sl₁≤b*ₜ b*ₜ<sl₂) sl₁≮sl₂
+  ... | yes sl₁<sl₂ rewrite sym $ L.length-map slot (filter (∁? ¿ HonestBlock ¿¹) bs) =
+    Unique-⊆-#≤ cbs[bs]! (cbs[bs*]⊆cs[sl₁:sl₂] ss[bs]⊆cs[sl₁:sl₂] bs:[sl₁:sl₂] cb[bs])
+    where
+      ss[bs]⊆cs[sl₁:sl₂] : L.map slot bs ⊆ˢ slotsInRange sl₁ sl₂
+      ss[bs]⊆cs[sl₁:sl₂] {sl} sl∈m with L.Mem.∈-map⁻ _ sl∈m
+      ... | b , b∈bs , sl≡bₜ with L.All.lookup bs:[sl₁:sl₂] b∈bs
+      ...   | sl₁≤bₜ , bₜ<sl₂ rewrite sl≡bₜ = ∈-ι⁺ sl₁≤bₜ (subst (b .slot <_) (sym $ Nat.m+[n∸m]≡n (Nat.<⇒≤ sl₁<sl₂)) bₜ<sl₂)
+
+      cbs[bs]! : Unique (L.map slot (filter (∁? ¿ HonestBlock ¿¹) bs))
+      cbs[bs]! = DecreasingSlots⇒UniqueSlots (filter⁺ (∁? ¿ HonestBlock ¿¹) (λ {b b′ b″} → >ˢ-trans {b} {b′} {b″}) ds[bs])
+
+      cbs[bs*]⊆cs[sl₁:sl₂] : ∀ {bs*} →
+          L.map slot bs* ⊆ˢ slotsInRange sl₁ sl₂
+        → L.All.All (λ b → sl₁ ≤ b .slot × b .slot < sl₂) bs*
+        → CorrectBlocks bs*
+        → L.map slot (filter (∁? ¿ HonestBlock ¿¹) bs*) ⊆ˢ corruptSlotsInRange sl₁ sl₂
+      cbs[bs*]⊆cs[sl₁:sl₂] {[]} _ _ _ = λ ()
+      cbs[bs*]⊆cs[sl₁:sl₂] {b* ∷ bs*} ss[b*+bs*]⊆cs [b*+bs*]:[sl₁:sl₂] cb[b*+bs*] {sl} with ¿ HonestBlock b* ¿
+      ... | yes hb* =
+        cbs[bs*]⊆cs[sl₁:sl₂] (λ {_} → ss[b*+bs*]⊆cs ∘ there) (L.All.tail [b*+bs*]:[sl₁:sl₂]) (L.All.tail cb[b*+bs*])
+      ... | no ¬hb* = λ where
+        (here sl≡b*ₜ) →
+          L.Mem.∈-filter⁺
+            ¿ CorruptSlot ¿¹
+            (subst (_∈ slotsInRange sl₁ sl₂) (sym sl≡b*ₜ) $ ∷⊆⇒∈ ss[b*+bs*]⊆cs)
+            (L.Mem.Any↔ .Inverse.to
+              (b* .pid ,
+               L.Mem.∈-allFin (b* .pid) ,
+               (subst (winner (b* .pid)) (sym sl≡b*ₜ) $ L.All.head cb[b*+bs*]) ,
+               ¬honest⇒corrupt ¬hb*))
+        (there sl∈scs[bs*]) →
+          cbs[bs*]⊆cs[sl₁:sl₂]
+            (λ {_} → ss[b*+bs*]⊆cs ∘ there) ((L.All.tail [b*+bs*]:[sl₁:sl₂])) ((L.All.tail cb[b*+bs*])) sl∈scs[bs*]
 
   honestBlocksLowerBound : ∀ {sl₁ sl₂ : Slot} {bs : List Block} {w : ℕ} →
       L.All.All (λ b → sl₁ ≤ b .slot × b .slot < sl₂) bs
