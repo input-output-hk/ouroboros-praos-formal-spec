@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
-
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -12,39 +10,10 @@ open import Protocol.Prelude
 open import Protocol.Tree ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Protocol.Tree.Properties ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Liveness.ChainGrowth.Properties ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.SuperBlocks ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Trees ⦃ params ⦄ ⦃ assumptions ⦄
-open import Data.Nat.Properties.Ext using (suc≗+1)
-
-honestTreeChainGrowth : ∀ {N N′ : GlobalState} →
-    N₀ ↝⋆ N
-  → N ↝⋆ N′
-  → N .progress ≡ ready
-  → ∀ {w : ℕ} →
-      w ≤ length (luckySlotsInRange (N .clock) (N′ .clock))
-    → length (honestTreeChain N) + w ≤ length (honestTreeChain N′)
-honestTreeChainGrowth {N} N₀↝⋆N N↝⋆N′ _ {0} _
-  rewrite Nat.+-identityʳ (length (honestTreeChain N)) = honestTreeChainLengthMonotonicity N₀↝⋆N N↝⋆N′
-honestTreeChainGrowth {N} {N′} N₀↝⋆N N↝⋆N′ NReady {suc w} w+1≤|ls[Nₜ:N′ₜ]|
-  with ∃LessLuckySlotsBetweenStates
-         N₀↝⋆N
-         N↝⋆N′
-         NReady
-         $ subst (_≤ length (luckySlotsInRange (N .clock) (N′ .clock))) (suc≗+1 w) w+1≤|ls[Nₜ:N′ₜ]|
-... | N″ , N″Ready , N₀↝⋆N″ , N″↝⋆N′ , |htc[N]|+1≤|htc[N″]| , w≤|ls[N″ₜ:N′ₜ]| =
-  Nat.≤-trans |htc[N]|+[w+1]≤w+|htc[N″]| w+|htc[N″]|≤|htc[N′]|
-  where
-    |htc[N]|+[w+1]≤w+|htc[N″]| : length (honestTreeChain N) + suc w ≤ w + length (honestTreeChain N″)
-    |htc[N]|+[w+1]≤w+|htc[N″]|
-      rewrite
-        sym $ Nat.+-assoc (length (honestTreeChain N)) 1 w
-      | Nat.+-comm w (length (honestTreeChain N″))
-      = Nat.+-monoˡ-≤ w |htc[N]|+1≤|htc[N″]|
-
-    w+|htc[N″]|≤|htc[N′]| : w + length (honestTreeChain N″) ≤ length (honestTreeChain N′)
-    w+|htc[N″]|≤|htc[N′]| rewrite Nat.+-comm w (length (honestTreeChain N″)) =
-      honestTreeChainGrowth N₀↝⋆N″ N″↝⋆N′ N″Ready w≤|ls[N″ₜ:N′ₜ]|
 
 chainGrowth : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
