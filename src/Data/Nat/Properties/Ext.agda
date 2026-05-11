@@ -20,3 +20,8 @@ n>0⇒pred[n]<n {suc n} _ = ≤-refl
 
 suc≗+1 : suc ≗ _+ 1
 suc≗+1 n rewrite +-suc n 0 | +-identityʳ n = refl
+
+-- TODO: Remove when upgrading stdlib to the next version.
+∸-suc : ∀ {m n} → .(m ≤ n) → suc n ∸ m ≡ suc (n ∸ m)
+∸-suc {m = zero}              _   = refl
+∸-suc {m = suc _} {n = suc _} m≤n = ∸-suc (s≤s⁻¹ m≤n)

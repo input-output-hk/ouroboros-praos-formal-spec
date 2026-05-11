@@ -1003,16 +1003,3 @@ superSlots≡superBlocks = superSlots≡superBlocksʳ ∘ Star⇒Starʳ
 
           goal (permuteParties _) = ih sl₂≤Nₜ
           goal (permuteMsgs    _) = ih sl₂≤Nₜ
-
-∃LessLuckySlotsBetweenStates : ∀ {N N′ : GlobalState} {w : ℕ} →
-    N₀ ↝⋆ N
-  → N ↝⋆ N′
-  → N .progress ≡ ready
-  → w + 1 ≤ length (luckySlotsInRange (N .clock) (N′ .clock))
-  → ∃[ N″ ]
-      N″ .progress ≡ ready
-    × N₀ ↝⋆ N″
-    × N″ ↝⋆ N′
-    × length (honestTreeChain N) + 1 ≤ length (honestTreeChain N″)
-    × w ≤ length (luckySlotsInRange (N″ .clock) (N′ .clock))
-∃LessLuckySlotsBetweenStates = {!!}
