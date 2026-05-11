@@ -19,6 +19,8 @@ open import Properties.Base.Trees ⦃ params ⦄ ⦃ assumptions ⦄
 open import Data.List.Ext using (ι)
 open import Data.List.Properties.Ext using (∈-ι⁺; ι-++; ∈-ι⁻)
 open import Data.Nat.Properties.Ext using (suc≗+1; ∸-suc)
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
+open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 
 firstLuckySlotIsLucky : ∀ {N N′ : GlobalState} {sl : Slot} →
     head (luckySlotsInRange (N .clock) (N′ .clock)) ≡ just sl
@@ -37,6 +39,20 @@ firstLuckySlotBetweenStates = {!!}
   → ∃[ sl ] head (luckySlotsInRange (N .clock) (N′ .clock)) ≡ just sl
 ∃FirstLuckySlotBetweenStates = {!!}
 
+execOrderPreservesHonestChainLength : ∀ {N : GlobalState} {ps : List Party} (sl : Slot) →
+    N .execOrder ↭ ps
+  → length (bestChain sl (honestTree record N { execOrder = ps })) ≡ length (bestChain sl (honestTree N))
+execOrderPreservesHonestChainLength = {!!}
+
+honestTreeChainGrowthInSameState : ∀ {N N′ : GlobalState} →
+    N₀ ↝⋆ N
+  → N ↝⋆⟨ 0 ⟩ N′
+  → N .progress ≡ ready
+  → N′ .progress ≡ blockMade
+  → LuckySlot (N .clock)
+  → length (bestChain (N .clock ∸ 1) (honestTree N)) < length (bestChain (N′ .clock) (honestTree N′))
+honestTreeChainGrowthInSameState = {!!}
+
 honestTreeChainGrowthInNextState : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
   → N ↝⋆⟨ 1 ⟩ N′
@@ -44,7 +60,32 @@ honestTreeChainGrowthInNextState : ∀ {N N′ : GlobalState} →
   → N′ .progress ≡ ready
   → LuckySlot (N .clock)
   → length (honestTreeChain N) < length (honestTreeChain N′)
-honestTreeChainGrowthInNextState = {!!}
+honestTreeChainGrowthInNextState {N} {N′} N₀↝⋆N (N↝⋆N′ , Nₜ+1≡N′ₜ) NReady N′Ready lNₜ =
+  honestTreeChainGrowthInNextStateʳ (Star⇒Starʳ N↝⋆N′) Nₜ+1≡N′ₜ N′Ready lNₜ
+  where
+    open RTC; open Starʳ
+    honestTreeChainGrowthInNextStateʳ :  ∀ {N′ : GlobalState} →
+        N ↝⋆ʳ N′
+      → suc (N .clock) ≡ N′ .clock
+      → N′ .progress ≡ ready
+      → LuckySlot (N .clock)
+      → length (honestTreeChain N) < length (honestTreeChain N′)
+    honestTreeChainGrowthInNextStateʳ εʳ Nₜ+1≡Nₜ _ _ = contradiction Nₜ+1≡Nₜ λ ()
+    honestTreeChainGrowthInNextStateʳ {N′} (_◅ʳ_ {j = N″} N↝⋆ʳN″ N″↝N′) Nₜ+1≡N′ₜ N′Ready lNₜ = goal N′Ready N″↝N′
+      where
+        ih : suc (N .clock) ≡ N″ .clock → N″ .progress ≡ ready → length (honestTreeChain N) < length (honestTreeChain N″)
+        ih Nₜ+1≡N″ₜ N″Ready = honestTreeChainGrowthInNextStateʳ {N″} N↝⋆ʳN″ Nₜ+1≡N″ₜ N″Ready lNₜ
+
+        goal : N′ .progress ≡ ready → N″ ↝ N′ → length (honestTreeChain N) < length (honestTreeChain N′)
+        goal _ (permuteParties {parties = ps} eoN″↭ps) rewrite execOrderPreservesHonestChainLength {N″} (N′ .clock ∸ 1) eoN″↭ps = ih Nₜ+1≡N′ₜ N′Ready
+        goal _ (advanceRound N″BlockMade) = honestTreeChainGrowthInSameState N₀↝⋆N (Starʳ⇒Star N↝⋆ʳN″ , Nₜ≡N″ₜ) NReady N″BlockMade lNₜ
+          where
+            Nₜ≡N″ₜ : N .clock ≡ N″ .clock
+            Nₜ≡N″ₜ = Nat.suc-injective Nₜ+1≡N′ₜ
+
+            lN″ₜ : LuckySlot (N″ .clock)
+            lN″ₜ = subst LuckySlot Nₜ≡N″ₜ lNₜ
+        goal _ (permuteMsgs _) = ih Nₜ+1≡N′ₜ N′Ready
 
 ∃LessLuckySlotsBetweenStates : ∀ {N N′ : GlobalState} {w : ℕ} →
     N₀ ↝⋆ N
