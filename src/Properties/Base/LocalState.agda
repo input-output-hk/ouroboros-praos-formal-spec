@@ -211,12 +211,18 @@ opaque
       localStatePreservation-broadcastMsgsᶜ
         {N} {makeBlockᶜ (N .clock) (N .history) (N .messages) (N .advState) .proj₁} = ⇔-refl
 
-  hasState⇔-↑∗ : ∀ {N N′ N″ : GlobalState} {ps : List Party} {p : Party} →
+  hasState⇔-↑∗ : ∀ {N N′ : GlobalState} {ps : List Party} {p : Party} →
+      _ ⊢ N —[ ps ]↑→∗ N′
+    → p hasStateIn N ⇔ p hasStateIn N′
+  hasState⇔-↑∗ [] = ⇔-refl
+  hasState⇔-↑∗ {p = p} (ts ∷ ts*) = ⇔-trans (hasState⇔-↑ {p = p} ts) (hasState⇔-↑∗ ts*)
+
+  hasState⇔-↑∗-↑ : ∀ {N N′ N″ : GlobalState} {ps : List Party} {p : Party} →
       _ ⊢ N —[ ps ]↑→∗ N′
     → _ ⊢ N′ —[ p ]↑→ N″
     → p hasStateIn N ⇔ p hasStateIn N″
-  hasState⇔-↑∗         []          ts = hasState⇔-↑ ts
-  hasState⇔-↑∗ {p = p} (ts′ ∷ ts*) ts = ⇔-trans (hasState⇔-↑ {p = p} ts′) (hasState⇔-↑∗ ts* ts)
+  hasState⇔-↑∗-↑         []          ts = hasState⇔-↑ ts
+  hasState⇔-↑∗-↑ {p = p} (ts′ ∷ ts*) ts = ⇔-trans (hasState⇔-↑ {p = p} ts′) (hasState⇔-↑∗-↑ ts* ts)
 
   hasState⇔-↝⋆ :  ∀ {N N′ : GlobalState} {p : Party} →
       N ↝⋆ N′

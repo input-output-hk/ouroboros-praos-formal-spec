@@ -10,17 +10,24 @@ module Properties.Liveness.ChainGrowth.Properties
 
 open import Protocol.Prelude
 open import Protocol.BaseTypes using (Slot; Honesty)
+open import Protocol.Chain ⦃ params ⦄
 open import Protocol.Tree ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Protocol.Tree.Properties ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.SuperBlocks ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Trees ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
 open import Data.List.Ext using (ι)
 open import Data.List.Properties.Ext using (∈-ι⁺; ι-++; ∈-ι⁻)
 open import Data.Nat.Properties.Ext using (suc≗+1; ∸-suc)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
+open import Data.List.Relation.Binary.SetEquality using (≡ˢ⇒⊇)
+open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭)
+open import Function.Bundles using (Equivalence; Inverse)
 
 firstLuckySlotIsLucky : ∀ {N N′ : GlobalState} {sl : Slot} →
     head (luckySlotsInRange (N .clock) (N′ .clock)) ≡ just sl
@@ -44,6 +51,16 @@ execOrderPreservesHonestChainLength : ∀ {N : GlobalState} {ps : List Party} (s
   → length (bestChain sl (honestTree record N { execOrder = ps })) ≡ length (bestChain sl (honestTree N))
 execOrderPreservesHonestChainLength = {!!}
 
+bestChainGrowth : ∀ {N N′ : GlobalState} {p : Party} {ls ls′ : LocalState} →
+    N₀ ↝⋆ N
+  → winner p (N .clock)
+  → Honest p
+  → N .states ⁉ p ≡ just ls
+  → _ ⊢ N —[ p ]↑→ N′
+  → N′ .states ⁉ p ≡ just ls′
+  → length (bestChain (N .clock ∸ 1) (ls .tree)) < length (bestChain (N .clock) (ls′ .tree))
+bestChainGrowth = {!!}
+
 honestTreeChainGrowthInSameState : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
   → N ↝⋆⟨ 0 ⟩ N′
@@ -51,7 +68,103 @@ honestTreeChainGrowthInSameState : ∀ {N N′ : GlobalState} →
   → N′ .progress ≡ blockMade
   → LuckySlot (N .clock)
   → length (bestChain (N .clock ∸ 1) (honestTree N)) < length (bestChain (N′ .clock) (honestTree N′))
-honestTreeChainGrowthInSameState = {!!}
+honestTreeChainGrowthInSameState {N} {N′} N₀↝⋆N (N↝⋆N′ , Nₜ≡N′ₜ) NReady N′BlockMade lNₜ =
+  honestTreeChainGrowthInSameStateʳ (Star⇒Starʳ N↝⋆N′) Nₜ≡N′ₜ NReady N′BlockMade lNₜ
+  where
+    open RTC; open Starʳ
+    honestTreeChainGrowthInSameStateʳ :  ∀ {N′ : GlobalState} →
+        N ↝⋆ʳ N′
+      → N .clock ≡ N′ .clock
+      → N .progress ≡ ready
+      → N′ .progress ≡ blockMade
+      → LuckySlot (N .clock)
+      → length (bestChain (N .clock ∸ 1) (honestTree N)) < length (bestChain (N′ .clock) (honestTree N′))
+    honestTreeChainGrowthInSameStateʳ εʳ _ NReady NBlockMade _ = contradiction (trans (sym NReady) NBlockMade) λ ()
+    honestTreeChainGrowthInSameStateʳ {N′} (_◅ʳ_ {j = N″} N↝⋆ʳN″ N″↝N′) Nₜ≡N′ₜ NReady N′BlockMade lNₜ = goal Nₜ≡N′ₜ NReady N′BlockMade N″↝N′
+      where
+        ih :
+            N .clock ≡ N″ .clock
+          → N″ .progress ≡ blockMade
+          → length (bestChain (N .clock ∸ 1) (honestTree N)) < length (bestChain (N″ .clock) (honestTree N″))
+        ih Nₜ≡N″ₜ N″BlockMade = honestTreeChainGrowthInSameStateʳ {N″} N↝⋆ʳN″ Nₜ≡N″ₜ NReady N″BlockMade lNₜ
+
+        goal :
+            N .clock ≡ N′ .clock
+          → N .progress ≡ ready
+          → N′ .progress ≡ blockMade
+          → N″ ↝ N′
+          → length (bestChain (N .clock ∸ 1) (honestTree N)) < length (bestChain (N′ .clock) (honestTree N′))
+        goal _ _ _ (permuteParties {parties = ps} eoN″↭ps) rewrite execOrderPreservesHonestChainLength {N″} (N″ .clock) eoN″↭ps = ih Nₜ≡N′ₜ N′BlockMade
+        goal _ _ _ (permuteMsgs _) = ih Nₜ≡N′ₜ N′BlockMade
+        goal _ _ _ (makeBlock {N′ = N‴} N″MsgsDelivered N″—[eoN″]↑→∗N‴) rewrite clockPreservation-↑∗ N″—[eoN″]↑→∗N‴ = goal-makeBlock
+          where
+            N₀↝⋆N″ : N₀ ↝⋆ N″
+            N₀↝⋆N″ = N₀↝⋆N ◅◅ (Starʳ⇒Star N↝⋆ʳN″)
+
+            goal-makeBlock : length (bestChain (N .clock ∸ 1) (honestTree N)) < length (bestChain (N″ .clock) (honestTree N‴))
+            goal-makeBlock
+              with L.Mem.Any↔ .Inverse.from lNₜ
+            ... | p , p∈parties₀ , isWinner , hp
+              with hasStateInAltDef {N″} .Equivalence.from $ hasState⇔∈parties₀ N₀↝⋆N″ .Equivalence.from p∈parties₀
+            ... | ls , lspN″ = Nat.≤-<-trans |bchtN|≤|bcN| |bcN|<|bcN‴|
+              where
+                |bchtN|≤|bcN| : length (bestChain (N .clock ∸ 1) (honestTree N)) ≤ length (bestChain (N .clock ∸ 1) (ls .tree))
+                |bchtN|≤|bcN| =
+                  allBlocks⊆⇒|bestChain|≤
+                    (N .clock ∸ 1)
+                    (honestGlobalTreeInHonestLocalTree N₀↝⋆N hp NReady N″MsgsDelivered (Starʳ⇒Star N↝⋆ʳN″ , Nₜ≡N′ₜ) lspN″)
+
+                |bcN|<|bcN‴| : length (bestChain (N .clock ∸ 1) (ls .tree)) < length (bestChain (N″ .clock) (honestTree N‴))
+                |bcN|<|bcN‴|
+                  with hasStateInAltDef {N‴} .Equivalence.from $
+                         hasState⇔-↑∗ N″—[eoN″]↑→∗N‴ .Equivalence.to (hasStateInAltDef {N″} .Equivalence.to (ls , lspN″))
+                ... | ls′ , lspN‴ = Nat.<-≤-trans |bcN|<|bcls′| |bcls′≤bcN‴|
+                  where
+                    Nᵖ = GlobalState ∋ honestBlockMaking p ls N″
+
+                    N″↝[p]↑Nᵖ : N″ ↝[ p ]↑ Nᵖ
+                    N″↝[p]↑Nᵖ = honestParty↑ lspN″ hp
+
+                    lspNᵖ : Nᵖ .states ⁉ p ≡ just ls′
+                    lspNᵖ = trans (sym $ localStatePreservation-∈-↑∗ N₀↝⋆N″ N″—[eoN″]↑→∗N‴ N″↝[p]↑Nᵖ) lspN‴
+
+                    |bcN|<|bcls′| : length (bestChain (N .clock ∸ 1) (ls .tree)) < length (bestChain (N″ .clock) (ls′ .tree))
+                    |bcN|<|bcls′| =
+                      subst
+                        (λ ◆ → length (bestChain (◆ ∸ 1) (ls .tree)) < length (bestChain (N″ .clock) (ls′ .tree)))
+                        (sym Nₜ≡N′ₜ) $
+                        bestChainGrowth N₀↝⋆N″ isWinnerN″ hp lspN″ N″↝[p]↑Nᵖ lspNᵖ
+                      where
+                        isWinnerN″ : winner p (N″ .clock)
+                        isWinnerN″ = subst (winner p) Nₜ≡N′ₜ isWinner
+
+                    |bcls′≤bcN‴| : length (bestChain (N″ .clock) (ls′ .tree)) ≤ length (bestChain (N″ .clock) (honestTree N‴))
+                    |bcls′≤bcN‴| = allBlocks⊆⇒|bestChain|≤ (N″ .clock) $ λ {b} b∈bt[ls′] →
+                        b∈bt[ls′] ∶
+                      b ∈ allBlocks (ls′ .tree)
+                        |> bt[ls′]⊆bksN‴ ∶
+                      b ∈ L.concatMap (blocks N‴) (honestParties N‴)
+                        |> L.SubS.xs⊆x∷xs _ _ ∶
+                      b ∈ genesisBlock ∷ L.concatMap (blocks N‴) (honestParties N‴)
+                        |> ≡ˢ⇒⊇ (buildTreeUsesAllBlocks _) ∶
+                      b ∈ allBlocks (honestTree N‴)
+                        where
+                          open import Function.Reasoning
+
+                          bt[ls′]⊆bksN‴ : allBlocks (ls′ .tree) ⊆ˢ L.concatMap (blocks N‴) (honestParties N‴)
+                          bt[ls′]⊆bksN‴ {b} b∈bt[ls′] =
+                            L.Mem.∈-concat⁺′
+                              b∈bt[ls′]
+                              (L.Mem.∈-map∘filter⁺ (blocks N‴) ¿ Honest ¿¹  (p , p∈eoN″ , bt[ls′]≡bkN‴p , hp))
+                            where
+                              bt[ls′]≡bkN‴p : allBlocks (ls′ .tree) ≡ blocks N‴ p
+                              bt[ls′]≡bkN‴p rewrite lspN‴ = refl
+
+                              p∈eoN″ : p ∈ N‴ .execOrder
+                              p∈eoN″ = ∈-resp-↭ (execOrderPreservation-↭-↑∗ N″—[eoN″]↑→∗N‴) (∈-resp-↭ (execOrderPreservation-↭ N₀↝⋆N″) p∈parties₀)
+
+            N‴ₜ≡N″ₜ  : N‴ .clock ≡ N″ .clock
+            N‴ₜ≡N″ₜ = clockPreservation-↑∗ N″—[eoN″]↑→∗N‴
 
 honestTreeChainGrowthInNextState : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
