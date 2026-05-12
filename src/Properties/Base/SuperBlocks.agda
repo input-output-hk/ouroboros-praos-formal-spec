@@ -441,7 +441,7 @@ opaque
                           = goal-∷ʳ-hwp′ ts
                         where
                           p′HasLsInN* : p′ hasStateIn N*
-                          p′HasLsInN* = hasState⇔-↑∗ ts⁺′ ts .Equivalence.to p′HasLs
+                          p′HasLsInN* = hasState⇔-↑∗-↑ ts⁺′ ts .Equivalence.to p′HasLs
 
                           ls′ : LocalState
                           ls′ = M.to-witness p′HasLsInN*
