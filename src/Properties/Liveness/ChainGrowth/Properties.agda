@@ -24,7 +24,7 @@ open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.AssocList.Properties.Ext using (set-⁉)
 open import Data.List.Ext using (ι)
-open import Data.List.Properties.Ext using (∈-ι⁺; ι-++; ∈-ι⁻)
+open import Data.List.Properties.Ext using (∈-ι⁺; ι-++; ∈-ι⁻; length0⇒[]; head-++)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭)
 open import Data.Nat.Properties.Ext using (suc≗+1; ∸-suc; n>0⇒pred[n]<n)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
@@ -51,7 +51,58 @@ firstLuckySlotBetweenStates = {!!}
   → N ↝⋆ N′
   → 1 ≤ length (luckySlotsInRange (N .clock) (N′ .clock))
   → ∃[ sl ] head (luckySlotsInRange (N .clock) (N′ .clock)) ≡ just sl
-∃FirstLuckySlotBetweenStates = {!!}
+∃FirstLuckySlotBetweenStates {N} {N′} N₀↝⋆N N↝⋆N′ 1≤|ls[N:N′]| = ∃FirstLuckySlotBetweenStatesʳ (Star⇒Starʳ N↝⋆N′) 1≤|ls[N:N′]|
+  where
+    open RTC; open Starʳ
+    ∃FirstLuckySlotBetweenStatesʳ : ∀ {N′ : GlobalState} →
+        N ↝⋆ʳ N′
+      → 1 ≤ length (luckySlotsInRange (N .clock) (N′ .clock))
+      → ∃[ sl ] head (luckySlotsInRange (N .clock) (N′ .clock)) ≡ just sl
+    ∃FirstLuckySlotBetweenStatesʳ εʳ 1≤|ls[N:N]| = contradiction |ls[N:N]|=0 (Nat.n>0⇒n≢0 1≤|ls[N:N]|)
+      where
+        |ls[N:N]|=0 : length (luckySlotsInRange (N .clock) (N .clock)) ≡ 0
+        |ls[N:N]|=0 rewrite Nat.n∸n≡0 (N .clock) = refl
+    ∃FirstLuckySlotBetweenStatesʳ {N′} (_◅ʳ_ {j = N″} N↝⋆ʳN″ N″↝N′) 1≤|ls[N:N′]| = goal N″↝N′ 1≤|ls[N:N′]|
+      where
+        ih :
+            1 ≤ length (luckySlotsInRange (N .clock) (N″ .clock))
+          → ∃[ sl ] head (luckySlotsInRange (N .clock) (N″ .clock)) ≡ just sl
+        ih = ∃FirstLuckySlotBetweenStatesʳ N↝⋆ʳN″
+
+        N″ₜ-Nₜ-eq : suc (N″ .clock) ∸ (N .clock) ≡ (N″ .clock ∸ N .clock) + 1
+        N″ₜ-Nₜ-eq rewrite Nat.+-comm (N″ .clock ∸ N .clock) 1 = ∸-suc (clockMonotonicity (Starʳ⇒Star N↝⋆ʳN″))
+
+        goal : ∀ {N′} →
+            N″ ↝ N′
+          → 1 ≤ length (luckySlotsInRange (N .clock) (N′ .clock))
+          → ∃[ sl ] head (luckySlotsInRange (N .clock) (N′ .clock)) ≡ just sl
+        goal (deliverMsgs {N′ = N°} _ N″—[eoN″]↓→∗N°) 1≤|ls[N:N°]| rewrite clockPreservation-↓∗ N″—[eoN″]↓→∗N° = ih 1≤|ls[N:N°]|
+        goal (makeBlock   {N′ = N°} _ N″—[eoN″]↑→∗N°) 1≤|ls[N:N°]| rewrite clockPreservation-↑∗ N″—[eoN″]↑→∗N° = ih 1≤|ls[N:N°]|
+        goal (advanceRound   _) 1≤|ls[N:N″+1]|
+          rewrite
+            N″ₜ-Nₜ-eq
+          | ι-++ (N .clock) (N″ .clock ∸ N .clock) 1
+          | L.filter-++ ¿ LuckySlot ¿¹ (ι (N .clock) (N″ .clock ∸ N .clock)) [ N .clock + (N″ .clock ∸ N .clock) ]
+          | Nat.m+[n∸m]≡n $ clockMonotonicity (Starʳ⇒Star N↝⋆ʳN″)
+          | L.length-++ (luckySlotsInRange (N .clock) (N″ .clock)) {ys = filter ¿ LuckySlot ¿¹ [ N″ .clock ]}
+          = goal′
+          where
+            goal′ : ∃[ sl ] head (luckySlotsInRange (N .clock) (N″ .clock) ++ filter ¿ LuckySlot ¿¹ [ N″ .clock ]) ≡ just sl
+            goal′ with length (luckySlotsInRange (N .clock) (N″ .clock)) in eq
+            ... | |ls[N:N″]|@(suc _) = case ih 1≤|ls[N:N″]| of λ where
+              (sl* , π) → sl* , head-++ π
+                where
+                  1≤|ls[N:N″]| : 1 ≤ length (luckySlotsInRange (N .clock) (N″ .clock))
+                  1≤|ls[N:N″]| rewrite eq = Nat.s≤s Nat.z≤n
+            ... | 0 with ¿ LuckySlot (N″ .clock) ¿
+            ...   | no ¬lN″ₜ = contradiction 1≤|ls[N:N″+1]| λ ()
+            ...   | yes lN″ₜ
+                      rewrite
+                        L.filter-accept ¿ LuckySlot ¿¹ {N″ .clock} {[]} lN″ₜ
+                      | length0⇒[] {xs = luckySlotsInRange (N .clock) (N″ .clock)} eq
+                      = N″ .clock , refl
+        goal (permuteParties _) 1≤|ls[N:N′]| = ih 1≤|ls[N:N′]|
+        goal (permuteMsgs    _) 1≤|ls[N:N′]| = ih 1≤|ls[N:N′]|
 
 execOrderPreservesHonestChainLength : ∀ {N : GlobalState} {ps : List Party} (sl : Slot) →
     N .execOrder ↭ ps
