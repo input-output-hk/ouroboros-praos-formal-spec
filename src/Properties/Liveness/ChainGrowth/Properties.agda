@@ -25,13 +25,16 @@ open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.AssocList.Properties.Ext using (set-⁉)
 open import Data.List.Ext using (ι)
 open import Data.List.Properties.Ext using (∈-ι⁺; ι-++; ∈-ι⁻)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭)
 open import Data.Nat.Properties.Ext using (suc≗+1; ∸-suc; n>0⇒pred[n]<n)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
-open import Data.List.Relation.Binary.SetEquality using (≡ˢ⇒⊇)
+open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊇; ≡ˢ⇒⊆; filter-cong)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
-open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭; map⁺)
 open import Function.Bundles using (Equivalence; Inverse)
+open import Function.Related.Propositional as Related
+open import Data.List.Relation.Binary.BagAndSetEquality using (∷-cong; concat-cong; map-cong; bag-=⇒; ↭⇒∼bag)
 
 firstLuckySlotIsLucky : ∀ {N N′ : GlobalState} {sl : Slot} →
     head (luckySlotsInRange (N .clock) (N′ .clock)) ≡ just sl
@@ -53,7 +56,45 @@ firstLuckySlotBetweenStates = {!!}
 execOrderPreservesHonestChainLength : ∀ {N : GlobalState} {ps : List Party} (sl : Slot) →
     N .execOrder ↭ ps
   → length (bestChain sl (honestTree record N { execOrder = ps })) ≡ length (bestChain sl (honestTree N))
-execOrderPreservesHonestChainLength = {!!}
+execOrderPreservesHonestChainLength {N} {ps} sl eoN↭ps = Nat.≤-antisym |bc′|≤|bc| |bc|≤|bc′|
+  where
+    N′ : GlobalState
+    N′ = record N { execOrder = ps }
+
+    bc bc′ : Chain
+    bc  = bestChain sl (honestTree N)
+    bc′ = bestChain sl (honestTree N′)
+
+    eq : filter ((_≤? sl) ∘ slot) (allBlocks (honestTree N′))
+         ≡ˢ
+         filter ((_≤? sl) ∘ slot) (allBlocks (honestTree N))
+    eq = filter-cong eq′
+      where
+         eq′ : allBlocks (honestTree N′) ≡ˢ allBlocks (honestTree N)
+         eq′ {b} = let open Related.EquationalReasoning in begin
+           b ∈ allBlocks (honestTree N′)                                       ∼⟨ buildTreeUsesAllBlocks _ ⟩
+           b ∈ genesisBlock ∷ (L.concatMap (blocks N′) (honestParties N′))
+             ∼⟨ ∷-cong refl (λ {b} → begin
+                 b ∈ L.concatMap (blocks N′) (honestParties N′)
+                   ∼⟨ concat-cong (λ {b} → begin
+                      b ∈ (L.map (blocks N′) (honestParties N′))
+                        ∼⟨ bag-=⇒ $ ↭⇒∼bag $ map⁺ _ $ filter-↭ _ (↭-sym eoN↭ps) ⟩
+                      b ∈ (L.map (blocks N) (honestParties N))
+                    ∎
+                    ) ⟩
+               b ∈ (L.concatMap (blocks N) (honestParties N))
+                 ∎
+              ) ⟩
+           b ∈ genesisBlock ∷ (L.concatMap (blocks N) (honestParties N))       ∼⟨ SK-sym $ buildTreeUsesAllBlocks _ ⟩
+           b ∈ allBlocks (honestTree N)                                        ∎
+
+    |bc|≤|bc′| : length bc ≤ length bc′
+    |bc|≤|bc′| = optimal bc (honestTree N′) sl (valid (honestTree N) sl) $
+                   L.SubS.⊆-trans (selfContained (honestTree N) sl) (≡ˢ⇒⊇ eq)
+
+    |bc′|≤|bc| : length bc′ ≤ length bc
+    |bc′|≤|bc| = optimal bc′ (honestTree N) sl (valid (honestTree N′) sl) $
+                   L.SubS.⊆-trans (selfContained (honestTree N′) sl) (≡ˢ⇒⊆ eq)
 
 opaque
 
