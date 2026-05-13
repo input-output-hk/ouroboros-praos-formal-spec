@@ -7,7 +7,7 @@ open import Data.Nat.Properties using (+-identityʳ; +-suc; ≤⇒≯; m≤n⇒m
 open import Data.Bool using (Bool; true; false)
 open import Relation.Binary.PropositionalEquality using (refl; _≡_; _≢_; module ≡-Reasoning)
 open import Data.Maybe using (nothing)
-open import Data.List using (List; []; [_]; _∷_; _∷ʳ_; _++_; map; filter; length; updateAt; _[_]%=_; lookup; findᵇ; find; upTo; downFrom; reverse; foldr; deduplicate; replicate)
+open import Data.List using (List; []; [_]; _∷_; _∷ʳ_; _++_; map; filter; length; updateAt; _[_]%=_; lookup; findᵇ; find; upTo; downFrom; reverse; foldr; deduplicate; replicate; head)
 open import Data.List.Ext using (ι; count; undup)
 open import Data.List.Properties using (∷ʳ-injective; filter-++; filter-accept; filter-reject; ++-identityʳ; unfold-reverse; ++-cancelˡ; ∷-injectiveˡ; ∷-injectiveʳ; reverse-selfInverse; length-map; length-downFrom; length-reverse; filter-all; filter-none; reverse-++; ++-assoc)
 open import Data.List.Membership.Propositional using (_∈_; _∉_)
@@ -293,3 +293,6 @@ module _ (P? : Decidable P) where
 replicate-map-const : ∀ {a b} {A : Set a} {B : Set b} {xs : List A} {x : B} {n : ℕ} → replicate (length xs) x ≡ map (const x) xs
 replicate-map-const {xs = []}              = refl
 replicate-map-const {xs = x′ ∷ xs} {x} {n} = cong (x ∷_) (replicate-map-const {xs = xs} {x} {n})
+
+head-++ : ∀ {a} {A : Set a} {x : A} {xs ys : List A} → head xs ≡ just x → head (xs ++ ys) ≡ just x
+head-++ {xs = x ∷ xs} refl = refl
