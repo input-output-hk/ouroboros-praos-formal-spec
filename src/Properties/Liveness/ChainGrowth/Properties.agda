@@ -10,18 +10,22 @@ module Properties.Liveness.ChainGrowth.Properties
 
 open import Protocol.Prelude
 open import Protocol.BaseTypes using (Slot; Honesty)
+open import Protocol.Crypto ⦃ params ⦄ using (Hashable); open Hashable ⦃ ... ⦄
+open import Protocol.Block ⦃ params ⦄
 open import Protocol.Chain ⦃ params ⦄
 open import Protocol.Tree ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Protocol.Tree.Properties ⦃ params ⦄ ⦃ assumptions ⦄
+open import Protocol.Chain.Properties ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.SuperBlocks ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Trees ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
+open import Prelude.AssocList.Properties.Ext using (set-⁉)
 open import Data.List.Ext using (ι)
 open import Data.List.Properties.Ext using (∈-ι⁺; ι-++; ∈-ι⁻)
-open import Data.Nat.Properties.Ext using (suc≗+1; ∸-suc)
+open import Data.Nat.Properties.Ext using (suc≗+1; ∸-suc; n>0⇒pred[n]<n)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Data.List.Relation.Binary.SetEquality using (≡ˢ⇒⊇)
@@ -51,15 +55,95 @@ execOrderPreservesHonestChainLength : ∀ {N : GlobalState} {ps : List Party} (s
   → length (bestChain sl (honestTree record N { execOrder = ps })) ≡ length (bestChain sl (honestTree N))
 execOrderPreservesHonestChainLength = {!!}
 
-bestChainGrowth : ∀ {N N′ : GlobalState} {p : Party} {ls ls′ : LocalState} →
-    N₀ ↝⋆ N
-  → winner p (N .clock)
-  → Honest p
-  → N .states ⁉ p ≡ just ls
-  → _ ⊢ N —[ p ]↑→ N′
-  → N′ .states ⁉ p ≡ just ls′
-  → length (bestChain (N .clock ∸ 1) (ls .tree)) < length (bestChain (N .clock) (ls′ .tree))
-bestChainGrowth = {!!}
+opaque
+
+  unfolding honestBlockMaking
+
+  bestChainGrowth : ∀ {N N′ : GlobalState} {p : Party} {ls ls′ : LocalState} →
+      N₀ ↝⋆ N
+    → winner p (N .clock)
+    → Honest p
+    → N .states ⁉ p ≡ just ls
+    → _ ⊢ N —[ p ]↑→ N′
+    → N′ .states ⁉ p ≡ just ls′
+    → length (bestChain (N .clock ∸ 1) (ls .tree)) < length (bestChain (N .clock) (ls′ .tree))
+  bestChainGrowth {N = N} {p = p} _ _ _ lspN (unknownParty↑ ls≡◇) _ = contradiction ls≡◇ ls′≢◇
+    where
+      ls′≢◇ : N .states ⁉ p ≢ nothing
+      ls′≢◇ rewrite lspN = flip contradiction λ ()
+  bestChainGrowth {N} {N′} {p} {ls} {ls′} N₀↝⋆N wp hp lspN (honestParty↑ {ls = lsₕ} lsₕpN _) lspN′
+    rewrite dec-yes ¿ winner p (N .clock) ¿ wp .proj₂ = goal
+    where
+      bcₕ : Chain
+      bcₕ = bestChain (N .clock ∸ 1) (lsₕ .tree)
+
+      nbₕ : Block
+      nbₕ = mkBlock (hash (tip bcₕ)) (N .clock) (txSelection (N .clock) p) p
+
+      lsₕ≡ls : lsₕ ≡ ls
+      lsₕ≡ls = M.just-injective $ trans (sym lsₕpN) lspN
+
+      goal : length (bestChain (N .clock ∸ 1) (ls .tree)) < length (bestChain (N .clock) (ls′ .tree))
+      goal rewrite set-⁉ (N .states) p (addBlock lsₕ nbₕ) | sym $ M.just-injective lspN′ | lsₕ≡ls = |bc|<|bcext|
+        where
+          bc : Chain
+          bc = bestChain (N .clock ∸ 1) (ls .tree)
+
+          nb : Block
+          nb = mkBlock (hash (tip bc)) (N .clock) (txSelection (N .clock) p) p
+
+          |bc|<|bcext| : length bc < length (bestChain (N .clock) (extendTree (ls .tree) nb))
+          |bc|<|bcext| = Nat.<-≤-trans {j = length (nb ∷ bc)} Nat.≤-refl |nb+bc|≤|bcext|
+            where
+              |nb+bc|≤|bcext| : length (nb ∷ bc) ≤ length (bestChain (N .clock) (extendTree (ls .tree) nb))
+              |nb+bc|≤|bcext| = optimal (nb ∷ bc) (extendTree (ls .tree) nb) (N .clock) [nb+bc]✓ nb+bc⊆[≤Nₜ][bks[ext]]
+                where
+                  bc✓ : bc ✓
+                  bc✓ = valid (ls .tree) (N .clock ∸ 1)
+
+                  bc⊆[≤Nₜ-1][bks] : bc ⊆ˢ filter ((_≤? N .clock ∸ 1) ∘ slot) (allBlocks (ls .tree))
+                  bc⊆[≤Nₜ-1][bks] = selfContained (ls .tree) (N .clock ∸ 1)
+
+                  Nₜ-1<Nₜ : N .clock ∸ 1 < N .clock
+                  Nₜ-1<Nₜ = n>0⇒pred[n]<n (positiveClock N₀↝⋆N)
+
+                  [nb+bc]✓ : (nb ∷ bc) ✓
+                  [nb+bc]✓ with bc in eq
+                  ... | [] = contradiction refl (✓⇒≢[] []✓)
+                    where
+                      []✓ : [] ✓
+                      []✓ rewrite sym eq = bc✓
+                  ... | b′ ∷ bc′ = ✓-∷ .Equivalence.to (wp , refl , nb>ˢb′ , subst _✓ eq bc✓)
+                    where
+                      nb>ˢb′ : nb >ˢ b′
+                      nb>ˢb′ =
+                        Nat.≤-<-trans
+                          ((L.Mem.∈-filter⁻ _ {xs = allBlocks (ls .tree)} $ bc⊆[≤Nₜ-1][bks] b′∈bc) .proj₂)
+                          Nₜ-1<Nₜ
+                        where
+                          b′∈bc : b′ ∈ bc
+                          b′∈bc = subst (b′ ∈_) (sym eq) (here refl)
+
+                  nb+bc⊆[≤Nₜ][bks[ext]] : nb ∷ bc ⊆ˢ filter ((_≤? N .clock) ∘ slot) (allBlocks (extendTree (ls .tree) nb))
+                  nb+bc⊆[≤Nₜ][bks[ext]] {b} (here b≡nb) rewrite b≡nb = L.Mem.∈-filter⁺ _ nb∈bks[ext] Nat.≤-refl
+                    where
+                      nb∈bks[ext] : nb ∈ allBlocks (extendTree (ls .tree) nb)
+                      nb∈bks[ext] = (≡ˢ⇒⊇ $ extendable (ls .tree) nb) (L.Mem.∈-++⁺ʳ _ (here refl))
+                  nb+bc⊆[≤Nₜ][bks[ext]] {b} (there b∈bc) = L.Mem.∈-filter⁺ _ b∈bks[ext] bₜ≤Nₜ
+                    where
+                      bₜ≤Nₜ : b .slot ≤ N .clock
+                      bₜ≤Nₜ = Nat.<⇒≤ $ Nat.≤-<-trans
+                                (L.All.lookup (bestChainSlotBounded (ls .tree) (N .clock ∸ 1)) b∈bc)
+                                Nₜ-1<Nₜ
+
+                      b∈bks[ext] : b ∈ allBlocks (extendTree (ls .tree) nb)
+                      b∈bks[ext] = let open L.SubS.⊆-Reasoning Block in (begin
+                        bc                                                        ⊆⟨ bc⊆[≤Nₜ-1][bks] ⟩
+                        filter ((_≤? N .clock ∸ 1) ∘ slot) (allBlocks (ls .tree)) ⊆⟨ L.SubS.filter-⊆ _ _ ⟩
+                        allBlocks (ls .tree)                                      ⊆⟨ L.SubS.xs⊆xs++ys _ _ ⟩
+                        allBlocks (ls .tree) ++ [ nb ]                            ⊆⟨ ≡ˢ⇒⊇ $ extendable _ _ ⟩
+                        allBlocks (extendTree (ls .tree) nb)                      ∎) b∈bc
+  bestChainGrowth _ _ hp _ (corruptParty↑ _ cp) _ = contradiction hp (corrupt⇒¬honest cp)
 
 honestTreeChainGrowthInSameState : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
