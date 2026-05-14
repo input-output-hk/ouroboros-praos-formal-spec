@@ -26,7 +26,7 @@ open import Prelude.AssocList.Properties.Ext using (set-⁉)
 open import Data.List.Ext using (ι)
 open import Data.List.Properties.Ext using (∈-ι⁺; ι-++; ∈-ι⁻; length0⇒[]; head-++)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭)
-open import Data.Nat.Properties.Ext using (suc≗+1; ∸-suc; n>0⇒pred[n]<n)
+open import Data.Nat.Properties.Ext using (suc≗+1; ∸-suc; n>0⇒pred[n]<n; 0<n∸m⇒m<n)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊇; ≡ˢ⇒⊆; filter-cong)
@@ -44,7 +44,24 @@ firstLuckySlotIsLucky = {!!}
 firstLuckySlotBetweenStates : ∀ {N N′ : GlobalState} {sl : Slot} →
     head (luckySlotsInRange (N .clock) (N′ .clock)) ≡ just sl
   → N .clock ≤ sl × sl < N′ .clock
-firstLuckySlotBetweenStates = {!!}
+firstLuckySlotBetweenStates {N} {N′} {sl} hd[ls[N:N′]]≡sl =
+  case ∈-ι⁻ sl∈[N:N′] of λ where
+    (Nₜ≤sl , sl<Nₜ+N′ₜ∸Nₜ) → Nₜ≤sl , subst (sl <_) (Nat.m+[n∸m]≡n $ Nat.<⇒≤ Nₜ<N′ₜ) sl<Nₜ+N′ₜ∸Nₜ
+  where
+    sl∈[N:N′] : sl ∈ ι (N .clock) (N′ .clock ∸ N .clock)
+    sl∈[N:N′] = sl∈ss* hd[ls[N:N′]]≡sl
+      where
+        sl∈ss* : ∀ {ss*} → head (filter ¿ LuckySlot ¿¹ ss*) ≡ just sl → sl ∈ ss*
+        sl∈ss* {sl′ ∷ ss*} p with ¿ LuckySlot sl′ ¿
+        ... | yes lsl′ rewrite M.just-injective p = here refl
+        ... | no ¬lsl′ = L.Mem.∈-++⁺ʳ _ $ sl∈ss* {ss*} p
+
+    Nₜ<N′ₜ : N .clock < N′ .clock
+    Nₜ<N′ₜ = 0<n∸m⇒m<n (|ι|>0 (N′ .clock ∸ N .clock) hd[ls[N:N′]]≡sl)
+      where
+        |ι|>0 : ∀ sl′ → head (filter ¿ LuckySlot ¿¹ $ ι (N .clock) sl′) ≡ just sl → 0 < sl′
+        |ι|>0 0         = λ ()
+        |ι|>0 (suc _) _ = Nat.s≤s Nat.z≤n
 
 ∃FirstLuckySlotBetweenStates : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
