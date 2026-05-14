@@ -618,9 +618,9 @@ allGBsInHonestTree₀ = L.All.tabulate allGBsInHonestTree₀′
 
 honestGlobalTreeBlocksMonotonicity : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
-  → N ↝ N′
+  → N ↝⋆ N′
   → allBlocks (honestTree N) ⊆ˢ allBlocks (honestTree N′)
-honestGlobalTreeBlocksMonotonicity {N} {N′} N₀↝⋆N N↝N′ {b} b∈htN
+honestGlobalTreeBlocksMonotonicity {N} {N′} N₀↝⋆N N↝⋆N′ {b} b∈htN
   with honestGlobalTreeBlockInSomeHonestLocalTree N₀↝⋆N b∈htN
 ... | p , ls , lspN , b∈lst , hp , p∈eoN =
     b∈cM ∶
@@ -632,13 +632,13 @@ honestGlobalTreeBlocksMonotonicity {N} {N′} N₀↝⋆N N↝N′ {b} b∈htN
     open RTC
 
     p∈eoN′ : p ∈ N′ .execOrder
-    p∈eoN′ = ∈-resp-↭ (execOrderPreservation-↭ (N↝N′ ◅ ε)) p∈eoN
+    p∈eoN′ = ∈-resp-↭ (execOrderPreservation-↭ N↝⋆N′) p∈eoN
 
     ∃lspN′ : ∃[ ls′ ] N′ .states ⁉ p ≡ just ls′
     ∃lspN′ = hasStateInAltDef {N′} .Equivalence.from pHasInN′
       where
         pHasInN′ : p hasStateIn N′
-        pHasInN′ = hasState⇔-↝⋆ (N↝N′ ◅ ε) .Equivalence.to $ hasStateInAltDef {N} .Equivalence.to (ls , lspN)
+        pHasInN′ = hasState⇔-↝⋆ N↝⋆N′ .Equivalence.to $ hasStateInAltDef {N} .Equivalence.to (ls , lspN)
 
     b∈cM : b ∈ L.concatMap (blocks N′) (honestParties N′)
     b∈cM = L.Mem.concat-∈↔ .Inverse.to (b∈cM* p∈eoN′)
@@ -649,7 +649,7 @@ honestGlobalTreeBlocksMonotonicity {N} {N′} N₀↝⋆N N↝N′ {b} b∈htN
         ... | ls′ , lspN′ rewrite lspN′ = allBlocks (ls′ .tree) , b∈ls′t , here refl
           where
             b∈ls′t : b ∈ allBlocks (ls′ .tree)
-            b∈ls′t = honestLocalTreeBlocksMonotonicity N₀↝⋆N hp lspN (N↝N′ ◅ ε) lspN′ b∈lst
+            b∈ls′t = honestLocalTreeBlocksMonotonicity N₀↝⋆N hp lspN N↝⋆N′ lspN′ b∈lst
         b∈cM* {p* ∷ ps*} (there p∈ps*) with b∈cM* {ps*} p∈ps*
         ... | bs′ , b∈bs′ , bs′∈bss[ps*] with ¿ Honest p* ¿
         ...   | yes _ = bs′ , b∈bs′ , there bs′∈bss[ps*]
@@ -659,7 +659,10 @@ honestTreeChainLengthMonotonicity : ∀ {N N′ : GlobalState} →
     N₀ ↝⋆ N
   → N ↝⋆ N′
   → length (honestTreeChain N) ≤ length (honestTreeChain N′)
-honestTreeChainLengthMonotonicity = {!!}
+honestTreeChainLengthMonotonicity {N} {N′} N₀↝⋆N N↝⋆N′ =
+  allBlocks⊆×≤ˢ⇒|bestChain|≤
+    (honestGlobalTreeBlocksMonotonicity N₀↝⋆N N↝⋆N′)
+    (Nat.∸-monoˡ-≤ 1 (clockMonotonicity N↝⋆N′))
 
 tree₀InN₀ : ∀ {p : Party} {ls : LocalState} → N₀ .states ⁉ p ≡ just ls → ls .tree ≡ tree₀
 tree₀InN₀ {p} {ls} = tree₀InN₀′
