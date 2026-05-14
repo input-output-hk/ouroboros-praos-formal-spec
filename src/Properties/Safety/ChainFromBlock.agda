@@ -784,7 +784,7 @@ opaque
             goal {b} b∈hbhN = begin
               chainFromBlock b (blockHistory N)  ≡⟨ cfbHbhPres N₀↝⋆N′ N′↝N ffN cfN b∈hbhN hbhPres ⟨
               chainFromBlock b (blockHistory N′) ⊆⟨ L.All.lookup ih b∈hbhN′ ⟩
-              allBlocks (honestTree N′)          ⊆⟨ honestGlobalTreeBlocksMonotonicity N₀↝⋆N′ N′↝N ⟩
+              allBlocks (honestTree N′)          ⊆⟨ honestGlobalTreeBlocksMonotonicity N₀↝⋆N′ N′↝⋆N ⟩
               allBlocks (honestTree N)           ∎
               where
                 open L.SubS.⊆-Reasoning Block
