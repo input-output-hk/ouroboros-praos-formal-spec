@@ -39,7 +39,12 @@ open import Data.List.Relation.Binary.BagAndSetEquality using (∷-cong; concat-
 firstLuckySlotIsLucky : ∀ {N N′ : GlobalState} {sl : Slot} →
     head (luckySlotsInRange (N .clock) (N′ .clock)) ≡ just sl
   → LuckySlot sl
-firstLuckySlotIsLucky = {!!}
+firstLuckySlotIsLucky {N} {N′} {sl} hd[ls[N:N′]]≡sl = firstLuckySlotIsLucky* {ss* = slotsInRange (N .clock) (N′ .clock)} hd[ls[N:N′]]≡sl
+  where
+    firstLuckySlotIsLucky* : ∀ {ss*} → head (filter ¿ LuckySlot ¿¹ ss*) ≡ just sl → LuckySlot sl
+    firstLuckySlotIsLucky* {sl′ ∷ ss*} p with ¿ LuckySlot sl′ ¿
+    ... | yes lsl′ rewrite M.just-injective p = lsl′
+    ... | no ¬lsl′ = firstLuckySlotIsLucky* {ss*} p
 
 firstLuckySlotBetweenStates : ∀ {N N′ : GlobalState} {sl : Slot} →
     head (luckySlotsInRange (N .clock) (N′ .clock)) ≡ just sl
