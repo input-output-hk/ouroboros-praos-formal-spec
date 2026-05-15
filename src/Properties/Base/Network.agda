@@ -1,3 +1,5 @@
+{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
+
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -120,3 +122,9 @@ opaque
                   goalᶜ′ (p* ∷ ps*) with φ p*
                   ... | 𝟙 , _ = goalᶜ′ ps*
                   ... | 𝟚 , _ = goalᶜ′ ps*
+
+nonImmediateBlocksPreservation : ∀ {p : Party} {N : GlobalState} {d : Delay} →
+    d Fi.> (Delay ∋ 𝟘)
+  → L.All.All ((Fi._> (Delay ∋ 𝟘)) ∘ cd) (N .messages)
+  → blocksDeliveredIn p (Fi.pred d) (record (tick N) { progress = ready }) ≡ blocksDeliveredIn p d N
+nonImmediateBlocksPreservation = {!!}
