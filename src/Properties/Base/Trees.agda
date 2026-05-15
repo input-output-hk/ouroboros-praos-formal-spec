@@ -21,8 +21,9 @@ open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
+open import Properties.Base.Network ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.AssocList.Properties.Ext using (set-⁉; map-⁉-∈-just; map-⁉-≡; map-⁉-≢)
-open import Data.List.Relation.Binary.BagAndSetEquality using (∷-cong; concat-cong; map-cong; bag-=⇒; ↭⇒∼bag)
+open import Data.List.Relation.Binary.BagAndSetEquality using (∷-cong; ++-cong; concat-cong; map-cong; bag-=⇒; ↭⇒∼bag)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-just)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; ∈-∷-≢⁻)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (⊆-++-comm)
@@ -487,6 +488,34 @@ allBlocks-processMsgsʰ : ∀ (b : Block) (msgs : List Message) (ls : LocalState
   b ∈ allBlocks (processMsgsʰ msgs ls .tree) ⇔ b ∈ allBlocks (ls .tree) ++ map projBlock msgs
 allBlocks-processMsgsʰ = {!!}
 
+tree₀InN₀ : ∀ {p : Party} {ls : LocalState} → N₀ .states ⁉ p ≡ just ls → ls .tree ≡ tree₀
+tree₀InN₀ {p} {ls} = tree₀InN₀′
+  where
+    tree₀InN₀′ : ∀ {ps} → map (_, it .def) ps ⁉ p ≡ just ls → ls .tree ≡ tree₀
+    tree₀InN₀′ {p′ ∷ ps′} eq = case p ≟ p′ of λ where
+      (yes p≡p′) →
+        sym $
+          cong tree $
+            M.just-injective $
+              trans (sym $ map-⁉-≡ _) $ subst (λ ◆ → map (_, it .def) (◆ ∷ ps′) ⁉ p ≡ just ls) (sym p≡p′) eq
+      (no  p≢p′) → tree₀InN₀′ {ps′} $ trans (sym $ map-⁉-≢ _ p≢p′) eq
+
+noImmediateMsgsAfterReady : ∀ {N : GlobalState} →
+    N₀ ↝⋆ N
+  → N .progress ≢ ready
+  → L.All.All ((Fi._> (Delay ∋ 𝟘)) ∘ cd) (N .messages)
+noImmediateMsgsAfterReady = {!!}
+
+allBlocksExtensionAtBlockMade : ∀ {N : GlobalState} {p p′ : Party} {ls ls′ : LocalState} →
+    N₀ ↝⋆ N
+  → Honest p
+  → Honest p′
+  → N .progress ≡ blockMade
+  → N .states ⁉ p ≡ just ls
+  → N .states ⁉ p′ ≡ just ls′
+  → allBlocks (ls .tree) ⊆ˢ allBlocks (ls′ .tree) ++ blocksDeliveredIn p′ 𝟙 N
+allBlocksExtensionAtBlockMade = {!!}
+
 allBlocksExtensionAtReady : ∀ {N : GlobalState} {p p′ : Party} {ls ls′ : LocalState} →
     N₀ ↝⋆ N
   → Honest p
@@ -495,7 +524,56 @@ allBlocksExtensionAtReady : ∀ {N : GlobalState} {p p′ : Party} {ls ls′ : L
   → N .states ⁉ p ≡ just ls
   → N .states ⁉ p′ ≡ just ls′
   → allBlocks (ls .tree) ⊆ˢ allBlocks (ls′ .tree) ++ blocksDeliveredIn p′ 𝟘 N
-allBlocksExtensionAtReady = {!!}
+allBlocksExtensionAtReady N₀↝⋆N hp hp′ NReady lspN ls′p′N =
+  allBlocksExtensionAtReadyʳ (Star⇒Starʳ N₀↝⋆N) hp hp′ NReady lspN ls′p′N
+  where
+    open RTC; open Starʳ
+    allBlocksExtensionAtReadyʳ : ∀ {N : GlobalState} {p p′ : Party} {ls ls′ : LocalState} →
+        N₀ ↝⋆ʳ N
+      → Honest p
+      → Honest p′
+      → N .progress ≡ ready
+      → N .states ⁉ p ≡ just ls
+      → N .states ⁉ p′ ≡ just ls′
+      → allBlocks (ls .tree) ⊆ˢ allBlocks (ls′ .tree) ++ blocksDeliveredIn p′ 𝟘 N
+    allBlocksExtensionAtReadyʳ εʳ _ _ _ lspN ls′p′N
+      rewrite tree₀InN₀ lspN | tree₀InN₀ ls′p′N | L.++-identityʳ (allBlocks tree₀) = L.SubS.⊆-refl
+    allBlocksExtensionAtReadyʳ {N} {p} {p′} {ls} {ls′} (_◅ʳ_ {j = N″} N₀↝⋆ʳN″ N″↝N) hp hp′ NReady lspN ls′p′N =
+      goal N″↝N NReady
+      where
+        goal :
+            N″ ↝ N
+          → N .progress ≡ ready
+          → allBlocks (ls .tree) ⊆ˢ allBlocks (ls′ .tree) ++ blocksDeliveredIn p′ 𝟘 N
+        goal (permuteParties _) _ = allBlocksExtensionAtReadyʳ N₀↝⋆ʳN″ hp hp′ NReady lspN ls′p′N
+        goal (permuteMsgs {envelopes = es} msgsN″↭es) _ = goal-permuteMsgs
+          where
+            bs₁ bs₂ : List Block
+            bs₁ = allBlocks (ls′ .tree) ++ blocksDeliveredIn p′ 𝟘 N″
+            bs₂ = allBlocks (ls′ .tree) ++ blocksDeliveredIn p′ 𝟘 record N″ { messages = es }
+
+            bs₁≡bs₂ : bs₁ ≡ˢ bs₂
+            bs₁≡bs₂ = ++-cong K-refl $ λ {b} → let open Related.EquationalReasoning in begin
+              b ∈ blocksDeliveredIn p′ 𝟘 N″
+                ∼⟨ bag-=⇒ $ ↭⇒∼bag $ map⁺ _ $ filter-↭ _ msgsN″↭es ⟩
+              b ∈ blocksDeliveredIn p′ 𝟘 record N″ { messages = es }  ∎
+
+            goal-permuteMsgs : allBlocks (ls .tree) ⊆ˢ bs₂
+            goal-permuteMsgs = L.SubS.⊆-trans (allBlocksExtensionAtReadyʳ N₀↝⋆ʳN″ hp hp′ NReady lspN ls′p′N) (≡ˢ⇒⊆ bs₁≡bs₂)
+        goal (advanceRound N″BlockMade) _ = goal-advanceRound
+          where
+            𝟙>𝟘 : (Delay ∋ 𝟙) Fi.> (Delay ∋ 𝟘)
+            𝟙>𝟘 = Nat.s≤s Nat.z≤n
+
+            no𝟘s : L.All.All ((Fi._> (Delay ∋ 𝟘)) ∘ cd) (N″ .messages)
+            no𝟘s = noImmediateMsgsAfterReady
+                     (Starʳ⇒Star N₀↝⋆ʳN″)
+                     λ N″Ready → contradiction (trans (sym N″Ready) N″BlockMade) λ ()
+
+            goal-advanceRound :
+              allBlocks (ls .tree) ⊆ˢ allBlocks (ls′ .tree) ++ blocksDeliveredIn p′ 𝟘 (record (tick N″) { progress = ready })
+            goal-advanceRound rewrite nonImmediateBlocksPreservation {p′} {N″} {𝟙} 𝟙>𝟘 no𝟘s =
+              allBlocksExtensionAtBlockMade (Starʳ⇒Star N₀↝⋆ʳN″) hp hp′ N″BlockMade  lspN ls′p′N
 
 opaque
   unfolding honestMsgsDelivery
@@ -750,18 +828,6 @@ honestTreeChainLengthMonotonicity {N} {N′} N₀↝⋆N N↝⋆N′ =
   allBlocks⊆×≤ˢ⇒|bestChain|≤
     (honestGlobalTreeBlocksMonotonicity N₀↝⋆N N↝⋆N′)
     (Nat.∸-monoˡ-≤ 1 (clockMonotonicity N↝⋆N′))
-
-tree₀InN₀ : ∀ {p : Party} {ls : LocalState} → N₀ .states ⁉ p ≡ just ls → ls .tree ≡ tree₀
-tree₀InN₀ {p} {ls} = tree₀InN₀′
-  where
-    tree₀InN₀′ : ∀ {ps} → map (_, it .def) ps ⁉ p ≡ just ls → ls .tree ≡ tree₀
-    tree₀InN₀′ {p′ ∷ ps′} eq = case p ≟ p′ of λ where
-      (yes p≡p′) →
-        sym $
-          cong tree $
-            M.just-injective $
-              trans (sym $ map-⁉-≡ _) $ subst (λ ◆ → map (_, it .def) (◆ ∷ ps′) ⁉ p ≡ just ls) (sym p≡p′) eq
-      (no  p≢p′) → tree₀InN₀′ {ps′} $ trans (sym $ map-⁉-≢ _ p≢p′) eq
 
 module _ {T : Type} ⦃ _ : Tree T ⦄ where
 
