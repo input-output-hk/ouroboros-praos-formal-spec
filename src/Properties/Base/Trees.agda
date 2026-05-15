@@ -35,16 +35,6 @@ open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext
 open import Function.Bundles using (_⇔_; Equivalence; Inverse)
 open import Function.Related.Propositional as Related
 
-honestGlobalTreeInHonestLocalTree : ∀ {N N′ : GlobalState} {p : Party} {ls : LocalState} →
-    N₀ ↝⋆ N
-  → Honest p
-  → N .progress ≡ ready
-  → N′ .progress ≡ msgsDelivered
-  → N ↝⋆⟨ 0 ⟩ N′
-  → N′ .states ⁉ p ≡ just ls
-  → allBlocks (honestTree N) ⊆ˢ allBlocks (ls .tree)
-honestGlobalTreeInHonestLocalTree = {!!}
-
 opaque
 
   unfolding honestMsgsDelivery honestBlockMaking
