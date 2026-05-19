@@ -511,7 +511,30 @@ blocksDeliveredIn-⊆-↑∗ : ∀ {N N′ : GlobalState} {d : Delay} {p : Party
   → blocksDeliveredIn p d N ⊆ˢ blocksDeliveredIn p d N′
 blocksDeliveredIn-⊆-↑∗ = {!!}
 
-allBlocksExtensionAtMsgsDelivery : ∀ {N : GlobalState} {p p′ : Party} {ls ls′ : LocalState} →
+blocksDeliveredIn-⊆-↓∗ : ∀ {N N′ : GlobalState} {p : Party} {ps : List Party} →
+    _ ⊢ N —[ ps ]↓→∗ N′
+  → blocksDeliveredIn p 𝟙 N ⊆ˢ blocksDeliveredIn p 𝟙 N′
+blocksDeliveredIn-⊆-↓∗ = {!!}
+
+noBlocksDeliveredIn𝟚AtReady : ∀ {N : GlobalState} {p : Party} →
+    N₀ ↝⋆ N
+  → N .progress ≡ ready
+  → blocksDeliveredIn p 𝟚 N ≡ []
+noBlocksDeliveredIn𝟚AtReady = {!!}
+
+allBlocks+toBeDelivered≡ : ∀ {N : GlobalState} {p p′ : Party} {ls ls′ : LocalState} →
+    N₀ ↝⋆ N
+  → Honest p
+  → Honest p′
+  → N .states ⁉ p ≡ just ls
+  → N .states ⁉ p′ ≡ just ls′
+  → let
+      blocksToBeDelivered = λ p* → blocksDeliveredIn p* 𝟘 N ++ blocksDeliveredIn p* 𝟙 N ++ blocksDeliveredIn p* 𝟚 N
+    in
+      allBlocks (ls .tree) ++ blocksToBeDelivered p ≡ˢ allBlocks (ls′ .tree) ++ blocksToBeDelivered p′
+allBlocks+toBeDelivered≡ = {!!}
+
+allBlocksExtensionAtMsgsDelivered : ∀ {N : GlobalState} {p p′ : Party} {ls ls′ : LocalState} →
     N₀ ↝⋆ N
   → Honest p
   → Honest p′
@@ -519,7 +542,127 @@ allBlocksExtensionAtMsgsDelivery : ∀ {N : GlobalState} {p p′ : Party} {ls ls
   → N .states ⁉ p ≡ just ls
   → N .states ⁉ p′ ≡ just ls′
   → allBlocks (ls .tree) ⊆ˢ allBlocks (ls′ .tree) ++ blocksDeliveredIn p′ 𝟙 N
-allBlocksExtensionAtMsgsDelivery = {!!}
+allBlocksExtensionAtMsgsDelivered N₀↝⋆N hp hp′ NMsgsDelivered lspN ls′p′N =
+  allBlocksExtensionAtMsgsDeliveredʳ (Star⇒Starʳ N₀↝⋆N) hp hp′ NMsgsDelivered lspN ls′p′N
+  where
+    open RTC; open Starʳ
+    allBlocksExtensionAtMsgsDeliveredʳ : ∀ {N : GlobalState} {p p′ : Party} {ls ls′ : LocalState} →
+        N₀ ↝⋆ʳ N
+      → Honest p
+      → Honest p′
+      → N .progress ≡ msgsDelivered
+      → N .states ⁉ p ≡ just ls
+      → N .states ⁉ p′ ≡ just ls′
+      → allBlocks (ls .tree) ⊆ˢ allBlocks (ls′ .tree) ++ blocksDeliveredIn p′ 𝟙 N
+    allBlocksExtensionAtMsgsDeliveredʳ εʳ _ _ ready≡msgsDelivered _ _ = contradiction ready≡msgsDelivered λ ()
+    allBlocksExtensionAtMsgsDeliveredʳ {N} {p} {p′} {ls} {ls′} (_◅ʳ_ {j = N″} N₀↝⋆ʳN″ N″↝N) hp hp′ NMsgsDelivered lspN ls′p′N =
+      goal N″↝N NMsgsDelivered
+      where
+        N₀↝⋆N″ : N₀ ↝⋆ N″
+        N₀↝⋆N″ = Starʳ⇒Star N₀↝⋆ʳN″
+
+        pHasInN″ : p hasStateIn N″
+        pHasInN″ = hasState⇔-↝⋆ (N″↝N ◅ ε) .Equivalence.from $ hasStateInAltDef {N} .Equivalence.to (ls , lspN)
+
+        p′HasInN″ : p′ hasStateIn N″
+        p′HasInN″ = hasState⇔-↝⋆ (N″↝N ◅ ε) .Equivalence.from $ hasStateInAltDef {N} .Equivalence.to (ls′ , ls′p′N)
+
+        goal :
+            N″ ↝ N
+          → N .progress ≡ msgsDelivered
+          → allBlocks (ls .tree) ⊆ˢ allBlocks (ls′ .tree) ++ blocksDeliveredIn p′ 𝟙 N
+        goal (permuteParties _) _ = allBlocksExtensionAtMsgsDeliveredʳ N₀↝⋆ʳN″ hp hp′ NMsgsDelivered lspN ls′p′N
+        goal (permuteMsgs {envelopes = es} msgsN″↭es) _ = goal-permuteMsgs
+          where
+            bs₁ bs₂ : List Block
+            bs₁ = allBlocks (ls′ .tree) ++ blocksDeliveredIn p′ 𝟙 N″
+            bs₂ = allBlocks (ls′ .tree) ++ blocksDeliveredIn p′ 𝟙 record N″ { messages = es }
+
+            bs₁≡bs₂ : bs₁ ≡ˢ bs₂
+            bs₁≡bs₂ = ++-cong K-refl $ λ {b} → let open Related.EquationalReasoning in begin
+              b ∈ blocksDeliveredIn p′ 𝟙 N″
+                ∼⟨ bag-=⇒ $ ↭⇒∼bag $ map⁺ _ $ filter-↭ _ msgsN″↭es ⟩
+              b ∈ blocksDeliveredIn p′ 𝟙 record N″ { messages = es }  ∎
+
+            goal-permuteMsgs : allBlocks (ls .tree) ⊆ˢ bs₂
+            goal-permuteMsgs =
+              L.SubS.⊆-trans
+                (allBlocksExtensionAtMsgsDeliveredʳ N₀↝⋆ʳN″ hp hp′ NMsgsDelivered lspN ls′p′N)
+                (≡ˢ⇒⊆ bs₁≡bs₂)
+        goal (deliverMsgs {N′ = N°} N″Ready N″—[eoN″]↓→∗N°) _ =
+          case hasStateInAltDef {N″} .Equivalence.from pHasInN″ of λ where
+            (ls″ , ls″pN″) → case hasStateInAltDef {N″} .Equivalence.from p′HasInN″ of λ where
+              (ls‴ , ls‴p′N″) → goal-deliverMsgs ls″ ls‴ ls″pN″ ls‴p′N″
+                where
+                  goal-deliverMsgs : ∀ (ls″ ls‴ : LocalState) →
+                      N″ .states ⁉ p ≡ just ls″
+                    → N″ .states ⁉ p′ ≡ just ls‴
+                    → allBlocks (ls .tree) ⊆ˢ allBlocks (ls′ .tree) ++ blocksDeliveredIn p′ 𝟙 N°
+                  goal-deliverMsgs ls″ ls‴ ls″pN″ ls‴p′N″ {b} b∈tls =
+                      b∈tls ∶
+                    b ∈ allBlocks (ls .tree)
+                      |> ≡ˢ⇒⊆ tls≡tls″+𝟘s ∶
+                    b ∈ allBlocks (ls″ .tree) ++ blocksDeliveredIn p 𝟘 N″
+                      |> L.SubS.xs⊆xs++ys _ _ ∶
+                    b ∈ (allBlocks (ls″ .tree) ++ blocksDeliveredIn p 𝟘 N″) ++ blocksDeliveredIn p 𝟙 N″
+                      |> (L.SubS.⊆-reflexive $ L.++-assoc (allBlocks (ls″ .tree)) _ _) ∶
+                    b ∈ allBlocks (ls″ .tree) ++ blocksDeliveredIn p 𝟘 N″ ++ blocksDeliveredIn p 𝟙 N″
+                      |> ≡ˢ⇒⊆ tls″+𝟘s+𝟙s≡tls‴+𝟘s+𝟙s ∶
+                    b ∈ allBlocks (ls‴ .tree) ++ blocksDeliveredIn p′ 𝟘 N″ ++ blocksDeliveredIn p′ 𝟙 N″
+                      |> (L.SubS.⊆-reflexive $ sym $ L.++-assoc (allBlocks (ls‴ .tree)) _ _) ∶
+                    b ∈ (allBlocks (ls‴ .tree) ++ blocksDeliveredIn p′ 𝟘 N″) ++ blocksDeliveredIn p′ 𝟙 N″
+                      |> (L.SubS.++⁺ʳ _ $ blocksDeliveredIn-⊆-↓∗ N″—[eoN″]↓→∗N°) ∶
+                    b ∈ (allBlocks (ls‴ .tree) ++ blocksDeliveredIn p′ 𝟘 N″) ++ blocksDeliveredIn p′ 𝟙 N°
+                      |> L.SubS.++⁺ˡ (blocksDeliveredIn p′ 𝟙 N°) (≡ˢ⇒⊇ tls′≡tls‴+𝟘s) ∶
+                    b ∈ allBlocks (ls′ .tree) ++ blocksDeliveredIn p′ 𝟙 N°
+                    where
+                      open import Function.Reasoning
+
+                      blocksToBeDelivered : GlobalState → Party → List Block
+                      blocksToBeDelivered N p = blocksDeliveredIn p 𝟘 N ++ blocksDeliveredIn p 𝟙 N ++ blocksDeliveredIn p 𝟚 N
+
+                      tls″+𝟘s+𝟙s≡tls‴+𝟘s+𝟙s :
+                        allBlocks (ls″ .tree) ++ blocksDeliveredIn p 𝟘 N″ ++ blocksDeliveredIn p 𝟙 N″
+                        ≡ˢ
+                        allBlocks (ls‴ .tree) ++ blocksDeliveredIn p′ 𝟘 N″ ++ blocksDeliveredIn p′ 𝟙 N″
+                      tls″+𝟘s+𝟙s≡tls‴+𝟘s+𝟙s {b} = let open Related.EquationalReasoning in begin
+                        b ∈ allBlocks (ls″ .tree) ++ blocksDeliveredIn p 𝟘 N″ ++ blocksDeliveredIn p 𝟙 N″
+                          ≡⟨ cong (λ ◆ → b ∈ allBlocks (ls″ .tree) ++ blocksDeliveredIn p 𝟘 N″ ++ ◆) $ sym $ L.++-identityʳ _ ⟩
+                        b ∈ allBlocks (ls″ .tree) ++ blocksDeliveredIn p 𝟘 N″ ++ blocksDeliveredIn p 𝟙 N″ ++ []
+                          ≡⟨ cong (λ ◆ → b ∈ allBlocks (ls″ .tree) ++ blocksDeliveredIn p 𝟘 N″ ++ blocksDeliveredIn p 𝟙 N″ ++ ◆) $
+                               sym $ noBlocksDeliveredIn𝟚AtReady N₀↝⋆N″ N″Ready ⟩
+                        b ∈ allBlocks (ls″ .tree) ++ blocksToBeDelivered N″ p
+                          ∼⟨ allBlocks+toBeDelivered≡ N₀↝⋆N″ hp hp′ ls″pN″ ls‴p′N″ ⟩
+                        b ∈ allBlocks (ls‴ .tree) ++ blocksToBeDelivered N″ p′
+                          ≡⟨ cong (λ ◆ → b ∈ allBlocks (ls‴ .tree) ++ blocksDeliveredIn p′ 𝟘 N″ ++ blocksDeliveredIn p′ 𝟙 N″ ++ ◆) $
+                               noBlocksDeliveredIn𝟚AtReady N₀↝⋆N″ N″Ready ⟩
+                        b ∈ allBlocks (ls‴ .tree) ++ blocksDeliveredIn p′ 𝟘 N″ ++ blocksDeliveredIn p′ 𝟙 N″ ++ []
+                          ≡⟨ cong (λ ◆ → b ∈ allBlocks (ls‴ .tree) ++ blocksDeliveredIn p′ 𝟘 N″ ++ ◆) $ L.++-identityʳ _ ⟩
+                        b ∈ allBlocks (ls‴ .tree) ++ blocksDeliveredIn p′ 𝟘 N″ ++ blocksDeliveredIn p′ 𝟙 N″  ∎
+
+                      tls≡tls″+𝟘s : allBlocks (ls .tree) ≡ˢ allBlocks (ls″ .tree) ++ blocksDeliveredIn p 𝟘 N″
+                      tls≡tls″+𝟘s = honestLocalTreeEvolution-↓ hp ls″pN″ N″↝[p]↓Nᵖ lspNᵖ
+                        where
+                          Nᵖ : GlobalState
+                          Nᵖ = honestMsgsDelivery p ls″ N″
+
+                          N″↝[p]↓Nᵖ : N″ ↝[ p ]↓ Nᵖ
+                          N″↝[p]↓Nᵖ = honestParty↓ ls″pN″ hp
+
+                          lspNᵖ : Nᵖ .states ⁉ p ≡ just ls
+                          lspNᵖ = trans (sym $ localStatePreservation-↓∗ N₀↝⋆N″ N″—[eoN″]↓→∗N° N″↝[p]↓Nᵖ) lspN
+
+                      tls′≡tls‴+𝟘s : allBlocks (ls′ .tree) ≡ˢ allBlocks (ls‴ .tree) ++ blocksDeliveredIn p′ 𝟘 N″
+                      tls′≡tls‴+𝟘s = honestLocalTreeEvolution-↓ hp′ ls‴p′N″ N″↝[p′]↓Nᵖ′ ls′p′Nᵖ′
+                        where
+                          Nᵖ′ : GlobalState
+                          Nᵖ′ = honestMsgsDelivery p′ ls‴ N″
+
+                          N″↝[p′]↓Nᵖ′ : N″ ↝[ p′ ]↓ Nᵖ′
+                          N″↝[p′]↓Nᵖ′ = honestParty↓ ls‴p′N″ hp′
+
+                          ls′p′Nᵖ′ : Nᵖ′ .states ⁉ p′ ≡ just ls′
+                          ls′p′Nᵖ′ = trans (sym $ localStatePreservation-↓∗ N₀↝⋆N″ N″—[eoN″]↓→∗N° N″↝[p′]↓Nᵖ′) ls′p′N
 
 allBlocksExtensionAtBlockMade : ∀ {N : GlobalState} {p p′ : Party} {ls ls′ : LocalState} →
     N₀ ↝⋆ N
@@ -639,7 +782,7 @@ allBlocksExtensionAtBlockMade N₀↝⋆N hp hp′ NBlockMade lspN ls′p′N =
                            tls″⊆ {b} b∈tls″ with ¿ b ∈ bs′ ¿
                            ... | no b∉bs′ =
                              L.SubS.⊆-trans
-                               (allBlocksExtensionAtMsgsDelivery N₀↝⋆N″ hp hp′ N″MsgsDelivered ls″pN″ ls‴p′N″)
+                               (allBlocksExtensionAtMsgsDelivered N₀↝⋆N″ hp hp′ N″MsgsDelivered ls″pN″ ls‴p′N″)
                                (L.SubS.⊆-trans (L.SubS.++⁺ʳ _ (blocksDeliveredIn-⊆-↑∗ N″—[eoN″]↑→∗N°)) tls‴⊆) $
                                b∈tls″
                              where
