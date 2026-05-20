@@ -511,6 +511,95 @@ blocksDeliveredIn-⊆-↑∗ : ∀ {N N′ : GlobalState} {d : Delay} {p : Party
   → blocksDeliveredIn p d N ⊆ˢ blocksDeliveredIn p d N′
 blocksDeliveredIn-⊆-↑∗ = {!!}
 
+opaque
+
+  unfolding honestMsgsDelivery corruptMsgsDelivery
+
+  blocksDeliveredIn-⊆-↓ : ∀ {N N′ : GlobalState} {p p′ : Party} →
+      _ ⊢ N —[ p′ ]↓→ N′
+    → blocksDeliveredIn p 𝟙 N ⊆ˢ blocksDeliveredIn p 𝟙 N′
+  blocksDeliveredIn-⊆-↓ (unknownParty↓ _) = L.SubS.⊆-refl
+  blocksDeliveredIn-⊆-↓ {N} {N′} {p} {p′} (honestParty↓ x x₁) {b} b∈𝟙s with L.Mem.∈-map⁻ _ b∈𝟙s
+  ... | e , e∈𝟙s , b≡blk[e] with L.Mem.∈-filter⁻ (λ e → ¿ DeliveredIn e ¿² p 𝟙) {xs = N .messages} e∈𝟙s
+  ...   | e∈msN , cd[e]≡𝟙 , rcv[e]≡p rewrite b≡blk[e] = goal e∈msN
+    where
+      goal : ∀ {es} →
+          e ∈ es
+        → projBlock (msg e) ∈ L.map (projBlock ∘ msg) (L.filter (λ e′ → ¿ DeliveredIn e′ ¿² p 𝟙) (L.filter ¿ ¬_ ∘ flip Immediate p′ ¿¹ es))
+      goal {e′ ∷ es} (here e≡e′) rewrite sym e≡e′
+        with ¿ ¬_ ∘ flip Immediate p′ ¿¹ e
+      ... | no ≡𝟘 = contradiction (dec-de-morgan₂ (inj₁ cd[e]≢𝟘)) ≡𝟘
+        where
+          cd[e]≢𝟘 : e .cd ≢ 𝟘
+          cd[e]≢𝟘 rewrite cd[e]≡𝟙 = λ ()
+      ... | yes ≢𝟘
+        rewrite
+          L.filter-accept ¿ ¬_ ∘ flip Immediate p′ ¿¹ {e} {es} ≢𝟘
+        | L.filter-accept (λ e′ → ¿ DeliveredIn e′ ¿² p 𝟙) {e} {L.filter ¿ ¬_ ∘ flip Immediate p′ ¿¹ es} (cd[e]≡𝟙 , rcv[e]≡p)
+        = here refl
+      goal {e′ ∷ es} (there e∈es)
+        with ¿ ¬_ ∘ flip Immediate p′ ¿¹ e′
+      ... | no  ≡𝟘 rewrite L.filter-reject ¿ ¬_ ∘ flip Immediate p′ ¿¹ {e′} {es} ≡𝟘 = goal e∈es
+      ... | yes ≢𝟘 rewrite L.filter-accept ¿ ¬_ ∘ flip Immediate p′ ¿¹ {e′} {es} ≢𝟘
+          with e′ .cd ≟ 𝟙 | e′ .rcv ≟ p
+      ...   | yes _       | no _  = goal e∈es
+      ...   | no  _       | _     = goal e∈es
+      ...   | yes _       | yes _
+            with e′ ≟ e
+      ...     | yes e′≡e rewrite e′≡e = here refl
+      ...     | no  _ = there $ goal e∈es
+  blocksDeliveredIn-⊆-↓ {N} {N′} {p} {p′} (corruptParty↓ _ _) {b} b∈𝟙s
+    with
+      processMsgsᶜ
+        (fetchNewMsgs p′ N .proj₁)
+        (fetchNewMsgs p′ N .proj₂ .clock)
+        (fetchNewMsgs p′ N .proj₂ .history)
+        (fetchNewMsgs p′ N .proj₂ .messages)
+        (fetchNewMsgs p′ N .proj₂ .advState)
+  ... | newMds , _  with L.Mem.∈-map⁻ _ b∈𝟙s
+  ...   | e , e∈𝟙s , b≡blk[e] with L.Mem.∈-filter⁻ (λ e → ¿ DeliveredIn e ¿² p 𝟙) {xs = N .messages} e∈𝟙s
+  ...     | e∈msN , cd[e]≡𝟙 , rcv[e]≡p rewrite b≡blk[e] = goal newMds
+    where
+      Nᶜ : List (Message × DelayMap) → GlobalState
+      Nᶜ mds = broadcastMsgsᶜ mds (removeImmediateMsgs p′ N)
+
+      goal : ∀ mds → projBlock (msg e) ∈ L.map (projBlock ∘ msg) (L.filter (λ e′ → ¿ DeliveredIn e′ ¿² p 𝟙) (Nᶜ mds .messages))
+      goal [] = goal-[] e∈msN
+        where
+          goal-[] : ∀ {es} →
+              e ∈ es
+            → projBlock (msg e) ∈ L.map (projBlock ∘ msg) (L.filter (λ e′ → ¿ DeliveredIn e′ ¿² p 𝟙) (L.filter ¿ ¬_ ∘ flip Immediate p′ ¿¹ es))
+          goal-[] {e′ ∷ es} (here e≡e′) rewrite sym e≡e′
+            with ¿ ¬_ ∘ flip Immediate p′ ¿¹ e
+          ... | no ≡𝟘 = contradiction (dec-de-morgan₂ (inj₁ cd[e]≢𝟘)) ≡𝟘
+            where
+              cd[e]≢𝟘 : e .cd ≢ 𝟘
+              cd[e]≢𝟘 rewrite cd[e]≡𝟙 = λ ()
+          ... | yes ≢𝟘
+            rewrite
+              L.filter-accept ¿ ¬_ ∘ flip Immediate p′ ¿¹ {e} {es} ≢𝟘
+            | L.filter-accept (λ e′ → ¿ DeliveredIn e′ ¿² p 𝟙) {e} {L.filter ¿ ¬_ ∘ flip Immediate p′ ¿¹ es} (cd[e]≡𝟙 , rcv[e]≡p)
+            = here refl
+          goal-[] {e′ ∷ es} (there e∈es)
+            with ¿ ¬_ ∘ flip Immediate p′ ¿¹ e′
+          ... | no  ≡𝟘 rewrite L.filter-reject ¿ ¬_ ∘ flip Immediate p′ ¿¹ {e′} {es} ≡𝟘 = goal-[] e∈es
+          ... | yes ≢𝟘 rewrite L.filter-accept ¿ ¬_ ∘ flip Immediate p′ ¿¹ {e′} {es} ≢𝟘
+              with e′ .cd ≟ 𝟙 | e′ .rcv ≟ p
+          ...   | yes _       | no _  = goal-[] e∈es
+          ...   | no  _       | _     = goal-[] e∈es
+          ...   | yes _       | yes _
+                with e′ ≟ e
+          ...     | yes e′≡e rewrite e′≡e = here refl
+          ...     | no  _ = there $ goal-[] e∈es
+      goal ((m , φ) ∷ mds)
+        rewrite
+          L.filter-++ (λ e′ → ¿ DeliveredIn e′ ¿² p 𝟙) (map (λ party → ⦅ m , party , φ party .value ⦆) (Nᶜ mds .execOrder)) (Nᶜ mds .messages)
+        | L.map-++
+            (projBlock ∘ msg)
+            (filter (λ e′ → ¿ DeliveredIn e′ ¿² p 𝟙) (map (λ party → ⦅ m , party , φ party .value ⦆) (Nᶜ mds .execOrder)))
+            (filter (λ e′ → ¿ DeliveredIn e′ ¿² p 𝟙) (Nᶜ mds .messages))
+        = L.Mem.++-∈⇔ .Equivalence.from (inj₂ $ goal mds)
+
 blocksDeliveredIn-⊆-↓∗ : ∀ {N N′ : GlobalState} {p : Party} {ps : List Party} →
     _ ⊢ N —[ ps ]↓→∗ N′
   → blocksDeliveredIn p 𝟙 N ⊆ˢ blocksDeliveredIn p 𝟙 N′
