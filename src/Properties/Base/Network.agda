@@ -9,16 +9,21 @@ module Properties.Base.Network
   where
 
 open import Protocol.Prelude
+open import Protocol.Block ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Message ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ)
-open import Data.List.Membership.Propositional.Properties.Ext using (∉-∷ʳ⁻)
+open import Data.List.Relation.Binary.SetEquality using (⊆×⊇⇒≡ˢ)
+open import Data.List.Membership.Propositional.Properties.Ext using (∉-∷ʳ⁻; ∉-∷⁻)
+open import Data.List.Relation.Unary.Unique.Propositional.Properties using (Unique[x∷xs]⇒x∉xs)
+open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (⊆-++-comm)
 open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_ ; ≡ˢ-sym)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (map⁺)
 open import Data.List.Relation.Binary.BagAndSetEquality using (↭⇒∼bag; bag-=⇒)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
+open import Relation.Binary.PropositionalEquality using (≢-sym)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (All-resp-↭)
 open import Function.Base using (∣_⟩-_)
 open import Data.Fin.Properties.Ext using (pred-≤)
@@ -247,3 +252,136 @@ opaque
                 Nat.≤-trans (pred-≤ (m .cd)) (Fi.toℕ≤pred[n] (m .cd)) ∷ goal* ms (L.All.tail [≤𝟚][m+ms])
           goal (permuteParties _) = ih
           goal (permuteMsgs msN′↭es) = All-resp-↭ msN′↭es ih
+
+blockDelayUniqueness : ∀ (φ : DelayMap) (m : Message) (p : Party) (ps : List Party) →
+    p ∈ ps
+  → Unique ps
+  → map (projBlock ∘ msg) (filter (λ e′ → ¿ DeliveredIn e′ ¿² p 𝟙) (map (λ party → ⦅ m , party , φ party .value ⦆) ps))
+    ++
+    map (projBlock ∘ msg) (filter (λ e′ → ¿ DeliveredIn e′ ¿² p 𝟚) (map (λ party → ⦅ m , party , φ party .value ⦆) ps))
+    ≡ˢ
+    [ projBlock m ]
+blockDelayUniqueness _ _ _ [] p∈[] _ = contradiction p∈[] λ ()
+blockDelayUniqueness φ m@(newBlock b*) p (p′ ∷ ps) (here p≡p′) [p′+ps]! rewrite p≡p′ with φ p′
+... | 𝟙 , _
+  rewrite L.filter-accept (λ e′ → ¿ DeliveredIn e′ ¿² p′ 𝟙) {⦅ m , p′ , 𝟙 ⦆} {map (λ p* → ⦅ m , p* , φ p* .value ⦆) ps} (refl , refl) =
+    ⊆×⊇⇒≡ˢ ⊆π λ {b} b∈[mᵇ] → here (L.Any.singleton⁻ b∈[mᵇ])
+  where
+    dlv? : (p* : Party) (d : Delay) → Decidable¹ λ e′ → DeliveredIn e′ p* d
+    dlv? p* d e′ = ¿ DeliveredIn e′ ¿² p* d
+
+    mkenv : Party → Envelope
+    mkenv p* = ⦅ m , p* , φ p* .value ⦆
+
+    ⊆π : projBlock m
+         ∷ (map (λ{ ⦅ m , _ , _ ⦆ → projBlock m }) (filter (dlv? p′ 𝟙) (map mkenv ps))
+            ++
+            map (λ{ ⦅ m , _ , _ ⦆ → projBlock m }) (filter (dlv? p′ 𝟚) (map mkenv ps)))
+         ⊆ˢ
+         [ projBlock m ]
+    ⊆π {b} (here b≡mᵇ) rewrite b≡mᵇ = here refl
+    ⊆π {b} (there b∈𝟙s+𝟚s) = ⊆π* p′∉ps b∈𝟙s+𝟚s
+      where
+        p′∉ps : p′ ∉ ps
+        p′∉ps = Unique[x∷xs]⇒x∉xs [p′+ps]!
+
+        ⊆π* : ∀ {ps*} →
+            p′ ∉ ps*
+          → b ∈ (map (λ{ ⦅ m , _ , _ ⦆ → projBlock m }) (filter (dlv? p′ 𝟙) (map mkenv ps*))
+                 ++
+                 map (λ{ ⦅ m , _ , _ ⦆ → projBlock m }) (filter (dlv? p′ 𝟚) (map mkenv ps*)))
+          → b ∈ [ projBlock m ]
+        ⊆π* {p* ∷ ps*} p′∉p*+ps* b∈𝟙s+𝟚s+p*ₑ with ∉-∷⁻ p′∉p*+ps*
+        ... | p′≢p* , p′∉ps*
+              rewrite
+                L.filter-reject (dlv? p′ 𝟙) {⦅ m , p* , φ p* .value ⦆} {map mkenv ps*} (dec-de-morgan₂ (inj₂ (≢-sym p′≢p*)))
+              | L.filter-reject (dlv? p′ 𝟚) {⦅ m , p* , φ p* .value ⦆} {map mkenv ps*} (dec-de-morgan₂ (inj₂ (≢-sym p′≢p*)))
+              = ⊆π* {ps*} p′∉ps* b∈𝟙s+𝟚s+p*ₑ
+
+... | 𝟚 , _
+  rewrite
+    L.filter-accept (λ e′ → ¿ DeliveredIn e′ ¿² p′ 𝟚) {⦅ m , p′ , 𝟚 ⦆} {map (λ p* → ⦅ m , p* , φ p* .value ⦆) ps} (refl , refl) =
+      ⊆×⊇⇒≡ˢ
+        ⊆π
+        λ {b} b∈[mᵇ] →
+          subst
+            (λ ◆ → b ∈ map (λ{ ⦅ m , _ , _ ⦆ → projBlock m }) (filter (dlv? p′ 𝟙) (map mkenv ps))
+                       ++ ◆ ∷ map (λ{ ⦅ m , _ , _ ⦆ → projBlock m }) (filter (dlv? p′ 𝟚) (map mkenv ps)))
+            (L.Any.singleton⁻ b∈[mᵇ])
+            (L.Mem.∈-insert {v = b} _)
+  where
+    dlv? : (p* : Party) (d : Delay) → Decidable¹ λ e′ → DeliveredIn e′ p* d
+    dlv? p* d e′ = ¿ DeliveredIn e′ ¿² p* d
+
+    mkenv : Party → Envelope
+    mkenv p* = ⦅ m , p* , φ p* .value ⦆
+
+    ⊆π : map (λ{ ⦅ m , _ , _ ⦆ → projBlock m }) (filter (dlv? p′ 𝟙) (map mkenv ps))
+         ++
+         projBlock m ∷ map (λ{ ⦅ m , _ , _ ⦆ → projBlock m }) (filter (dlv? p′ 𝟚) (map mkenv ps))
+         ⊆ˢ
+         [ projBlock m ]
+    ⊆π = L.SubS.⊆-trans (aux _ _ _) ⊆π′
+      where
+        aux : ∀ (bs bs′ : List Block) (b : Block) → bs ++ b ∷ bs′ ⊆ˢ b ∷ bs ++ bs′
+        aux bs bs′ b = let open L.SubS.⊆-Reasoning Block in begin
+          bs ++ b ∷ bs′          ≡⟨ L.++-assoc bs _ _ ⟨
+          (bs ++ [ b ]) ++ bs′   ⊆⟨ L.SubS.++⁺ˡ bs′ $ ⊆-++-comm bs _ ⟩
+          b ∷ bs ++ bs′          ∎
+
+        ⊆π′ : projBlock m
+             ∷ (map (λ{ ⦅ m , _ , _ ⦆ → projBlock m }) (filter (dlv? p′ 𝟙) (map mkenv ps))
+                ++
+                map (λ{ ⦅ m , _ , _ ⦆ → projBlock m }) (filter (dlv? p′ 𝟚) (map mkenv ps)))
+             ⊆ˢ
+             [ projBlock m ]
+        ⊆π′ {b} (here b≡mᵇ) rewrite b≡mᵇ = here refl
+        ⊆π′ {b} (there b∈𝟙s+𝟚s) = ⊆π* p′∉ps b∈𝟙s+𝟚s
+          where
+            p′∉ps : p′ ∉ ps
+            p′∉ps = Unique[x∷xs]⇒x∉xs [p′+ps]!
+
+            ⊆π* : ∀ {ps*} →
+                p′ ∉ ps*
+              → b ∈ (map (λ{ ⦅ m , _ , _ ⦆ → projBlock m }) (filter (dlv? p′ 𝟙) (map mkenv ps*))
+                     ++
+                     map (λ{ ⦅ m , _ , _ ⦆ → projBlock m }) (filter (dlv? p′ 𝟚) (map mkenv ps*)))
+              → b ∈ [ projBlock m ]
+            ⊆π* {p* ∷ ps*} p′∉p*+ps* b∈𝟙s+𝟚s+p*ₑ with ∉-∷⁻ p′∉p*+ps*
+            ... | p′≢p* , p′∉ps*
+                  rewrite
+                    L.filter-reject (dlv? p′ 𝟙) {⦅ m , p* , φ p* .value ⦆} {map mkenv ps*} (dec-de-morgan₂ (inj₂ (≢-sym p′≢p*)))
+                  | L.filter-reject (dlv? p′ 𝟚) {⦅ m , p* , φ p* .value ⦆} {map mkenv ps*} (dec-de-morgan₂ (inj₂ (≢-sym p′≢p*)))
+                  = ⊆π* {ps*} p′∉ps* b∈𝟙s+𝟚s+p*ₑ
+blockDelayUniqueness φ m p (p′ ∷ ps) (there p∈ps) [p′+ps]! = goal-p∈ps
+  where
+    dlv? : (d : Delay) → Decidable¹ λ e′ → DeliveredIn e′ p d
+    dlv? d e′ = ¿ DeliveredIn e′ ¿² p d
+
+    mkenv : Party → Envelope
+    mkenv p* = ⦅ m , p* , φ p* .value ⦆
+
+    e′ : Envelope
+    e′ = ⦅ m , p′ , φ p′ .value ⦆
+
+    p′∉ps : p′ ∉ ps
+    p′∉ps = Unique[x∷xs]⇒x∉xs [p′+ps]!
+
+    ps! : Unique ps
+    ps! = U.tail [p′+ps]!
+      where import Data.List.Relation.Unary.Unique.Propositional as U
+
+    p≢p′ : p ≢ p′
+    p≢p′ = λ p≡p′ → contradiction p∈ps (subst (_∉ ps) (sym p≡p′) p′∉ps)
+
+    goal-p∈ps :
+      map (projBlock ∘ msg) (filter (dlv? 𝟙) (map mkenv (p′ ∷ ps)))
+      ++
+      map (projBlock ∘ msg) (filter (dlv? 𝟚) (map mkenv (p′ ∷ ps)))
+      ≡ˢ
+      [ projBlock m ]
+    goal-p∈ps
+      rewrite
+        L.filter-reject (dlv? 𝟙) {e′} {map mkenv ps} (dec-de-morgan₂ (inj₂ (≢-sym p≢p′)))
+      | L.filter-reject (dlv? 𝟚) {e′} {map mkenv ps} (dec-de-morgan₂ (inj₂ (≢-sym p≢p′)))
+      = blockDelayUniqueness φ m p ps p∈ps ps!
