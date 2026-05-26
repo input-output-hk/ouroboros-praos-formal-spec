@@ -23,14 +23,18 @@ open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Network ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.AssocList.Properties.Ext using (set-⁉; map-⁉-∈-just; map-⁉-≡; map-⁉-≢)
+open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[∷ʳ]→∗-split; —[[]]→∗ʳ⇒≡)
 open import Data.List.Relation.Binary.BagAndSetEquality using (∷-cong; ++-cong; concat-cong; map-cong; bag-=⇒; ↭⇒∼bag)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-just)
+open import Data.List.Properties.Ext using (filter-∘-×)
 open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; ∈-∷-≢⁻)
+open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (⊆-++-comm; ++-meet)
 open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭; map⁺; shift; ++-comm)
-open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭)
-open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊆; ≡ˢ⇒⊇; ≡ˢ-refl)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭; Unique-resp-↭)
+open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊆; ≡ˢ⇒⊇; ≡ˢ-refl; ≡⇒≡ˢ)
+open import Relation.Unary using (_≐_)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Function.Bundles using (_⇔_; Equivalence; Inverse)
@@ -610,6 +614,179 @@ noBlocksDeliveredIn𝟚AtReady : ∀ {N : GlobalState} {p : Party} →
   → N .progress ≡ ready
   → blocksDeliveredIn p 𝟚 N ≡ []
 noBlocksDeliveredIn𝟚AtReady = {!!}
+
+-- TODO: This opaque degrades the performance significatively, investigate further.
+opaque
+
+  unfolding honestMsgsDelivery corruptMsgsDelivery
+
+  ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ : ∀ {d : Delay} {p₁ p₂ : Party} →
+    (λ env → DeliveredIn env p₁ d × ¬ Immediate env p₂) ≐ (λ env → DeliveredIn env p₁ d)
+  ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ = {!!}
+
+  delayedBlocksEvolution : ∀ {N N′ : GlobalState} {p₁ p₂ : Party} →
+      _ ⊢ N —[ N .execOrder ]↓→∗ N′
+    → Unique (N .execOrder)
+    → p₁ ∈ N .execOrder
+    → p₂ ∈ N .execOrder
+    → ∃[ bs ]
+        blocksDeliveredIn p₁ 𝟙 N′ ++ blocksDeliveredIn p₁ 𝟚 N′ ≡ˢ blocksDeliveredIn p₁ 𝟙 N ++ blocksDeliveredIn p₁ 𝟚 N ++ bs
+        ×
+        blocksDeliveredIn p₂ 𝟙 N′ ++ blocksDeliveredIn p₂ 𝟚 N′ ≡ˢ blocksDeliveredIn p₂ 𝟙 N ++ blocksDeliveredIn p₂ 𝟚 N ++ bs
+  delayedBlocksEvolution {N} {N′} {p₁} {p₂} N—[eoN]↓→∗N′ eoN! p₁∈eoN p₂∈eoN =
+    delayedBlocksEvolutionʳ (reverseView (N .execOrder)) (—[]→∗⇒—[]→∗ʳ N—[eoN]↓→∗N′) eoN!
+    where
+      open import Data.List.Reverse
+
+      delayedBlocks≡ : List Block → Party → GlobalState → GlobalState → Type
+      delayedBlocks≡ bs p N N′ = blocksDeliveredIn p 𝟙 N ++ blocksDeliveredIn p 𝟚 N ≡ˢ blocksDeliveredIn p 𝟙 N′ ++ blocksDeliveredIn p 𝟚 N′ ++ bs
+
+      delayedBlocksEvolutionʳ : ∀ {N* ps} →
+          Reverse ps
+        → _ ⊢ N —[ ps ]↓→∗ʳ N*
+        → Unique ps
+        → ∃[ bs ] delayedBlocks≡ bs p₁ N* N × delayedBlocks≡ bs p₂ N* N
+      delayedBlocksEvolutionʳ [] N—[ps]↓→∗ʳN* _ rewrite sym $ —[[]]→∗ʳ⇒≡ N—[ps]↓→∗ʳN* =
+        [] ,
+        ≡ˢ-++-identityʳ (blocksDeliveredIn p₁ 𝟙 N) (blocksDeliveredIn p₁ 𝟚 N) ,
+        ≡ˢ-++-identityʳ (blocksDeliveredIn p₂ 𝟙 N) (blocksDeliveredIn p₂ 𝟚 N)
+        where
+          ≡ˢ-++-identityʳ : ∀ (bs bs′ : List Block) → bs ++ bs′ ≡ˢ bs ++ bs′ ++ []
+          ≡ˢ-++-identityʳ bs bs′ = ≡⇒≡ˢ $ let open ≡-Reasoning in begin
+            bs ++ bs′            ≡⟨ L.++-identityʳ (bs ++ bs′) ⟨
+            (bs ++ bs′) ++ []    ≡⟨ L.++-assoc bs _ _ ⟩
+            bs ++ bs′ ++ []      ∎
+      delayedBlocksEvolutionʳ {N* = N*} (ps′ ∶ ps′r ∶ʳ p′) N—[ps′+p′]↓→∗ʳN* [ps′+p′]!
+        with —[∷ʳ]→∗-split (—[]→∗ʳ⇒—[]→∗ N—[ps′+p′]↓→∗ʳN*)
+      ... | N‴ , N—[ps′]↓→∗N‴ , N‴—[p′]↓→N* = goal N‴—[p′]↓→N*
+        where
+           ps′! : Unique ps′
+           ps′! = headʳ [ps′+p′]!
+
+           ih : ∃[ bs ] delayedBlocks≡ bs p₁ N‴ N × delayedBlocks≡ bs p₂ N‴ N
+           ih = delayedBlocksEvolutionʳ ps′r (—[]→∗⇒—[]→∗ʳ N—[ps′]↓→∗N‴) ps′!
+
+           dlv? : (p* : Party) (d : Delay) → Decidable¹ λ e′ → DeliveredIn e′ p* d
+           dlv? p* d e′ = ¿ DeliveredIn e′ ¿² p* d
+
+           is𝟘? : (p* : Party) → Decidable¹ (¬_ ∘ flip Immediate p*)
+           is𝟘? p* = ¿ ¬_ ∘ flip Immediate p* ¿¹
+
+           goal : _ ⊢ N‴ —[ p′ ]↓→ N* → ∃[ bs ] delayedBlocks≡ bs p₁ N* N × delayedBlocks≡ bs p₂ N* N
+           goal (unknownParty↓ _) = ih
+           goal (honestParty↓ _ _) with ih
+           ... | bs , dbsN‴Np₁ , dbsN‴Np₂
+             rewrite
+               sym $ filter-∘-× (dlv? p₁ 𝟙) (is𝟘? p′) (N‴ .messages)
+             | sym $ filter-∘-× (dlv? p₁ 𝟚) (is𝟘? p′) (N‴ .messages)
+             | sym $ filter-∘-× (dlv? p₂ 𝟙) (is𝟘? p′) (N‴ .messages)
+             | sym $ filter-∘-× (dlv? p₂ 𝟚) (is𝟘? p′) (N‴ .messages)
+             | L.filter-≐ (λ e → dlv? p₁ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟙) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
+             | L.filter-≐ (λ e → dlv? p₁ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟚) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
+             | L.filter-≐ (λ e → dlv? p₂ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟙) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
+             | L.filter-≐ (λ e → dlv? p₂ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟚) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
+               = bs , dbsN‴Np₁ , dbsN‴Np₂
+           goal (corruptParty↓ _ _) with
+             processMsgsᶜ
+               (fetchNewMsgs p′ N‴ .proj₁)
+               (fetchNewMsgs p′ N‴ .proj₂ .clock)
+               (fetchNewMsgs p′ N‴ .proj₂ .history)
+               (fetchNewMsgs p′ N‴ .proj₂ .messages)
+               (fetchNewMsgs p′ N‴ .proj₂ .advState)
+           ... | newMds , _ = goal* newMds
+             where
+               Nᶜ : List (Message × DelayMap) → GlobalState
+               Nᶜ mds = broadcastMsgsᶜ mds (removeImmediateMsgs p′ N‴)
+
+               goal* : ∀ mds → ∃[ bs ] delayedBlocks≡ bs p₁ (Nᶜ mds) N × delayedBlocks≡ bs p₂ (Nᶜ mds) N
+               goal* [] with ih
+               ... | bs , dbsN‴Np₁ , dbsN‴Np₂
+                 rewrite
+                   sym $ filter-∘-× (dlv? p₁ 𝟙) (is𝟘? p′) (N‴ .messages)
+                 | sym $ filter-∘-× (dlv? p₁ 𝟚) (is𝟘? p′) (N‴ .messages)
+                 | sym $ filter-∘-× (dlv? p₂ 𝟙) (is𝟘? p′) (N‴ .messages)
+                 | sym $ filter-∘-× (dlv? p₂ 𝟚) (is𝟘? p′) (N‴ .messages)
+                 | L.filter-≐ (λ e → dlv? p₁ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟙) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
+                 | L.filter-≐ (λ e → dlv? p₁ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟚) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
+                 | L.filter-≐ (λ e → dlv? p₂ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟙) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
+                 | L.filter-≐ (λ e → dlv? p₂ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟚) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
+                   = bs , dbsN‴Np₁ , dbsN‴Np₂
+               goal* ((m@(newBlock bₘ) , φ) ∷ mds)
+                 with goal* mds
+               ... | bs , dbsNᶜNp₁ , dbsNᶜNp₂ = projBlock m ∷ bs , dbsN†Np* p₁∈eoN dbsNᶜNp₁ , dbsN†Np* p₂∈eoN dbsNᶜNp₂
+                 where
+                   eoN↭eoNᶜ : N .execOrder ↭ Nᶜ mds .execOrder
+                   eoN↭eoNᶜ = eoN↭eoNᶜ* mds
+                     where
+                       eoN↭eoNᶜ* : ∀ mds* → N .execOrder ↭ Nᶜ mds* .execOrder
+                       eoN↭eoNᶜ* [] = execOrderPreservation-↭-↓∗ N—[ps′]↓→∗N‴
+                       eoN↭eoNᶜ* (_ ∷ mds*) = eoN↭eoNᶜ* mds*
+
+                   N† : GlobalState
+                   N† = broadcastMsgᶜ m φ (Nᶜ mds)
+
+                   mkenv : Party → Envelope
+                   mkenv p* = ⦅ m , p* , φ p* .value ⦆
+
+                   bs𝟙Nᶜ bs𝟙Nᶜm bs𝟚Nᶜ bs𝟚Nᶜm bs𝟙N bs𝟚N : Party → List Block
+                   bs𝟙Nᶜ  p* = map (projBlock ∘ msg) (filter (dlv? p* 𝟙) (Nᶜ mds .messages))
+                   bs𝟙Nᶜm p* = map (projBlock ∘ msg) (filter (dlv? p* 𝟙) (map mkenv (Nᶜ mds .execOrder)))
+                   bs𝟚Nᶜ  p* = map (projBlock ∘ msg) (filter (dlv? p* 𝟚) (Nᶜ mds .messages))
+                   bs𝟚Nᶜm p* = map (projBlock ∘ msg) (filter (dlv? p* 𝟚) (map mkenv (Nᶜ mds .execOrder)))
+                   bs𝟙N   p* = map (projBlock ∘ msg) (filter (dlv? p* 𝟙) (N .messages))
+                   bs𝟚N   p* = map (projBlock ∘ msg) (filter (dlv? p* 𝟚) (N .messages))
+
+                   dbsN†Np* : ∀ {p*} → p* ∈ N .execOrder → delayedBlocks≡ bs p* (Nᶜ mds) N → delayedBlocks≡ (projBlock m ∷ bs) p* N† N
+                   dbsN†Np* {p*} p*∈eoN dbsNᶜNp* {b}
+                     rewrite
+                       L.filter-++ (dlv? p* 𝟙) (map mkenv (Nᶜ mds .execOrder)) (Nᶜ mds .messages)
+                     | L.map-++
+                         (projBlock ∘ msg)
+                         (filter (dlv? p* 𝟙) (map mkenv (Nᶜ mds .execOrder)))
+                         (filter (dlv? p* 𝟙) (Nᶜ mds .messages))
+                     | L.filter-++ (dlv? p* 𝟚) (map mkenv (Nᶜ mds .execOrder)) (Nᶜ mds .messages)
+                     | L.map-++
+                         (projBlock ∘ msg)
+                         (filter (dlv? p* 𝟚) (map mkenv (Nᶜ mds .execOrder)))
+                         (filter (dlv? p* 𝟚) (Nᶜ mds .messages))
+                     = let open Related.EquationalReasoning in begin
+                       b ∈ (bs𝟙Nᶜm p* ++ bs𝟙Nᶜ p*) ++ bs𝟚Nᶜm p* ++ bs𝟚Nᶜ p*
+                         ≡⟨ cong (b ∈_) $ L.++-assoc (bs𝟙Nᶜm p*) (bs𝟙Nᶜ p*) _ ⟩
+                       b ∈ bs𝟙Nᶜm p* ++ (bs𝟙Nᶜ p* ++ (bs𝟚Nᶜm p* ++ bs𝟚Nᶜ p*))
+                         ≡⟨ cong (λ ◆ → b ∈ bs𝟙Nᶜm p* ++ ◆) $ sym $ L.++-assoc (bs𝟙Nᶜ p*) (bs𝟚Nᶜm p*) _ ⟩
+                       b ∈ bs𝟙Nᶜm p* ++ ((bs𝟙Nᶜ p* ++ bs𝟚Nᶜm p*) ++ bs𝟚Nᶜ p*)
+                         ∼⟨ ++-cong {xs₁ = bs𝟙Nᶜm p*} ≡ˢ-refl (++-cong (bag-=⇒ (↭⇒∼bag (++-comm (bs𝟙Nᶜ p*) (bs𝟚Nᶜm p*)))) ≡ˢ-refl) ⟩
+                       b ∈ bs𝟙Nᶜm p* ++ ((bs𝟚Nᶜm p* ++ bs𝟙Nᶜ p*) ++ bs𝟚Nᶜ p*)
+                         ≡⟨ cong (λ ◆ → b ∈ bs𝟙Nᶜm p* ++ ◆) $ L.++-assoc (bs𝟚Nᶜm p*) (bs𝟙Nᶜ p*) _ ⟩
+                       b ∈ bs𝟙Nᶜm p* ++ (bs𝟚Nᶜm p* ++ (bs𝟙Nᶜ p* ++ bs𝟚Nᶜ p*))
+                         ≡⟨ cong (b ∈_) $ sym $ L.++-assoc (bs𝟙Nᶜm p*) (bs𝟚Nᶜm p*) _ ⟩
+                       b ∈ (bs𝟙Nᶜm p* ++ bs𝟚Nᶜm p*) ++ (bs𝟙Nᶜ p* ++ bs𝟚Nᶜ p*)
+                         ∼⟨ ++-cong 𝟙Nᶜm+𝟚Nᶜm≡m ≡ˢ-refl ⟩
+                       b ∈ [ projBlock m ] ++ (bs𝟙Nᶜ p* ++ bs𝟚Nᶜ p*)
+                         ∼⟨ ++-cong {xs₁ = [ projBlock m ]} ≡ˢ-refl dbsNᶜNp* ⟩
+                       b ∈ [ projBlock m ] ++ (bs𝟙N p* ++ bs𝟚N p* ++ bs)
+                         ∼⟨ bag-=⇒ $ ↭⇒∼bag $ ++-comm [ projBlock m ] (bs𝟙N p* ++ bs𝟚N p* ++ bs) ⟩
+                       b ∈ (bs𝟙N p* ++ bs𝟚N p* ++ bs) ++ [ projBlock m ]
+                         ≡⟨ cong (b ∈_) $ L.++-assoc (bs𝟙N p*) _ _ ⟩
+                       b ∈ bs𝟙N p* ++ (bs𝟚N p* ++ bs) ++ [ projBlock m ]
+                         ≡⟨ cong (λ ◆ → b ∈ bs𝟙N p* ++ ◆) $ L.++-assoc (bs𝟚N p*) bs [ projBlock m ] ⟩
+                       b ∈ bs𝟙N p* ++ bs𝟚N p* ++ bs ++ [ projBlock m ]
+                         ≡⟨ cong (b ∈_) $ sym $ L.++-assoc (bs𝟙N p*) (bs𝟚N p*) _ ⟩
+                       b ∈ (bs𝟙N p* ++ bs𝟚N p*) ++ bs ++ [ projBlock m ]
+                         ∼⟨ ++-cong {xs₁ = bs𝟙N p* ++ bs𝟚N p*} ≡ˢ-refl (bag-=⇒ (↭⇒∼bag (++-comm bs _))) ⟩
+                       b ∈ (bs𝟙N p* ++ bs𝟚N p*) ++ projBlock m ∷ bs
+                         ≡⟨ cong (b ∈_) $ L.++-assoc (bs𝟙N p*) (bs𝟚N p*) _ ⟩
+                       b ∈ bs𝟙N p* ++ bs𝟚N p* ++ projBlock m ∷ bs
+                         ∎
+                       where
+                         𝟙Nᶜm+𝟚Nᶜm≡m : bs𝟙Nᶜm p* ++ bs𝟚Nᶜm p* ≡ˢ [ projBlock m ]
+                         𝟙Nᶜm+𝟚Nᶜm≡m = blockDelayUniqueness φ m p* (Nᶜ mds .execOrder) p*∈eoNᶜ eoNᶜ!
+                           where
+                             p*∈eoNᶜ : p* ∈ Nᶜ mds .execOrder
+                             p*∈eoNᶜ = (≡ˢ⇒⊆ $ bag-=⇒ $ ↭⇒∼bag eoN↭eoNᶜ) p*∈eoN
+
+                             eoNᶜ! : Unique (Nᶜ mds .execOrder)
+                             eoNᶜ! = Unique-resp-↭ eoN↭eoNᶜ eoN!
 
 allBlocks+toBeDelivered≡ : ∀ {N : GlobalState} {p p′ : Party} {ls ls′ : LocalState} →
     N₀ ↝⋆ N
