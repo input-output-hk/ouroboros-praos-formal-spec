@@ -138,6 +138,11 @@ nonImmediateBlocksPreservation : ∀ {p : Party} {N : GlobalState} {d : Delay} �
   → blocksDeliveredIn p (Fi.pred d) (record (tick N) { progress = ready }) ≡ blocksDeliveredIn p d N
 nonImmediateBlocksPreservation = {!!}
 
+no𝟚DelayMessagesAfterTick : ∀ {p : Party} {N : GlobalState} →
+    N₀ ↝⋆ N
+  → blocksDeliveredIn p 𝟚 (record (tick N) { progress = ready }) ≡ []
+no𝟚DelayMessagesAfterTick = {!!}
+
 opaque
 
   unfolding honestMsgsDelivery corruptMsgsDelivery honestBlockMaking
