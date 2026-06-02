@@ -13,13 +13,13 @@ open import Relation.Binary.Definitions using (_Respects_)
 open import Relation.Binary.PropositionalEquality.Core using (_≡_; refl)
 open import Data.Product.Base using (_×_; _,_; proj₁; proj₂)
 open import Data.Bool using (Bool)
-open import Data.List.Base using (List; []; _∷_; filter; deduplicate; cartesianProduct; reverse; length)
+open import Data.List.Base using (List; []; _∷_; _++_; filter; deduplicate; cartesianProduct; reverse; length)
 open import Data.List.Relation.Unary.All using (All)
 open import Data.List.Relation.Unary.All.Properties using (anti-mono)
 open import Data.List.Relation.Unary.Any using (Any; here; there)
 open import Data.List.Relation.Binary.Subset.Propositional using (_⊆_)
-open import Data.List.Relation.Binary.Subset.Propositional.Properties using (filter⁺′; Any-resp-⊆)
-open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (cartesianProduct-⊆-Mono; deduplicate⁺′)
+open import Data.List.Relation.Binary.Subset.Propositional.Properties using (filter⁺′; Any-resp-⊆; ⊆-trans; xs⊆ys++xs)
+open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (cartesianProduct-⊆-Mono; deduplicate⁺′; ++-meet)
 open import Data.List.Relation.Binary.BagAndSetEquality as BS hiding (set; Kind)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (↭-reverse; ↭-length)
 open import Data.List.Membership.Propositional.Properties using (∈-deduplicate⁻; ∈-deduplicate⁺)
@@ -89,6 +89,9 @@ Any-resp-≡ˢ eq = Any-resp-⊆ (≡ˢ⇒⊆×⊇ eq .proj₁)
 
 reverse-≡ˢ : ∀ (xs : List A) → reverse xs ≡ˢ xs
 reverse-≡ˢ = BS.bag-=⇒ ∘ BS.↭⇒∼bag ∘ ↭-reverse
+
+⊆×≡ˢ⇒++-≡ˢ : ∀ {xs ys zs : List A} → xs ⊆ zs → ys ≡ˢ zs → xs ++ ys ≡ˢ zs
+⊆×≡ˢ⇒++-≡ˢ xs⊆zs ys≡ˢzs = ⊆×⊇⇒≡ˢ (++-meet xs⊆zs (≡ˢ⇒⊆ ys≡ˢzs)) (⊆-trans (≡ˢ⇒⊇ ys≡ˢzs) (xs⊆ys++xs _ _))
 
 {--- TODO: Continue later perhaps...
 -- NOTE: We cannot generalize `R` and `P` to be of any level since `Prelude.DecEq` requires `A` to be `Set` only.
