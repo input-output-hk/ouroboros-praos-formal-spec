@@ -26,15 +26,16 @@ open import Prelude.AssocList.Properties.Ext using (set-⁉; map-⁉-∈-just; m
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[∷ʳ]→∗-split; —[[]]→∗ʳ⇒≡)
 open import Data.List.Relation.Binary.BagAndSetEquality using (∷-cong; ++-cong; concat-cong; map-cong; bag-=⇒; ↭⇒∼bag)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-just)
-open import Data.List.Properties.Ext using (filter-∘-×)
-open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; ∈-∷-≢⁻; ∉-∷⁻)
+open import Data.List.Properties.Ext using (filter-∘-×; filter-Empty; filter-∘-comm; map-[])
+open import Data.List.Membership.Propositional.Properties.Ext using (∈-∷⁻; ∈-∷-≢⁻; ∉-∷⁻; ∈-∷ʳ⁻)
 open import Data.List.Relation.Unary.AllPairs.Properties.Ext using (headʳ)
 open import Data.List.Relation.Unary.Unique.Propositional.Properties using (Unique[x∷xs]⇒x∉xs)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (⊆-++-comm; ++-meet)
-open import Data.List.Relation.Binary.Permutation.Propositional using (↭-sym)
-open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭; map⁺; shift; ++-comm)
+open import Data.List.Relation.Binary.Permutation.Propositional using (↭-refl; ↭-sym;  ↭-trans)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭; map⁺; shift; ++-comm; ↭-empty-inv)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties.Ext using (filter-↭; Unique-resp-↭)
 open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_; ≡ˢ⇒⊆; ≡ˢ⇒⊇; ≡ˢ-refl; ≡ˢ-sym; ≡⇒≡ˢ; ⊆×≡ˢ⇒++-≡ˢ)
+open import Relation.Unary.Properties.Ext using (P∩∁P≐∅)
 open import Relation.Unary using (_≐_)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
@@ -506,11 +507,256 @@ tree₀InN₀ {p} {ls} = tree₀InN₀′
               trans (sym $ map-⁉-≡ _) $ subst (λ ◆ → map (_, it .def) (◆ ∷ ps′) ⁉ p ≡ just ls) (sym p≡p′) eq
       (no  p≢p′) → tree₀InN₀′ {ps′} $ trans (sym $ map-⁉-≢ _ p≢p′) eq
 
-noImmediateMsgsIfNotReady : ∀ {N : GlobalState} (p : Party) →
-    N₀ ↝⋆ N
-  → N .progress ≢ ready
-  → blocksDeliveredIn p 𝟘 N ≡ []
-noImmediateMsgsIfNotReady = {!!}
+opaque
+
+  unfolding honestMsgsDelivery corruptMsgsDelivery honestBlockMaking
+
+  noImmediateMsgsIfNotReady : ∀ {N : GlobalState} (p : Party) →
+      N₀ ↝⋆ N
+    → N .progress ≢ ready
+    → blocksDeliveredIn p 𝟘 N ≡ []
+  noImmediateMsgsIfNotReady {N} p N₀↝⋆N N≢Ready with ¿ p ∈ parties₀ ¿
+  ... | no p∉ps₀ = goal-p∉ps₀ [rcv≢p]N
+    where
+      [rcv≢p]N : L.All.All ((_≢ p) ∘ rcv) (N .messages)
+      [rcv≢p]N = noMsgsForUnknownParty N₀↝⋆N p∉ps₀
+
+      goal-p∉ps₀ : ∀ {es} → L.All.All ((_≢ p) ∘ rcv) es → map (projBlock ∘ msg) (filter ¿ flip Immediate p ¿¹ es) ≡ []
+      goal-p∉ps₀ {[]} _ = refl
+      goal-p∉ps₀ {e ∷ es} (eᵣ≢p ∷ [rcv≢p]es)
+        rewrite
+          L.filter-reject ¿ flip Immediate p ¿¹ {e} {es} (dec-de-morgan₂ (inj₂ eᵣ≢p))
+          = goal-p∉ps₀ {es} [rcv≢p]es
+  ... | yes p∈ps₀ = noImmediateMsgsIfNotReadyʳ p (Star⇒Starʳ N₀↝⋆N) N≢Ready p∈ps₀
+    where
+      open RTC; open Starʳ
+
+      noImmediateMsgsIfNotReadyʳ : ∀ {N : GlobalState} (p : Party) →
+          N₀ ↝⋆ʳ N
+        → N .progress ≢ ready
+        → p ∈ parties₀
+        → blocksDeliveredIn p 𝟘 N ≡ []
+      noImmediateMsgsIfNotReadyʳ _ εʳ ready≢ready _ = contradiction refl ready≢ready
+      noImmediateMsgsIfNotReadyʳ {N} p (_◅ʳ_ {j = N″} N₀↝⋆ʳN″ N″↝N) N≢Ready p∈ps₀ = goal N″↝N N≢Ready
+        where
+          N₀↝⋆N″ : N₀ ↝⋆ N″
+          N₀↝⋆N″ = Starʳ⇒Star N₀↝⋆ʳN″
+
+          ih : N″ .progress ≢ ready → blocksDeliveredIn p 𝟘 N″ ≡ []
+          ih N″≢Ready = noImmediateMsgsIfNotReadyʳ p N₀↝⋆ʳN″ N″≢Ready p∈ps₀
+
+          is𝟘? : (p* : Party) → Decidable¹ (flip Immediate p*)
+          is𝟘? p* = ¿ flip Immediate p* ¿¹
+
+          isNot𝟘? : (p* : Party) → Decidable¹ (¬_ ∘ flip Immediate p*)
+          isNot𝟘? p* = ¿ ¬_ ∘ flip Immediate p* ¿¹ -- ¬? ∘₂ is𝟘?
+
+          goal : N″ ↝ N → N .progress ≢ ready → blocksDeliveredIn p 𝟘 N ≡ []
+          goal (deliverMsgs {N′ = N‴} N″Ready N″—[eoN″]↓→∗N‴) _ =
+            goal* (reverseView (N″ .execOrder)) p∈eoN″ eoN″! (—[]→∗⇒—[]→∗ʳ N″—[eoN″]↓→∗N‴)
+            where
+              open import Data.List.Reverse
+
+              p∈eoN″ : p ∈ N″ .execOrder
+              p∈eoN″ = ∈-resp-↭ (execOrderPreservation-↭ N₀↝⋆N″) p∈ps₀
+
+              pHasInN″ : p hasStateIn N″
+              pHasInN″ = hasState⇔∈parties₀ N₀↝⋆N″ .Equivalence.from p∈ps₀
+
+              eoN″! : Unique (N″ .execOrder)
+              eoN″! = execOrderUniqueness N₀↝⋆N″
+
+              goal* : ∀ {N* ps} → Reverse ps → p ∈ ps → Unique ps → _ ⊢ N″ —[ ps ]↓→∗ʳ N* → blocksDeliveredIn p 𝟘 N* ≡ []
+              goal* [] p∈[] _ _ = contradiction p∈[] λ ()
+              goal* {N*} (ps′ ∶ ps′r ∶ʳ p′) p∈[ps′+p′] [ps′+p′]! N″—[ps′+p′]↓→∗ʳN*
+                with —[∷ʳ]→∗-split (—[]→∗ʳ⇒—[]→∗ N″—[ps′+p′]↓→∗ʳN*)
+              ... | N° , N″—[ps′]↓→∗N° , N°—[p′]↓→N*
+                with ∈-∷ʳ⁻ p∈[ps′+p′]
+              ... | inj₂ p≡p′ rewrite sym p≡p′ = goal-p≡p′ N°—[p′]↓→N*
+                where
+                  pHasInN° : p hasStateIn N°
+                  pHasInN° = hasState⇔-↓∗ N″—[ps′]↓→∗N° .Equivalence.to pHasInN″
+
+                  ls° : LocalState
+                  ls° = M.to-witness pHasInN°
+
+                  ls°pN° : N° .states ⁉ p ≡ just ls°
+                  ls°pN° = Is-just⇒to-witness pHasInN°
+
+                  goal-p≡p′ : _ ⊢ N° —[ p ]↓→ N* → blocksDeliveredIn p 𝟘 N* ≡ []
+                  goal-p≡p′ (unknownParty↓ ls≡◇) = contradiction ls≡◇ ls≢◇
+                    where
+                      ls≢◇ : N° .states ⁉ p ≢ nothing
+                      ls≢◇ rewrite ls°pN° = flip contradiction λ ()
+                  goal-p≡p′ (honestParty↓ _ _)
+                    rewrite
+                      sym $ filter-∘-× (is𝟘? p) (isNot𝟘? p) (N° .messages)
+                    | filter-Empty (λ e → is𝟘? p e ×-dec isNot𝟘? p e) (P∩∁P≐∅ {P = flip Immediate p}) (N° .messages)
+                      = refl
+                  goal-p≡p′ (corruptParty↓ _ _) with
+                    processMsgsᶜ
+                      (fetchNewMsgs p N° .proj₁)
+                      (fetchNewMsgs p N° .proj₂ .clock)
+                      (fetchNewMsgs p N° .proj₂ .history)
+                      (fetchNewMsgs p N° .proj₂ .messages)
+                      (fetchNewMsgs p N° .proj₂ .advState)
+                  ... | newMds , _ = goal-p≡p′-* newMds
+                    where
+                      Nᶜ : List (Message × DelayMap) → GlobalState
+                      Nᶜ mds = broadcastMsgsᶜ mds (removeImmediateMsgs p N°)
+
+                      goal-p≡p′-* : ∀ mds → L.map (projBlock ∘ msg) (filter (is𝟘? p) (Nᶜ mds .messages)) ≡ []
+                      goal-p≡p′-* []
+                        rewrite
+                          sym $ filter-∘-× (is𝟘? p) (isNot𝟘? p) (N° .messages)
+                        | filter-Empty (λ e → is𝟘? p e ×-dec isNot𝟘? p e) (P∩∁P≐∅ {P = flip Immediate p}) (N° .messages)
+                        = refl
+                      goal-p≡p′-* ((m , φ) ∷ mds)
+                        rewrite
+                          L.filter-++ (is𝟘? p) (L.map (λ p* → ⦅ m , p* , φ p* .value ⦆) (Nᶜ mds .execOrder)) (Nᶜ mds .messages)
+                         | L.map-++
+                             (projBlock ∘ msg)
+                             (filter (is𝟘? p) (L.map (λ p* → ⦅ m , p* , φ p* .value ⦆) (Nᶜ mds .execOrder)))
+                             (filter (is𝟘? p) (Nᶜ mds .messages))
+                         | goal-p≡p′-* mds
+                         | L.++-identityʳ $
+                             L.map (projBlock ∘ msg) (filter (is𝟘? p) (L.map (λ p* → ⦅ m , p* , φ p* .value ⦆) (Nᶜ mds .execOrder)))
+                         = goal-p≡p′-** (Nᶜ mds .execOrder)
+                         where
+                           goal-p≡p′-** : ∀ ps* →
+                             L.map (projBlock ∘ msg) (filter (is𝟘? p) (L.map (λ p* → ⦅ m , p* , φ p* .value ⦆) ps*)) ≡ []
+                           goal-p≡p′-** [] = refl
+                           goal-p≡p′-** (p* ∷ ps*) with φ p*
+                           ... | 𝟙 , _ = goal-p≡p′-** ps*
+                           ... | 𝟚 , _ = goal-p≡p′-** ps*
+              ... | inj₁ p∈ps′ = goal-p∈ps′ N°—[p′]↓→N*
+                where
+                  ps′! : Unique ps′
+                  ps′! = headʳ [ps′+p′]!
+
+                  ih* : blocksDeliveredIn p 𝟘 N° ≡ []
+                  ih* = goal* ps′r p∈ps′ ps′! (—[]→∗⇒—[]→∗ʳ N″—[ps′]↓→∗N°)
+
+                  goal-p∈ps′ : _ ⊢ N° —[ p′ ]↓→ N* → blocksDeliveredIn p 𝟘 N* ≡ []
+                  goal-p∈ps′ (unknownParty↓ _) = ih*
+                  goal-p∈ps′ (honestParty↓ _ _)
+                    rewrite
+                      filter-∘-comm (is𝟘? p) (isNot𝟘? p′) (N° .messages)
+                    | map-[] ih*
+                      = refl
+                  goal-p∈ps′ (corruptParty↓ _ _) with
+                    processMsgsᶜ
+                      (fetchNewMsgs p′ N° .proj₁)
+                      (fetchNewMsgs p′ N° .proj₂ .clock)
+                      (fetchNewMsgs p′ N° .proj₂ .history)
+                      (fetchNewMsgs p′ N° .proj₂ .messages)
+                      (fetchNewMsgs p′ N° .proj₂ .advState)
+                  ... | newMds , _ = {!!}
+                    where
+                      Nᶜ : List (Message × DelayMap) → GlobalState
+                      Nᶜ mds = broadcastMsgsᶜ mds (removeImmediateMsgs p′ N°)
+
+                      goal-p∈ps′-* : ∀ mds → L.map (projBlock ∘ msg) (filter (is𝟘? p) (Nᶜ mds .messages)) ≡ []
+                      goal-p∈ps′-* []
+                        rewrite
+                          filter-∘-comm (is𝟘? p) (isNot𝟘? p′) (N° .messages)
+                        | map-[] ih*
+                        = refl
+                      goal-p∈ps′-* ((m , φ) ∷ mds)
+                        rewrite
+                          L.filter-++ (is𝟘? p) (L.map (λ p* → ⦅ m , p* , φ p* .value ⦆) (Nᶜ mds .execOrder)) (Nᶜ mds .messages)
+                         | L.map-++
+                             (projBlock ∘ msg)
+                             (filter (is𝟘? p) (L.map (λ p* → ⦅ m , p* , φ p* .value ⦆) (Nᶜ mds .execOrder)))
+                             (filter (is𝟘? p) (Nᶜ mds .messages))
+                         | goal-p∈ps′-* mds
+                         | L.++-identityʳ $
+                             L.map (projBlock ∘ msg) (filter (is𝟘? p) (L.map (λ p* → ⦅ m , p* , φ p* .value ⦆) (Nᶜ mds .execOrder)))
+                         = goal-p∈ps′-** (Nᶜ mds .execOrder)
+                         where
+                           goal-p∈ps′-** : ∀ ps* →
+                             L.map (projBlock ∘ msg) (filter (is𝟘? p) (L.map (λ p* → ⦅ m , p* , φ p* .value ⦆) ps*)) ≡ []
+                           goal-p∈ps′-** [] = refl
+                           goal-p∈ps′-** (p* ∷ ps*) with φ p*
+                           ... | 𝟙 , _ = goal-p∈ps′-** ps*
+                           ... | 𝟚 , _ = goal-p∈ps′-** ps*
+          goal (makeBlock {N′ = N‴} N″MsgsDelivered N″—[eoN″]↑→∗N‴) _ = goal* (reverseView (N″ .execOrder)) (—[]→∗⇒—[]→∗ʳ N″—[eoN″]↑→∗N‴)
+            where
+              open import Data.List.Reverse
+
+              goal* : ∀ {N* ps} → Reverse ps → _ ⊢ N″ —[ ps ]↑→∗ʳ N* → blocksDeliveredIn p 𝟘 N* ≡ []
+              goal* [] ts rewrite sym $ —[[]]→∗ʳ⇒≡ ts = ih N″≢Ready
+                where
+                  N″≢Ready : N″ .progress ≢ ready
+                  N″≢Ready N≡Ready = contradiction (trans (sym N≡Ready) N″MsgsDelivered) λ ()
+              goal* {N*} (ps′ ∶ ps′r ∶ʳ p′) N″—[ps′+p′]↑→∗ʳN*
+                with —[∷ʳ]→∗-split (—[]→∗ʳ⇒—[]→∗ N″—[ps′+p′]↑→∗ʳN*)
+              ... | N° , N″—[ps′]↑→∗N° , N°—[p′]↑→N* = goal′ N°—[p′]↑→N*
+                where
+                  ih* : blocksDeliveredIn p 𝟘 N° ≡ []
+                  ih* = goal* ps′r (—[]→∗⇒—[]→∗ʳ N″—[ps′]↑→∗N°)
+
+                  goal′ : _ ⊢ N° —[ p′ ]↑→ N* → blocksDeliveredIn p 𝟘 N* ≡ []
+                  goal′ (unknownParty↑ _) = ih*
+                  goal′ (honestParty↑ {ls = ls} _ _)
+                    with makeBlockʰ (N° .clock) (txSelection (N° .clock) p′) p′ ls
+                  ... | newMsgs , newLs = goal′* newMsgs
+                    where
+                      Nʰ : List Message → GlobalState
+                      Nʰ ms = broadcastMsgsʰ ms (updateLocalState p′ newLs N°)
+
+                      goal′* : ∀ ms → L.map (projBlock ∘ msg) (filter (is𝟘? p) (Nʰ ms .messages)) ≡ []
+                      goal′* [] = ih*
+                      goal′* (m ∷ ms)
+                        rewrite
+                          L.filter-++ (is𝟘? p) (L.map (λ p* → ⦅ m , p* , 𝟙 ⦆) (Nʰ ms .execOrder)) (Nʰ ms .messages)
+                         | L.map-++
+                             (projBlock ∘ msg)
+                             (filter (is𝟘? p) (L.map (λ p* → ⦅ m , p* , 𝟙 ⦆) (Nʰ ms .execOrder)))
+                             (filter (is𝟘? p) (Nʰ ms .messages))
+                         | goal′* ms
+                         | L.++-identityʳ $ L.map (projBlock ∘ msg) (filter (is𝟘? p) (L.map (λ p* → ⦅ m , p* , 𝟙 ⦆) (Nʰ ms .execOrder)))
+                         = goal′** (Nʰ ms .execOrder)
+                         where
+                           goal′** : ∀ ps* → L.map (projBlock ∘ msg) (filter (is𝟘? p) (L.map (λ p* → ⦅ m , p* , 𝟙 ⦆) ps*)) ≡ []
+                           goal′** [] = refl
+                           goal′** (p* ∷ ps*) = goal′** ps*
+                  goal′ (corruptParty↑ _ _)
+                    with makeBlockᶜ (N° .clock) (N° .history) (N° .messages) (N° .advState)
+                  ... | newMds , _ = goal′* newMds
+                    where
+                      Nᶜ : List (Message × DelayMap) → GlobalState
+                      Nᶜ mds = broadcastMsgsᶜ mds N°
+
+                      goal′* : ∀ mds → L.map (projBlock ∘ msg) (filter (is𝟘? p) (Nᶜ mds .messages)) ≡ []
+                      goal′* [] = ih*
+                      goal′* ((m , φ) ∷ mds)
+                        rewrite
+                          L.filter-++ (is𝟘? p) (L.map (λ p* → ⦅ m , p* , φ p* .value ⦆) (Nᶜ mds .execOrder)) (Nᶜ mds .messages)
+                         | L.map-++
+                             (projBlock ∘ msg)
+                             (filter (is𝟘? p) (L.map (λ p* → ⦅ m , p* , φ p* .value ⦆) (Nᶜ mds .execOrder)))
+                             (filter (is𝟘? p) (Nᶜ mds .messages))
+                         | goal′* mds
+                         | L.++-identityʳ $
+                             L.map (projBlock ∘ msg) (filter (is𝟘? p) (L.map (λ p* → ⦅ m , p* , φ p* .value ⦆) (Nᶜ mds .execOrder)))
+                         = goal′** (Nᶜ mds .execOrder)
+                         where
+                           goal′** : ∀ ps* →
+                             L.map (projBlock ∘ msg) (filter (is𝟘? p) (L.map (λ p* → ⦅ m , p* , φ p* .value ⦆) ps*)) ≡ []
+                           goal′** [] = refl
+                           goal′** (p* ∷ ps*) with φ p*
+                           ... | 𝟙 , _ = goal′** ps*
+                           ... | 𝟚 , _ = goal′** ps*
+          goal (advanceRound _) ready≢ready = contradiction refl ready≢ready
+          goal (permuteParties _) = ih
+          goal (permuteMsgs msgsN″↭es) N″≢Ready = ↭-empty-inv (↭-trans (↭-sym 𝟘sN″↭𝟘sN) 𝟘sN″↭[])
+            where
+              𝟘sN″↭[] : blocksDeliveredIn p 𝟘 N″ ↭ []
+              𝟘sN″↭[] rewrite ih N″≢Ready = ↭-refl
+
+              𝟘sN″↭𝟘sN : blocksDeliveredIn p 𝟘 N″ ↭ blocksDeliveredIn p 𝟘 N
+              𝟘sN″↭𝟘sN = map⁺ _ $ filter-↭ _ msgsN″↭es
 
 noImmediateMsgsAfterReady : ∀ {N : GlobalState} →
     N₀ ↝⋆ N

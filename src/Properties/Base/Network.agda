@@ -19,7 +19,7 @@ open import Data.List.Membership.Propositional.Properties.Ext using (∉-∷ʳ�
 open import Data.List.Relation.Unary.Unique.Propositional.Properties using (Unique[x∷xs]⇒x∉xs)
 open import Data.List.Relation.Binary.Subset.Propositional.Properties.Ext using (⊆-++-comm)
 open import Data.List.Relation.Binary.SetEquality using (_≡ˢ_ ; ≡ˢ-sym)
-open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (map⁺)
+open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (∈-resp-↭; map⁺)
 open import Data.List.Relation.Binary.BagAndSetEquality using (↭⇒∼bag; bag-=⇒)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
@@ -142,6 +142,12 @@ no𝟚DelayMessagesAfterTick : ∀ {p : Party} {N : GlobalState} →
     N₀ ↝⋆ N
   → blocksDeliveredIn p 𝟚 (record (tick N) { progress = ready }) ≡ []
 no𝟚DelayMessagesAfterTick = {!!}
+
+noMsgsForUnknownParty : ∀ {p : Party} {N : GlobalState} →
+    N₀ ↝⋆ N
+  → p ∉ parties₀
+  → L.All.All ((_≢ p) ∘ rcv) (N .messages)
+noMsgsForUnknownParty = {!!}
 
 opaque
 
