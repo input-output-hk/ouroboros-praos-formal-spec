@@ -143,12 +143,6 @@ no𝟚DelayMessagesAfterTick : ∀ {p : Party} {N : GlobalState} →
   → blocksDeliveredIn p 𝟚 (record (tick N) { progress = ready }) ≡ []
 no𝟚DelayMessagesAfterTick = {!!}
 
-noMsgsForUnknownParty : ∀ {p : Party} {N : GlobalState} →
-    N₀ ↝⋆ N
-  → p ∉ parties₀
-  → L.All.All ((_≢ p) ∘ rcv) (N .messages)
-noMsgsForUnknownParty = {!!}
-
 opaque
 
   unfolding honestMsgsDelivery corruptMsgsDelivery honestBlockMaking
