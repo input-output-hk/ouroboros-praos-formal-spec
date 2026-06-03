@@ -21,6 +21,18 @@ opaque
 
   unfolding honestMsgsDelivery honestBlockMaking
 
+  execOrderPreservation-≡-broadcastMsgʰ : ∀ (msg : Message) (N : GlobalState) →
+    N .execOrder ≡ broadcastMsgʰ msg N .execOrder
+  execOrderPreservation-≡-broadcastMsgʰ msg N = refl
+
+  execOrderPreservation-≡-broadcastMsgsʰ : ∀ (ms : List Message) (N : GlobalState) →
+    N .execOrder ≡ broadcastMsgsʰ ms N .execOrder
+  execOrderPreservation-≡-broadcastMsgsʰ ms N = foldr-preservesʳ'
+    {P = λ N′ → N .execOrder ≡ N′ .execOrder}
+    (λ msg {N′} eoN≡eoN′ → trans eoN≡eoN′ (execOrderPreservation-≡-broadcastMsgʰ msg N′))
+    refl
+    ms
+
   execOrderPreservation-≡-broadcastMsgᶜ : ∀ (msg : Message) (ϕ : DelayMap) (N : GlobalState) →
     N .execOrder ≡ broadcastMsgᶜ msg ϕ N .execOrder
   execOrderPreservation-≡-broadcastMsgᶜ msg ϕ N = refl
