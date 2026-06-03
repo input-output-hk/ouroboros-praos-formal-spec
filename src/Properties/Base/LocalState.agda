@@ -1,3 +1,5 @@
+{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
+
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -193,6 +195,11 @@ opaque
               with p ≟ p′
           ...     | yes p≡p′ = contradiction p≡p′ p≢p′
           ...     | no _ rewrite set-⁉-¬ (N″ .states) p′ p newLs (≢-sym p≢p′) = ih
+
+  hasState⇔-↓∗ : ∀ {N N′ : GlobalState} {ps : List Party} {p : Party} →
+      _ ⊢ N —[ ps ]↓→∗ N′
+    → p hasStateIn N ⇔ p hasStateIn N′
+  hasState⇔-↓∗ = {!!}
 
   hasState⇔-↑ : ∀ {N N′ : GlobalState} {p p′ : Party} →
       _ ⊢ N —[ p′ ]↑→ N′

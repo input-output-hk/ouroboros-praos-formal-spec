@@ -296,3 +296,7 @@ replicate-map-const {xs = x′ ∷ xs} {x} {n} = cong (x ∷_) (replicate-map-co
 
 head-++ : ∀ {a} {A : Set a} {x : A} {xs ys : List A} → head xs ≡ just x → head (xs ++ ys) ≡ just x
 head-++ {xs = x ∷ xs} refl = refl
+
+map-[] : ∀ {a b} {A : Set a} {B : Set b} {f : A → B} {xs : List A} → map f xs ≡ [] → xs ≡ []
+map-[] {xs = []} _ = refl
+map-[] {xs = x ∷ xs} p = contradiction p λ ()
