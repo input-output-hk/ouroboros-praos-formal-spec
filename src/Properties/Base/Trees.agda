@@ -1084,7 +1084,28 @@ noBlocksDeliveredIn𝟚AtReady : ∀ {N : GlobalState} {p : Party} →
     N₀ ↝⋆ N
   → N .progress ≡ ready
   → blocksDeliveredIn p 𝟚 N ≡ []
-noBlocksDeliveredIn𝟚AtReady = {!!}
+noBlocksDeliveredIn𝟚AtReady N₀↝⋆N NReady = noBlocksDeliveredIn𝟚AtReadyʳ (Star⇒Starʳ N₀↝⋆N) NReady
+  where
+    open RTC; open Starʳ
+
+    noBlocksDeliveredIn𝟚AtReadyʳ : ∀ {N : GlobalState} {p : Party} →
+        N₀ ↝⋆ʳ N
+      → N .progress ≡ ready
+      → blocksDeliveredIn p 𝟚 N ≡ []
+    noBlocksDeliveredIn𝟚AtReadyʳ εʳ _ = refl
+    noBlocksDeliveredIn𝟚AtReadyʳ {N} {p} (_◅ʳ_ {j = N″} N₀↝⋆ʳN″ N″↝N) NReady = goal N″↝N NReady
+      where
+
+        goal : N″ ↝ N → N .progress ≡ ready → blocksDeliveredIn p 𝟚 N ≡ []
+        goal (advanceRound           _) _ = no𝟚DelayMessagesAfterTick (Starʳ⇒Star N₀↝⋆ʳN″)
+        goal (permuteParties         _) _ = noBlocksDeliveredIn𝟚AtReadyʳ N₀↝⋆ʳN″ NReady
+        goal (permuteMsgs    msgsN″↭es) _ = ↭-empty-inv (↭-trans (↭-sym 𝟚sN″↭𝟚sN) 𝟚sN″↭[])
+          where
+            𝟚sN″↭[] : blocksDeliveredIn p 𝟚 N″ ↭ []
+            𝟚sN″↭[] rewrite noBlocksDeliveredIn𝟚AtReadyʳ {p = p} N₀↝⋆ʳN″ NReady = ↭-refl
+
+            𝟚sN″↭𝟚sN : blocksDeliveredIn p 𝟚 N″ ↭ blocksDeliveredIn p 𝟚 N
+            𝟚sN″↭𝟚sN = map⁺ _ $ filter-↭ _ msgsN″↭es
 
 -- TODO: This opaque degrades the performance significatively, investigate further.
 opaque
