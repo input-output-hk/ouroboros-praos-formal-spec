@@ -787,7 +787,7 @@ opaque
                       (fetchNewMsgs p′ N° .proj₂ .history)
                       (fetchNewMsgs p′ N° .proj₂ .messages)
                       (fetchNewMsgs p′ N° .proj₂ .advState)
-                  ... | newMds , _ = {!!}
+                  ... | newMds , _ = goal-p∈ps′-* newMds
                     where
                       Nᶜ : List (Message × DelayMap) → GlobalState
                       Nᶜ mds = broadcastMsgsᶜ mds (removeImmediateMsgs p′ N°)
@@ -1072,7 +1072,13 @@ opaque
 blocksDeliveredIn-⊆-↓∗ : ∀ {N N′ : GlobalState} {p : Party} {ps : List Party} →
     _ ⊢ N —[ ps ]↓→∗ N′
   → blocksDeliveredIn p 𝟙 N ⊆ˢ blocksDeliveredIn p 𝟙 N′
-blocksDeliveredIn-⊆-↓∗ = {!!}
+blocksDeliveredIn-⊆-↓∗  = blocksDeliveredIn-⊆-↓∗ʳ ∘ —[]→∗⇒—[]→∗ʳ
+  where
+    blocksDeliveredIn-⊆-↓∗ʳ : ∀ {N N′ : GlobalState} {p : Party} {ps : List Party} →
+        _ ⊢ N —[ ps ]↓→∗ʳ N′
+      → blocksDeliveredIn p 𝟙 N ⊆ˢ blocksDeliveredIn p 𝟙 N′
+    blocksDeliveredIn-⊆-↓∗ʳ [] = L.SubS.⊆-refl
+    blocksDeliveredIn-⊆-↓∗ʳ (ts* ∷ʳ ts) = L.SubS.⊆-trans (blocksDeliveredIn-⊆-↓∗ʳ ts*) (blocksDeliveredIn-⊆-↓ ts)
 
 noBlocksDeliveredIn𝟚AtReady : ∀ {N : GlobalState} {p : Party} →
     N₀ ↝⋆ N
