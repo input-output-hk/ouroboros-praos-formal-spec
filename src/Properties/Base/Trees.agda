@@ -898,7 +898,26 @@ noImmediateMsgsAfterReady : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
   → N .progress ≢ ready
   → L.All.All ((Fi._> (Delay ∋ 𝟘)) ∘ cd) (N .messages)
-noImmediateMsgsAfterReady = {!!}
+noImmediateMsgsAfterReady {N} N₀↝⋆N N≢Ready = goal noImmediateMsgsIfNotReady
+  where
+    goal : ∀ {es : List Envelope} →
+       (∀ p → N₀ ↝⋆ N → N .progress ≢ ready → map (projBlock ∘ msg) (L.filter ¿ flip Immediate p ¿¹ es) ≡ [])
+     → L.All.All ((Fi._> (Delay ∋ 𝟘)) ∘ cd) es
+    goal {[]} _ = []
+    goal {⦅ m , p , φ ⦆ ∷ es} π with φ Fi.≟ 𝟘
+    ... | no φ≢𝟘 = φ>𝟘 ∷ goal {es} π
+      where
+        φ>𝟘 : φ Fi.> (Delay ∋ 𝟘)
+        φ>𝟘 = Fi.≤∧≢⇒< Nat.z≤n (≢-sym φ≢𝟘)
+    ... | yes φ≡𝟘 rewrite φ≡𝟘 = contradiction ∷≡[] λ ()
+      where
+        ∷≡[] : map (projBlock ∘ msg) (⦅ m , p , 𝟘 ⦆ ∷ filter ¿ flip Immediate p ¿¹  es) ≡ []
+        ∷≡[] = let open ≡-Reasoning in begin
+          map (projBlock ∘ msg) (⦅ m , p , 𝟘 ⦆ ∷ filter ¿ flip Immediate p ¿¹  es)
+            ≡⟨ cong (map (projBlock ∘ msg)) (sym $ L.filter-accept ¿ flip Immediate p ¿¹ {⦅ m , p , 𝟘 ⦆} {es} (refl , refl)) ⟩
+          map (projBlock ∘ msg) (filter ¿ flip Immediate p ¿¹ (⦅ m , p , 𝟘 ⦆ ∷ es))
+            ≡⟨ π p N₀↝⋆N N≢Ready ⟩
+          [] ∎
 
 blocksDeliveredIn-⊆-↑∗ : ∀ {N N′ : GlobalState} {d : Delay} {p : Party} {ps : List Party} →
     _ ⊢ N —[ ps ]↑→∗ N′
