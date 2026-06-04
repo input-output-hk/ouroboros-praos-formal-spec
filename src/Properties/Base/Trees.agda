@@ -919,10 +919,55 @@ noImmediateMsgsAfterReady {N} N₀↝⋆N N≢Ready = goal noImmediateMsgsIfNotR
             ≡⟨ π p N₀↝⋆N N≢Ready ⟩
           [] ∎
 
-blocksDeliveredIn-⊆-↑ : ∀ {N N′ : GlobalState} {d : Delay} {p p′ : Party} →
-    _ ⊢ N —[ p′ ]↑→ N′
-  → blocksDeliveredIn p d N ⊆ˢ blocksDeliveredIn p d N′
-blocksDeliveredIn-⊆-↑ = {!!}
+opaque
+
+  unfolding honestBlockMaking
+
+  blocksDeliveredIn-⊆-↑ : ∀ {N N′ : GlobalState} {d : Delay} {p p′ : Party} →
+      _ ⊢ N —[ p′ ]↑→ N′
+    → blocksDeliveredIn p d N ⊆ˢ blocksDeliveredIn p d N′
+  blocksDeliveredIn-⊆-↑ (unknownParty↑ _) = L.SubS.⊆-refl
+  blocksDeliveredIn-⊆-↑ {N} {N′} {d} {p} {p′} (honestParty↑ {ls = ls} _ _) with Params.winnerᵈ params {p′} {N .clock}
+  ... | ⁇ (yes isWinner) rewrite dec-yes (Params.winnerᵈ params {p′} {N .clock} .dec) isWinner .proj₂ = goal
+    where
+      best : Chain
+      best = bestChain (N .clock ∸ 1) (ls .tree)
+
+      nb : Block
+      nb = mkBlock (hash (tip best)) (N .clock) (txSelection (N .clock) p′) p′
+
+      goal : map (projBlock ∘ msg) (filter (λ env → ¿ DeliveredIn env ¿² p d) (N .messages))
+             ⊆ˢ
+             map (projBlock ∘ msg)
+               (filter (λ env → ¿ DeliveredIn env ¿² p d) (map (λ p* → ⦅ newBlock nb , p* , 𝟙 ⦆) (N .execOrder) ++ N .messages))
+      goal
+        rewrite
+          L.filter-++ (λ env → ¿ DeliveredIn env ¿² p d) (map (λ p* → ⦅ newBlock nb , p* , 𝟙 ⦆) (N .execOrder)) (N .messages)
+        | L.map-++ (projBlock ∘ msg)
+            (filter (λ env → ¿ DeliveredIn env ¿² p d) (map (λ p* → ⦅ newBlock nb , p* , 𝟙 ⦆) (N .execOrder)))
+            (filter (λ env → ¿ DeliveredIn env ¿² p d) (N .messages))
+          = L.SubS.xs⊆ys++xs _ _
+  ... | ⁇ (no ¬isWinner) = L.SubS.⊆-refl
+  blocksDeliveredIn-⊆-↑ {N} {N′} {d} {p} {p′} (corruptParty↑ _ _)
+    with makeBlockᶜ (N .clock) (N .history) (N .messages) (N .advState)
+  ... | newMds , _ = goal newMds
+    where
+      Nᶜ : List (Message × DelayMap) → GlobalState
+      Nᶜ mds = broadcastMsgsᶜ mds N
+
+      goal : ∀ mds →
+             map (projBlock ∘ msg) (filter (λ env → ¿ DeliveredIn env ¿² p d) (N .messages))
+             ⊆ˢ
+             map (projBlock ∘ msg) (filter (λ env → ¿ DeliveredIn env ¿² p d) (Nᶜ mds .messages))
+      goal [] = L.SubS.⊆-refl
+      goal ((m , φ) ∷ mds)
+        rewrite
+          L.filter-++ (λ env → ¿ DeliveredIn env ¿² p d) (map (λ p* → ⦅ m , p* , φ p* .value ⦆) (Nᶜ mds .execOrder)) (Nᶜ mds .messages)
+        | L.map-++ (projBlock ∘ msg)
+            (filter (λ env → ¿ DeliveredIn env ¿² p d) (map (λ p* → ⦅ m , p* , φ p* .value ⦆) (Nᶜ mds .execOrder)))
+            (filter (λ env → ¿ DeliveredIn env ¿² p d) (Nᶜ mds .messages))
+        | sym $ execOrderPreservation-≡-broadcastMsgsᶜ mds N
+          = L.SubS.⊆-trans (goal mds) (L.SubS.xs⊆ys++xs _ _)
 
 blocksDeliveredIn-⊆-↑∗ : ∀ {N N′ : GlobalState} {d : Delay} {p : Party} {ps : List Party} →
     _ ⊢ N —[ ps ]↑→∗ N′
@@ -932,7 +977,7 @@ blocksDeliveredIn-⊆-↑∗ = blocksDeliveredIn-⊆-↑∗ʳ ∘ —[]→∗⇒
     blocksDeliveredIn-⊆-↑∗ʳ : ∀ {N N′ : GlobalState} {d : Delay} {p : Party} {ps : List Party} →
         _ ⊢ N —[ ps ]↑→∗ʳ N′
       → blocksDeliveredIn p d N ⊆ˢ blocksDeliveredIn p d N′
-    blocksDeliveredIn-⊆-↑∗ʳ [] = {!!}
+    blocksDeliveredIn-⊆-↑∗ʳ [] = L.SubS.⊆-refl
     blocksDeliveredIn-⊆-↑∗ʳ (ts* ∷ʳ ts) = L.SubS.⊆-trans (blocksDeliveredIn-⊆-↑∗ʳ ts*) (blocksDeliveredIn-⊆-↑ ts)
 
 opaque
