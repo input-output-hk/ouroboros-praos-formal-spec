@@ -919,10 +919,21 @@ noImmediateMsgsAfterReady {N} N₀↝⋆N N≢Ready = goal noImmediateMsgsIfNotR
             ≡⟨ π p N₀↝⋆N N≢Ready ⟩
           [] ∎
 
+blocksDeliveredIn-⊆-↑ : ∀ {N N′ : GlobalState} {d : Delay} {p p′ : Party} →
+    _ ⊢ N —[ p′ ]↑→ N′
+  → blocksDeliveredIn p d N ⊆ˢ blocksDeliveredIn p d N′
+blocksDeliveredIn-⊆-↑ = {!!}
+
 blocksDeliveredIn-⊆-↑∗ : ∀ {N N′ : GlobalState} {d : Delay} {p : Party} {ps : List Party} →
     _ ⊢ N —[ ps ]↑→∗ N′
   → blocksDeliveredIn p d N ⊆ˢ blocksDeliveredIn p d N′
-blocksDeliveredIn-⊆-↑∗ = {!!}
+blocksDeliveredIn-⊆-↑∗ = blocksDeliveredIn-⊆-↑∗ʳ ∘ —[]→∗⇒—[]→∗ʳ
+  where
+    blocksDeliveredIn-⊆-↑∗ʳ : ∀ {N N′ : GlobalState} {d : Delay} {p : Party} {ps : List Party} →
+        _ ⊢ N —[ ps ]↑→∗ʳ N′
+      → blocksDeliveredIn p d N ⊆ˢ blocksDeliveredIn p d N′
+    blocksDeliveredIn-⊆-↑∗ʳ [] = {!!}
+    blocksDeliveredIn-⊆-↑∗ʳ (ts* ∷ʳ ts) = L.SubS.⊆-trans (blocksDeliveredIn-⊆-↑∗ʳ ts*) (blocksDeliveredIn-⊆-↑ ts)
 
 opaque
 
