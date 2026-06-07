@@ -17,6 +17,7 @@ open import Protocol.Message ⦃ params ⦄
 open import Protocol.Network ⦃ params ⦄; open Envelope
 open import Protocol.Tree ⦃ params ⦄
 open import Protocol.Tree.Properties ⦃ params ⦄
+open import Protocol.Chain.Properties ⦃ params ⦄
 open import Protocol.Semantics ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Time ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.LocalState ⦃ params ⦄ ⦃ assumptions ⦄
@@ -24,6 +25,7 @@ open import Properties.Base.ExecutionOrder ⦃ params ⦄ ⦃ assumptions ⦄
 open import Properties.Base.Network ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.AssocList.Properties.Ext using (set-⁉; map-⁉-∈-just; map-⁉-≡; map-⁉-≢)
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[∷ʳ]→∗-split; —[[]]→∗ʳ⇒≡)
+open import Data.Nat.Properties.Ext using (<⇒≤∸1)
 open import Data.List.Relation.Binary.BagAndSetEquality using (∷-cong; ++-cong; concat-cong; map-cong; bag-=⇒; ↭⇒∼bag)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-just)
 open import Data.List.Properties.Ext using (filter-∘-×; filter-Empty; filter-∘-comm; map-[])
@@ -2476,5 +2478,47 @@ module _ {T : Type} ⦃ _ : Tree T ⦄ where
 
   extendTreeLength : ∀ (t : T) (b : Block) →
     let s = b .slot in
-      length (bestChain s (extendTree t b)) ≡ 1 + length (bestChain (s ∸ 1) t)
-  extendTreeLength = {!!}
+      length (bestChain s (extendTree t b)) ≤ 1 + length (bestChain (s ∸ 1) t)
+  extendTreeLength t b with ✓-∃-∷ (valid (extendTree t b) (b. slot))
+  ... | b′ , c′ , b′+c′≡bcx with c′ in eq
+  ...   | [] rewrite sym b′+c′≡bcx = Nat.s≤s Nat.z≤n
+  ...   | b″ ∷ c″ rewrite sym b′+c′≡bcx = Nat.s≤s |b″+c″|≤|bc|
+    where
+      bcx≡b′+b″+c″ : bestChain (b .slot) (extendTree t b) ≡ b′ ∷ b″ ∷ c″
+      bcx≡b′+b″+c″ rewrite sym eq | b′+c′≡bcx = refl
+
+      [b′+b″+c″]✓ : (b′ ∷ b″ ∷ c″) ✓
+      [b′+b″+c″]✓ rewrite sym bcx≡b′+b″+c″ = valid (extendTree t b) (b. slot)
+
+      |b″+c″|≤|bc| : length (b″ ∷ c″) ≤ length (bestChain (b. slot ∸ 1) t)
+      |b″+c″|≤|bc| = optimal (b″ ∷ c″) t (b. slot ∸ 1) [b″+c″]✓ b″+c″⊆[≤s]tbs
+        where
+          [b″+c″]✓ : (b″ ∷ c″) ✓
+          [b″+c″]✓ = ✓-++ʳ {c = [ b′ ]} [b′+b″+c″]✓
+
+          b″+c″⊆[≤s]tbs : b″ ∷ c″ ⊆ˢ filter ((_≤? b .slot ∸ 1) ∘ slot) (allBlocks t)
+          b″+c″⊆[≤s]tbs {b*} b*∈b″+c″ = L.Mem.∈-filter⁺ ((_≤? b .slot ∸ 1) ∘ slot) b*∈tbs b*ₜ≤bₜ-1
+            where
+              b′+b″+c″⊆[≤bₜ]tbsx : b′ ∷ b″ ∷ c″ ⊆ˢ filter ((_≤? b. slot) ∘ slot) (allBlocks (extendTree t b))
+              b′+b″+c″⊆[≤bₜ]tbsx rewrite sym bcx≡b′+b″+c″ = selfContained (extendTree t b) (b. slot)
+
+              b*ₜ<b′ₜ : b* .slot < b′ .slot
+              b*ₜ<b′ₜ = DecreasingSlots-∈ {c = [ b′ ]} {c′ = b″ ∷ c″} (✓⇒ds [b′+b″+c″]✓) (here refl) b*∈b″+c″
+
+              b′ₜ≤bₜ : b′ .slot ≤ b .slot
+              b′ₜ≤bₜ = L.Mem.∈-filter⁻ _ {xs = allBlocks (extendTree t b)} (b′+b″+c″⊆[≤bₜ]tbsx (here refl)) .proj₂
+
+              b*ₜ≤bₜ-1 : b* .slot ≤ b .slot ∸ 1
+              b*ₜ≤bₜ-1 = <⇒≤∸1 $ Nat.<-≤-trans b*ₜ<b′ₜ b′ₜ≤bₜ
+
+              lem0 : b* ∈ filter ((_≤? b. slot) ∘ slot) (allBlocks (extendTree t b))
+              lem0 = b′+b″+c″⊆[≤bₜ]tbsx (L.Mem.∈-++⁺ʳ [ b′ ] b*∈b″+c″)
+
+              b*∈tbs : b* ∈ allBlocks t
+              b*∈tbs with L.Mem.∈-filter⁻ ((_≤? b. slot) ∘ slot) {xs = allBlocks (extendTree t b)} lem0
+              ... | b*∈tbsx , _ with L.Mem.∈-++⁻ (allBlocks t) (≡ˢ⇒⊆ (extendable t b) b*∈tbsx)
+              ... | inj₁ b*∈tbs = b*∈tbs
+              ... | inj₂ b*∈[b] = contradiction bₜ<bₜ (Nat.n≮n (b .slot))
+                where
+                  bₜ<bₜ : b .slot < b .slot
+                  bₜ<bₜ = Nat.<-≤-trans (subst (λ ◆ → ◆ .slot < b′ .slot) (L.Any.singleton⁻ b*∈[b]) b*ₜ<b′ₜ) b′ₜ≤bₜ

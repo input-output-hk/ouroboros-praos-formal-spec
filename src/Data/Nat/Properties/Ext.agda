@@ -29,3 +29,7 @@ suc≗+1 n rewrite +-suc n 0 | +-identityʳ n = refl
 0<n∸m⇒m<n : ∀ {n m} → 0 < n ∸ m → m < n
 0<n∸m⇒m<n {suc n} {zero} p = p
 0<n∸m⇒m<n {suc n} {suc m} p = s≤s (0<n∸m⇒m<n p)
+
+<⇒≤∸1 : ∀ {n m : ℕ} → n < m → n ≤ m ∸ 1
+<⇒≤∸1 {m = suc m} (s≤s n≤m) = n≤m
+
