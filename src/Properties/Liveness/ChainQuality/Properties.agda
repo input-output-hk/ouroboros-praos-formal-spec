@@ -208,8 +208,7 @@ private
                         ∎
 
                 leq : length (bestChain (N⁼ .clock) (addBlock ls′ nb .tree)) ≤ suc (length cₕ)
-                leq rewrite sym best≡cₕ | sym $ clockPreservation-↑∗ (—[]→∗ʳ⇒—[]→∗ ts⁺) =
-                  Nat.≤-reflexive $ extendTreeLength (ls′ .tree) nb
+                leq rewrite sym best≡cₕ | sym $ clockPreservation-↑∗ (—[]→∗ʳ⇒—[]→∗ ts⁺) = extendTreeLength (ls′ .tree) nb
 
                 geq : length cₕ < length (bestChain (N⁼ .clock) (addBlock ls′ nb .tree))
                 geq = Nat.<-≤-trans {j = length (b ∷ cₕ)} Nat.≤-refl geq′
