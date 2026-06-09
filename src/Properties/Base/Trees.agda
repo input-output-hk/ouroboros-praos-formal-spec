@@ -42,8 +42,10 @@ open import Relation.Unary using (_≐_)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Ext using (Starʳ)
 open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext using (Star⇒Starʳ; Starʳ⇒Star)
 open import Relation.Binary.PropositionalEquality using (≢-sym)
-open import Function.Bundles using (_⇔_; Equivalence; Inverse)
+open import Relation.Binary.Structures using (IsEquivalence)
+open import Function.Bundles using (_⇔_; Equivalence; Inverse; mk⇔)
 open import Function.Related.Propositional as Related
+open import Function.Properties.Equivalence using (⇔-isEquivalence)
 
 opaque
 
@@ -495,7 +497,68 @@ honestGlobalTreeBlockInSomeHonestLocalTree {N} {b} N₀↝⋆N b∈htN
 
 allBlocks-processMsgsʰ : ∀ (b : Block) (msgs : List Message) (ls : LocalState) →
   b ∈ allBlocks (processMsgsʰ msgs ls .tree) ⇔ b ∈ allBlocks (ls .tree) ++ map projBlock msgs
-allBlocks-processMsgsʰ = {!!}
+allBlocks-processMsgsʰ b [] ls rewrite L.++-identityʳ (allBlocks (ls .tree)) = ⇔-refl
+  where open IsEquivalence ⇔-isEquivalence renaming (refl to ⇔-refl)
+allBlocks-processMsgsʰ b (newBlock b′ ∷ msgs) ls = lemma (allBlocks-processMsgsʰ b msgs ls)
+  where
+    lemma :
+      (b ∈ allBlocks (processMsgsʰ msgs ls .tree) ⇔ b ∈ allBlocks (ls .tree) ++ map projBlock msgs)
+      →
+      (b ∈ allBlocks (extendTree (processMsgsʰ msgs ls .tree) b′) ⇔ b ∈ allBlocks (ls .tree) ++ b′ ∷ map projBlock msgs)
+    lemma ih with processMsgsʰ msgs ls
+    ... | ls′ = mk⇔ ⊆π ⊇π
+      where
+        open import Function.Reasoning
+
+        ⊆π : b ∈ allBlocks (extendTree (ls′ .tree) b′) → b ∈ allBlocks (ls .tree) ++ b′ ∷ map projBlock msgs
+        ⊆π hyp =
+            hyp ∶
+          b ∈ allBlocks (extendTree (ls′ .tree) b′)
+            |> ≡ˢ⇒⊆ (extendable _ _) ∶
+          b ∈ allBlocks (ls′ .tree) ++ [ b′ ]
+            |> (λ b∈++ →
+              case L.Mem.++-∈⇔ {xs = allBlocks (ls′ .tree)} .Equivalence.to b∈++ of λ where
+                (inj₁ b∈tbs′) →
+                    b∈tbs′ ∶
+                  b ∈ allBlocks (ls′ .tree)
+                    |> ih .Equivalence.to ∶
+                  b ∈ allBlocks (ls .tree) ++ map projBlock msgs
+                    |> L.Mem.∈-++⁺ˡ {ys = [ b′ ]} ∶
+                  b ∈ (allBlocks (ls .tree) ++ map projBlock msgs) ++ [ b′ ]
+                    |> subst (b ∈_) (L.++-assoc (allBlocks (ls .tree)) _ _) ∶
+                  b ∈ allBlocks (ls .tree) ++ map projBlock msgs ++ [ b′ ]
+                    |> L.SubS.++⁺ʳ (allBlocks (ls .tree)) (⊆-++-comm (map projBlock msgs) _) ∶
+                  b ∈ allBlocks (ls .tree) ++ b′ ∷ map projBlock msgs
+                (inj₂ b∈[b′]) → L.Mem.∈-++⁺ʳ _ (L.Mem.∈-++⁺ˡ {ys = map projBlock msgs} b∈[b′])) ∶
+          b ∈ allBlocks (ls .tree) ++ b′ ∷ map projBlock msgs
+
+        ⊇π : b ∈ allBlocks (ls .tree) ++ b′ ∷ map projBlock msgs → b ∈ allBlocks (extendTree (ls′ .tree) b′)
+        ⊇π hyp =
+            hyp ∶
+          b ∈ allBlocks (ls .tree) ++ b′ ∷ map projBlock msgs
+            |> subst (b ∈_) (sym $ L.++-assoc (allBlocks (ls .tree)) _ _) ∶
+          b ∈ (allBlocks (ls .tree) ++ [ b′ ]) ++ map projBlock msgs
+            |> L.SubS.++⁺ˡ (map projBlock msgs) (⊆-++-comm (allBlocks (ls .tree)) _) ∶
+          b ∈ b′ ∷ (allBlocks (ls .tree) ++ map projBlock msgs)
+            |> (λ b∈++ →
+              case L.Mem.++-∈⇔ {xs = [ b′ ]} .Equivalence.to b∈++ of λ where
+                (inj₁ b∈[b′]) →
+                    b∈[b′] ∶
+                  b ∈ [ b′ ]
+                    |> L.Mem.∈-++⁺ʳ (allBlocks (ls′ .tree)) ∶
+                  b ∈ allBlocks (ls′ .tree) ++ [ b′ ]
+                    |> ≡ˢ⇒⊇ (extendable _ _) ∶
+                  b ∈ allBlocks (extendTree (ls′ .tree) b′)
+                (inj₂ b∈tbs+) →
+                    b∈tbs+ ∶
+                  b ∈ allBlocks (ls .tree) ++ map projBlock msgs
+                    |> ih .Equivalence.from ∶
+                  b ∈ allBlocks (ls′ .tree)
+                    |> L.Mem.∈-++⁺ˡ {ys = [ b′ ]} ∶
+                  b ∈ allBlocks (ls′ .tree) ++ [ b′ ]
+                    |> ≡ˢ⇒⊇ (extendable _ _) ∶
+                  b ∈ allBlocks (extendTree (ls′ .tree) b′)) ∶
+          b ∈ allBlocks (extendTree (ls′ .tree) b′)
 
 tree₀InN₀ : ∀ {p : Party} {ls : LocalState} → N₀ .states ⁉ p ≡ just ls → ls .tree ≡ tree₀
 tree₀InN₀ {p} {ls} = tree₀InN₀′
