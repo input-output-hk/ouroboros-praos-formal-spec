@@ -24,6 +24,7 @@ open import Properties.Base.Network ⦃ params ⦄ ⦃ assumptions ⦄
 open import Prelude.AssocList.Properties.Ext using (set-⁉; map-⁉-∈-just; map-⁉-≡; map-⁉-≢)
 open import Prelude.STS.Properties using (—[]→∗⇒—[]→∗ʳ; —[]→∗ʳ⇒—[]→∗; —[∷ʳ]→∗-split; —[[]]→∗ʳ⇒≡)
 open import Data.Nat.Properties.Ext using (<⇒≤∸1)
+open import Data.Fin.Properties.Ext using (>0⇒≢0)
 open import Data.List.Relation.Binary.BagAndSetEquality using (∷-cong; ++-cong; concat-cong; map-cong; bag-=⇒; ↭⇒∼bag)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness; ≡just⇒Is-just)
 open import Data.List.Properties.Ext using (filter-∘-×; filter-Empty; filter-∘-comm; map-[])
@@ -1180,7 +1181,7 @@ opaque
   >𝟘p₁×≢𝟘p₂≐>𝟘p₁ {d} {p₁} {p₂} d>𝟘 = (λ {_} π → π .proj₁) , (λ {env} prf → ⊇π {env} prf)
     where
       ⊇π : ∀ {env : Envelope} → DeliveredIn env p₁ d → DeliveredIn env p₁ d × ¬ Immediate env p₂
-      ⊇π {env} π@(cd[env]≡d , _) = π , λ where (cd[env]≡𝟘 , _) → contradiction (subst (Fi._> (Delay ∋ 𝟘)) cd[env]≡𝟘 cd[env]>𝟘) λ ()
+      ⊇π {env} π@(cd[env]≡d , _) = π , λ where (cd[env]≡𝟘 , _) → contradiction cd[env]≡𝟘 (>0⇒≢0 cd[env]>𝟘)
         where
           cd[env]>𝟘 : env .cd Fi.> (Delay ∋ 𝟘)
           cd[env]>𝟘 = subst (Fi._> (Delay ∋ 𝟘)) (sym cd[env]≡d) d>𝟘
