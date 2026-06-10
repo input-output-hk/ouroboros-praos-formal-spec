@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
-
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -1177,9 +1175,15 @@ opaque
 
   unfolding honestMsgsDelivery corruptMsgsDelivery honestBlockMaking corruptBlockMaking
 
-  ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ : ∀ {d : Delay} {p₁ p₂ : Party} →
+  >𝟘p₁×≢𝟘p₂≐>𝟘p₁ : ∀ {d : Delay} {p₁ p₂ : Party} → d Fi.> (Delay ∋ 𝟘) →
     (λ env → DeliveredIn env p₁ d × ¬ Immediate env p₂) ≐ (λ env → DeliveredIn env p₁ d)
-  ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ = {!!}
+  >𝟘p₁×≢𝟘p₂≐>𝟘p₁ {d} {p₁} {p₂} d>𝟘 = (λ {_} π → π .proj₁) , (λ {env} prf → ⊇π {env} prf)
+    where
+      ⊇π : ∀ {env : Envelope} → DeliveredIn env p₁ d → DeliveredIn env p₁ d × ¬ Immediate env p₂
+      ⊇π {env} π@(cd[env]≡d , _) = π , λ where (cd[env]≡𝟘 , _) → contradiction (subst (Fi._> (Delay ∋ 𝟘)) cd[env]≡𝟘 cd[env]>𝟘) λ ()
+        where
+          cd[env]>𝟘 : env .cd Fi.> (Delay ∋ 𝟘)
+          cd[env]>𝟘 = subst (Fi._> (Delay ∋ 𝟘)) (sym cd[env]≡d) d>𝟘
 
   delayedBlocksEvolution-↓* : ∀ {N N′ : GlobalState} {p₁ p₂ : Party} →
       _ ⊢ N —[ N .execOrder ]↓→∗ N′
@@ -1238,10 +1242,10 @@ opaque
              | sym $ filter-∘-× (dlv? p₁ 𝟚) (is𝟘? p′) (N‴ .messages)
              | sym $ filter-∘-× (dlv? p₂ 𝟙) (is𝟘? p′) (N‴ .messages)
              | sym $ filter-∘-× (dlv? p₂ 𝟚) (is𝟘? p′) (N‴ .messages)
-             | L.filter-≐ (λ e → dlv? p₁ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟙) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
-             | L.filter-≐ (λ e → dlv? p₁ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟚) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
-             | L.filter-≐ (λ e → dlv? p₂ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟙) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
-             | L.filter-≐ (λ e → dlv? p₂ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟚) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
+             | L.filter-≐ (λ e → dlv? p₁ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟙) (>𝟘p₁×≢𝟘p₂≐>𝟘p₁ (Nat.s≤s Nat.z≤n)) (N‴ .messages)
+             | L.filter-≐ (λ e → dlv? p₁ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟚) (>𝟘p₁×≢𝟘p₂≐>𝟘p₁ (Nat.s≤s Nat.z≤n)) (N‴ .messages)
+             | L.filter-≐ (λ e → dlv? p₂ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟙) (>𝟘p₁×≢𝟘p₂≐>𝟘p₁ (Nat.s≤s Nat.z≤n)) (N‴ .messages)
+             | L.filter-≐ (λ e → dlv? p₂ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟚) (>𝟘p₁×≢𝟘p₂≐>𝟘p₁ (Nat.s≤s Nat.z≤n)) (N‴ .messages)
                = bs , dbsN‴Np₁ , dbsN‴Np₂
            goal (corruptParty↓ _ _) with
              processMsgsᶜ
@@ -1263,10 +1267,10 @@ opaque
                  | sym $ filter-∘-× (dlv? p₁ 𝟚) (is𝟘? p′) (N‴ .messages)
                  | sym $ filter-∘-× (dlv? p₂ 𝟙) (is𝟘? p′) (N‴ .messages)
                  | sym $ filter-∘-× (dlv? p₂ 𝟚) (is𝟘? p′) (N‴ .messages)
-                 | L.filter-≐ (λ e → dlv? p₁ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟙) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
-                 | L.filter-≐ (λ e → dlv? p₁ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟚) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
-                 | L.filter-≐ (λ e → dlv? p₂ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟙) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
-                 | L.filter-≐ (λ e → dlv? p₂ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟚) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
+                 | L.filter-≐ (λ e → dlv? p₁ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟙) (>𝟘p₁×≢𝟘p₂≐>𝟘p₁ (Nat.s≤s Nat.z≤n)) (N‴ .messages)
+                 | L.filter-≐ (λ e → dlv? p₁ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟚) (>𝟘p₁×≢𝟘p₂≐>𝟘p₁ (Nat.s≤s Nat.z≤n)) (N‴ .messages)
+                 | L.filter-≐ (λ e → dlv? p₂ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟙) (>𝟘p₁×≢𝟘p₂≐>𝟘p₁ (Nat.s≤s Nat.z≤n)) (N‴ .messages)
+                 | L.filter-≐ (λ e → dlv? p₂ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟚) (>𝟘p₁×≢𝟘p₂≐>𝟘p₁ (Nat.s≤s Nat.z≤n)) (N‴ .messages)
                    = bs , dbsN‴Np₁ , dbsN‴Np₂
                goal* ((m@(newBlock bₘ) , φ) ∷ mds)
                  with goal* mds
@@ -1515,10 +1519,10 @@ opaque
                  | sym $ filter-∘-× (dlv? p₁ 𝟚) (is𝟘? p′) (N‴ .messages)
                  | sym $ filter-∘-× (dlv? p₂ 𝟙) (is𝟘? p′) (N‴ .messages)
                  | sym $ filter-∘-× (dlv? p₂ 𝟚) (is𝟘? p′) (N‴ .messages)
-                 | L.filter-≐ (λ e → dlv? p₁ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟙) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
-                 | L.filter-≐ (λ e → dlv? p₁ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟚) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
-                 | L.filter-≐ (λ e → dlv? p₂ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟙) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
-                 | L.filter-≐ (λ e → dlv? p₂ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟚) ≥𝟘p₁×≢𝟘p₂≐≥𝟘p₁ (N‴ .messages)
+                 | L.filter-≐ (λ e → dlv? p₁ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟙) (>𝟘p₁×≢𝟘p₂≐>𝟘p₁ (Nat.s≤s Nat.z≤n)) (N‴ .messages)
+                 | L.filter-≐ (λ e → dlv? p₁ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₁ 𝟚) (>𝟘p₁×≢𝟘p₂≐>𝟘p₁ (Nat.s≤s Nat.z≤n)) (N‴ .messages)
+                 | L.filter-≐ (λ e → dlv? p₂ 𝟙 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟙) (>𝟘p₁×≢𝟘p₂≐>𝟘p₁ (Nat.s≤s Nat.z≤n)) (N‴ .messages)
+                 | L.filter-≐ (λ e → dlv? p₂ 𝟚 e ×-dec is𝟘? p′ e) (dlv? p₂ 𝟚) (>𝟘p₁×≢𝟘p₂≐>𝟘p₁ (Nat.s≤s Nat.z≤n)) (N‴ .messages)
                    = bs , dbsN‴Np₁ , dbsN‴Np₂
                goal* ((m@(newBlock bₘ) , φ) ∷ mds)
                  with goal* mds
