@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
-
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -26,7 +24,7 @@ open import Relation.Binary.Construct.Closure.ReflexiveTransitive.Properties.Ext
 open import Relation.Binary.PropositionalEquality using (≢-sym)
 open import Data.List.Relation.Binary.Permutation.Propositional.Properties using (All-resp-↭)
 open import Function.Base using (∣_⟩-_)
-open import Data.Fin.Properties.Ext using (pred-≤; pred-injective; >0⇒≢0)
+open import Data.Fin.Properties.Ext using (pred-≤; pred-injective; >0⇒≢0; pred<)
 
 messagesAfterTickPreservation : ∀ (N : GlobalState) →
   L.map msg (tick N .messages) ≡ L.map msg (N .messages)
@@ -169,11 +167,6 @@ nonImmediateBlocksPreservation {p} {N} {d} d>𝟘 cds>𝟘 = goal cds>𝟘
           (dec-de-morgan₂ (inj₁ $ (contraposition (pred-injective (>0⇒≢0 $ L.All.head cds>𝟘) (>0⇒≢0 d>𝟘) ) φ≢d)))
         = goal {es} (L.All.tail cds>𝟘)
 
-no𝟚DelayMessagesAfterTick : ∀ {p : Party} {N : GlobalState} →
-    N₀ ↝⋆ N
-  → blocksDeliveredIn p 𝟚 (record (tick N) { progress = ready }) ≡ []
-no𝟚DelayMessagesAfterTick = {!!}
-
 opaque
 
   unfolding honestMsgsDelivery corruptMsgsDelivery honestBlockMaking
@@ -288,6 +281,25 @@ opaque
                 Nat.≤-trans (pred-≤ (m .cd)) (Fi.toℕ≤pred[n] (m .cd)) ∷ goal* ms (L.All.tail [≤𝟚][m+ms])
           goal (permuteParties _) = ih
           goal (permuteMsgs msN′↭es) = All-resp-↭ msN′↭es ih
+
+no𝟚DelayMessagesAfterTick : ∀ {p : Party} {N : GlobalState} →
+    N₀ ↝⋆ N
+  → blocksDeliveredIn p 𝟚 (record (tick N) { progress = ready }) ≡ []
+no𝟚DelayMessagesAfterTick {p} {N} N₀↝⋆N = goal $ messageDelayUpperBound N₀↝⋆N
+  where
+    3≰2 : ¬ 3 ≤ 2
+    3≰2 (Nat.s≤s (Nat.s≤s ()))
+
+    goal : ∀ {es : List Envelope} →
+        L.All.All ((Fi._≤ (Delay ∋ 𝟚)) ∘ cd) es
+      → map (projBlock ∘ msg) (L.filter (λ env → ¿ DeliveredIn env ¿² p 𝟚) (map decreaseDelay es)) ≡ []
+    goal {[]} _ = refl
+    goal {⦅ m , p′ , φ ⦆ ∷ es} [≤𝟚][e+es]
+      rewrite
+        dec-no
+          (pred φ Fi.≟ 𝟚)
+          (λ φ-1≡𝟚 → contradiction (subst (Fi._< (Delay ∋ 𝟚)) φ-1≡𝟚 (pred< (L.All.head [≤𝟚][e+es]) (Nat.s≤s Nat.z≤n))) 3≰2)
+        = goal {es} $ L.All.tail [≤𝟚][e+es]
 
 blockDelayUniqueness : ∀ (φ : DelayMap) (m : Message) (p : Party) (ps : List Party) →
     p ∈ ps

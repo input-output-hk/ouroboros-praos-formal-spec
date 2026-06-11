@@ -1,10 +1,10 @@
 module Data.Fin.Properties.Ext where
 
 open import Function.Base using (_∘_; _∋_)
-open import Data.Nat using (ℕ; z≤n; _≤_)
+open import Data.Nat using (ℕ; z≤n; s≤s; _≤_)
 open import Data.Nat.Properties using (n≤1+n)
-open import Data.Fin using (Fin; zero; suc; pred; _≤_; _>_; toℕ)
-open import Data.Fin.Properties using (toℕ-inject₁; inject₁-injective)
+open import Data.Fin using (Fin; zero; suc; pred; _≤_; _<_; _>_; toℕ; inject₁)
+open import Data.Fin.Properties using (toℕ-inject₁; inject₁-injective; ≤-trans; i<1+i)
 open import Relation.Binary.PropositionalEquality using (refl; _≡_; _≢_; cong; subst; sym)
 open import Relation.Nullary.Negation using (contradiction)
 
@@ -22,3 +22,10 @@ pred-injective {i = _}     {j = zero}  _   j≢0 _ = contradiction refl j≢0
 
 >0⇒≢0 : ∀ {n : ℕ} {i : Fin (Data.Nat.suc n)} → i > (Fin (Data.Nat.suc n) ∋ zero) → i ≢ zero
 >0⇒≢0 {n} i>0 i≡0 = contradiction (subst (_> (Fin (Data.Nat.suc n) ∋ zero)) i≡0 i>0) λ ()
+
+pred< : ∀ {n : ℕ} {i j : Fin (Data.Nat.suc n)} → i Data.Fin.≤ j → j > (Fin (Data.Nat.suc n) ∋ zero) → pred i < j
+pred< {_} {zero}  {suc _} _          pj = pj
+pred< {_} {suc i} {suc j} (s≤s i≤j)  _  =
+  subst (λ k → Data.Nat._<_ k (toℕ (Data.Fin.suc j)))
+    (sym (toℕ-inject₁ i))
+    (Data.Nat.s≤s i≤j)
