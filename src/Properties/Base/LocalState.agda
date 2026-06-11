@@ -1,5 +1,3 @@
-{-# OPTIONS --allow-unsolved-metas #-} -- TODO: Remove when holes are filled
-
 open import Protocol.Assumptions using (Assumptions)
 open import Protocol.Params using (Params)
 
@@ -196,10 +194,41 @@ opaque
           ...     | yes p≡p′ = contradiction p≡p′ p≢p′
           ...     | no _ rewrite set-⁉-¬ (N″ .states) p′ p newLs (≢-sym p≢p′) = ih
 
+  hasState⇔-↓ : ∀ {N N′ : GlobalState} {p p′ : Party} →
+      _ ⊢ N —[ p′ ]↓→ N′
+    → p hasStateIn N ⇔ p hasStateIn N′
+  hasState⇔-↓ (unknownParty↓ _) = ⇔-refl
+  hasState⇔-↓ {N} {_} {p} {p′} (honestParty↓ {ls = ls} lsp′N _) with p ≟ p′
+  ... | yes p≡p′
+        rewrite
+          sym p≡p′
+        | lsp′N
+        | set-⁉ (N .states) p (L.foldr (λ m ls″ → addBlock ls″ (projBlock m)) ls (map msg (immediateMsgs p N)))
+          = mk⇔ (const $ M.Any.just tt) (const $ M.Any.just tt)
+  ... | no p≢p′
+       rewrite
+         set-⁉-¬ (N .states) p′ p
+           (L.foldr (λ m ls″ → addBlock ls″ (projBlock m)) ls (map msg (immediateMsgs p′ N))) (≢-sym p≢p′)
+         = ⇔-refl
+  hasState⇔-↓ {N = N} {p′ = p′} (corruptParty↓ _ _)
+    rewrite
+      localStatePreservation-broadcastMsgsᶜ
+        {fetchNewMsgs p′ N .proj₂}
+        {processMsgsᶜ
+          (fetchNewMsgs p′ N .proj₁)
+          (fetchNewMsgs p′ N .proj₂ .clock)
+          (fetchNewMsgs p′ N .proj₂ .history)
+          (fetchNewMsgs p′ N .proj₂ .messages)
+          (fetchNewMsgs p′ N .proj₂ .advState)
+          .proj₁
+         }
+      = ⇔-refl
+
   hasState⇔-↓∗ : ∀ {N N′ : GlobalState} {ps : List Party} {p : Party} →
       _ ⊢ N —[ ps ]↓→∗ N′
     → p hasStateIn N ⇔ p hasStateIn N′
-  hasState⇔-↓∗ = {!!}
+  hasState⇔-↓∗ [] = ⇔-refl
+  hasState⇔-↓∗ {p = p} (ts ∷ ts*) = ⇔-trans (hasState⇔-↓ {p = p} ts) (hasState⇔-↓∗ ts*)
 
   hasState⇔-↑ : ∀ {N N′ : GlobalState} {p p′ : Party} →
       _ ⊢ N —[ p′ ]↑→ N′
