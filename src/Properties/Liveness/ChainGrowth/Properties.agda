@@ -537,22 +537,29 @@ honestTreeChainGrowth : ∀ {N N′ : GlobalState} →
     → length (honestTreeChain N) + w ≤ length (honestTreeChain N′)
 honestTreeChainGrowth {N} N₀↝⋆N N↝⋆N′ _ {0} _
   rewrite Nat.+-identityʳ (length (honestTreeChain N)) = honestTreeChainLengthMonotonicity N₀↝⋆N N↝⋆N′
-honestTreeChainGrowth {N} {N′} N₀↝⋆N N↝⋆N′ NReady {suc w} w+1≤|ls[Nₜ:N′ₜ]|
-  with ∃LessLuckySlotsBetweenStates
+honestTreeChainGrowth {N} {N′} N₀↝⋆N N↝⋆N′ NReady {suc w} w+1≤|ls[Nₜ:N′ₜ]| =
+  -- NOTE: we use `case … of` rather than `with` here on purpose: a `with`
+  -- abstraction over this scrutinee makes type-checking's memory blow up (OOM),
+  -- since `with` generalizes the goal. `case` applies a function and avoids that.
+  case ∃LessLuckySlotsBetweenStates
          N₀↝⋆N
          N↝⋆N′
          NReady
-         $ subst (_≤ length (luckySlotsInRange (N .clock) (N′ .clock))) (suc≗+1 w) w+1≤|ls[Nₜ:N′ₜ]|
-... | N″ , N″Ready , N₀↝⋆N″ , N″↝⋆N′ , |htc[N]|+1≤|htc[N″]| , w≤|ls[N″ₜ:N′ₜ]| =
-  Nat.≤-trans |htc[N]|+[w+1]≤w+|htc[N″]| w+|htc[N″]|≤|htc[N′]|
-  where
-    |htc[N]|+[w+1]≤w+|htc[N″]| : length (honestTreeChain N) + suc w ≤ w + length (honestTreeChain N″)
-    |htc[N]|+[w+1]≤w+|htc[N″]|
-      rewrite
-        sym $ Nat.+-assoc (length (honestTreeChain N)) 1 w
-      | Nat.+-comm w (length (honestTreeChain N″))
-      = Nat.+-monoˡ-≤ w |htc[N]|+1≤|htc[N″]|
+         (subst (_≤ length (luckySlotsInRange (N .clock) (N′ .clock))) (suc≗+1 w) w+1≤|ls[Nₜ:N′ₜ]|)
+  of λ where
+    (N″ , N″Ready , N₀↝⋆N″ , N″↝⋆N′ , |htc[N]|+1≤|htc[N″]| , w≤|ls[N″ₜ:N′ₜ]|) →
+      let
+        |htc[N]|+[w+1]≤w+|htc[N″]| : length (honestTreeChain N) + suc w ≤ w + length (honestTreeChain N″)
+        |htc[N]|+[w+1]≤w+|htc[N″]| =
+          subst₂ _≤_
+            (Nat.+-assoc (length (honestTreeChain N)) 1 w)
+            (Nat.+-comm (length (honestTreeChain N″)) w)
+            (Nat.+-monoˡ-≤ w |htc[N]|+1≤|htc[N″]|)
 
-    w+|htc[N″]|≤|htc[N′]| : w + length (honestTreeChain N″) ≤ length (honestTreeChain N′)
-    w+|htc[N″]|≤|htc[N′]| rewrite Nat.+-comm w (length (honestTreeChain N″)) =
-      honestTreeChainGrowth N₀↝⋆N″ N″↝⋆N′ N″Ready w≤|ls[N″ₜ:N′ₜ]|
+        w+|htc[N″]|≤|htc[N′]| : w + length (honestTreeChain N″) ≤ length (honestTreeChain N′)
+        w+|htc[N″]|≤|htc[N′]| =
+          subst (_≤ length (honestTreeChain N′))
+            (Nat.+-comm (length (honestTreeChain N″)) w)
+            (honestTreeChainGrowth N₀↝⋆N″ N″↝⋆N′ N″Ready w≤|ls[N″ₜ:N′ₜ]|)
+      in
+        Nat.≤-trans |htc[N]|+[w+1]≤w+|htc[N″]| w+|htc[N″]|≤|htc[N′]|

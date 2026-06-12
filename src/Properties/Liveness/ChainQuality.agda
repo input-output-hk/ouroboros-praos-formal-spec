@@ -42,6 +42,446 @@ open import Data.List.Ext using (ι)
 open import Data.Maybe.Properties.Ext using (Is-just⇒to-witness)
 open import Data.Nat.Properties.Ext using (n>0⇒pred[n]<n)
 
+frontHonestBound : ∀ {N : GlobalState} {p : Party} {ls : LocalState}
+    {bᵢ bⱼ : Block} {c′ cₜ cₕ : Chain} {w′ : ℕ} {cᴬ₁ cᴬ₂ : Chain} {bᵢ′ : Block}
+  → N₀ ↝⋆ N
+  → ForgingFree N
+  → CollisionFree N
+  → Honest p
+  → N .states ⁉ p ≡ just ls
+  → (∀ {sl₁ sl₂ : Slot} →
+       bⱼ .slot ∸ suc (bᵢ .slot) ≤ sl₂ ∸ sl₁ →
+         length (corruptSlotsInRange sl₁ sl₂) + suc w′ ≤ length (luckySlotsInRange sl₁ sl₂))
+  → bestChain (N .clock ∸ 1) (ls .tree) ≡ cₜ ++ (bⱼ ∷ c′ L.∷ʳ bᵢ) ++ cₕ
+  → HonestBlock bᵢ′
+  → (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁) ++ (bᵢ′ ∷ cᴬ₂) ≡ bestChain (N .clock ∸ 1) (ls .tree)
+  → bᵢ′ .slot < bⱼ .slot
+  → bᵢ′ .slot ≤ bᵢ .slot
+  → suc w′ ∸ 1 ≤ length (honestBlocks (bⱼ ∷ c′ ++ cᴬ₁))
+frontHonestBound {N} {p} {ls} {bᵢ} {bⱼ} {c′} {cₜ} {cₕ} {w′} {cᴬ₁} {cᴬ₂} {bᵢ′}
+                 N₀↝⋆N ffN cfN hp lspN adv bc≡cₜ+c+cₕ hbᵢ′ suf+bᵢ′+cᴬ₂≡bc bᵢ′ₜ<bⱼₜ bᵢ′ₜ≤bᵢₜ =
+  w-1≤|hb[bⱼ+c′+cᴬ₁]|
+  where
+    open import Function.Reasoning
+    w = suc w′
+    bc = bestChain (N .clock ∸ 1) (ls .tree)
+    w-1≤|hb[bⱼ+c′+cᴬ₁]| : w ∸ 1 ≤ length (honestBlocks (bⱼ ∷ c′ ++ cᴬ₁))
+    w-1≤|hb[bⱼ+c′+cᴬ₁]| with pastBestChainLength N₀↝⋆N ffN cfN {p} {ls} hp lspN hbᵢ′ suf+bᵢ′+cᴬ₂≡bc
+    ... | Nᵢ′ , pᵢ′ , N₀↝⋆Nᵢ′ , Nᵢ′↝⋆N , Nᵢ′ₜ≡bᵢ′ₜ+1 , Nᵢ′Ready , hpᵢ′ , π with π
+    ...   | lsᵢ′ , lspᵢ′Nᵢ′ , |bcᵢ′|≡|bᵢ′+cᴬ₂| with L.find ¿ HonestBlock ¿¹ $ L.reverse (cₜ L.∷ʳ bⱼ) in eqf
+    --      Case (a): There is no honest block in the front of the chain.
+    ...     | nothing = subst ((w ∸ 1 ≤_) ∘ length) (sym hb[bⱼ+c′+cᴬ₁]≡hb[suf]) w-1≤|hb[suf]|
+      where
+        bcᵢ′ = bestChain (Nᵢ′ .clock ∸ 1) (lsᵢ′ .tree)
+
+        ¬hb[cₜ+bⱼ] : L.All.All (¬_ ∘ HonestBlock) (L.reverse (cₜ L.∷ʳ bⱼ))
+        ¬hb[cₜ+bⱼ] = L.All.¬Any⇒All¬ _ $ find-∄ ¿ HonestBlock ¿¹ eqf
+
+        hb[bⱼ+c′+cᴬ₁]≡hb[suf] : honestBlocks (bⱼ ∷ c′ ++ cᴬ₁) ≡ honestBlocks (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
+        hb[bⱼ+c′+cᴬ₁]≡hb[suf] = let open ≡-Reasoning in begin
+          honestBlocks (bⱼ ∷ c′ ++ cᴬ₁)
+            ≡⟨ cong (_++ honestBlocks (bⱼ ∷ c′ ++ cᴬ₁)) (sym hb[cₜ]≡[]) ⟩
+          honestBlocks cₜ ++ honestBlocks (bⱼ ∷ c′ ++ cᴬ₁)
+            ≡⟨ L.filter-++ _ cₜ _ ⟨
+          honestBlocks (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁) ∎
+            where
+              hb[cₜ]≡[] : honestBlocks cₜ ≡ []
+              hb[cₜ]≡[] = All-∁-filter $ L.All.++⁻ˡ cₜ $ All-reverse⁻ ¬hb[cₜ+bⱼ]
+
+        bⱼ∈bc : bⱼ ∈ bc
+        bⱼ∈bc = subst (bⱼ ∈_) (sym bc≡cₜ+c+cₕ) $ L.Mem.∈-++⁺ʳ cₜ (here refl)
+
+        Nᵢ′↝⁺N : Nᵢ′ ↝⁺ N
+        Nᵢ′↝⁺N = Nᵢ′↝⋆N , Nᵢ′<ˢN
+          where
+            Nᵢ′<ˢN : Nᵢ′ .clock < N .clock
+            Nᵢ′<ˢN rewrite Nᵢ′ₜ≡bᵢ′ₜ+1 = Nat.≤-<-trans bᵢ′ₜ<Nₜ-1 (n>0⇒pred[n]<n (positiveClock N₀↝⋆N))
+              where
+                bᵢ′ₜ<Nₜ-1 : bᵢ′ .slot < N .clock ∸ 1
+                bᵢ′ₜ<Nₜ-1 = Nat.<-≤-trans bᵢ′ₜ<bⱼₜ bⱼₜ≤Nₜ-1
+                  where
+                    bⱼₜ≤Nₜ-1 : bⱼ .slot ≤ N .clock ∸ 1
+                    bⱼₜ≤Nₜ-1 = L.Mem.∈-filter⁻
+                                 _
+                                 {xs = allBlocks (ls .tree)}
+                                 (selfContained (ls .tree) (N .clock ∸ 1) bⱼ∈bc)
+                                 .proj₂
+
+        [bⱼ:bᵢ]InAdvRange : bⱼ .slot ∸ suc (bᵢ .slot) ≤ (N .clock ∸ 1) ∸ suc (bᵢ′ .slot)
+        [bⱼ:bᵢ]InAdvRange =
+          Nat.∸-mono
+            (bⱼ  .slot ≤ N .clock ∸ 1   ∋ L.All.lookup (bestChainSlotBounded (ls .tree) (N .clock ∸ 1)) bⱼ∈bc)
+            (bᵢ′ .slot < suc (bᵢ .slot) ∋ Nat.≤-<-trans bᵢ′ₜ≤bᵢₜ (Nat.n<1+n _))
+
+        cs[Nᵢ′:N⦈ = corruptSlotsInRange (Nᵢ′ .clock) (N .clock ∸ 1)
+        cs[Nᵢ′:N] = corruptSlotsInRange (Nᵢ′ .clock) (N .clock)
+        ls[Nᵢ′:N⦈ = luckySlotsInRange   (Nᵢ′ .clock) (N .clock ∸ 1)
+
+        [Nᵢ′:N]Adv : length cs[Nᵢ′:N⦈ + w ≤ length ls[Nᵢ′:N⦈
+        [Nᵢ′:N]Adv rewrite Nᵢ′ₜ≡bᵢ′ₜ+1 = adv {suc (bᵢ′ .slot)} {N .clock ∸ 1} [bⱼ:bᵢ]InAdvRange
+
+        w-1≤|hb[suf]| : w ∸ 1 ≤ length (honestBlocks (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁))
+        w-1≤|hb[suf]| = honestBlocksLowerBound
+                          {Nᵢ′ .clock}
+                          {N .clock}
+                          {cₜ ++ bⱼ ∷ c′ ++ cᴬ₁}
+                          {w ∸ 1}
+                          sufIn[Nᵢ′ₜ:Nₜ]
+                          cb[suf]
+                          ds[suf]
+                          |cs[Nᵢ′:N]|+w-1≤|suf|
+          where
+            |cs[Nᵢ′:N⦈|+w≤|suf| : length cs[Nᵢ′:N⦈ + w ≤ length (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
+            |cs[Nᵢ′:N⦈|+w≤|suf| =
+                chainGrowth
+                  N₀↝⋆Nᵢ′
+                  Nᵢ′↝⁺N
+                  Nᵢ′Ready
+                  hpᵢ′
+                  lspᵢ′Nᵢ′
+                  hp
+                  lspN
+                  {w = length cs[Nᵢ′:N⦈ + w}
+                  [Nᵢ′:N]Adv ∶
+              length bcᵢ′ + (length cs[Nᵢ′:N⦈ + w) ≤ length bc
+                |> subst ((_≤ length bc) ∘ (_+ (length cs[Nᵢ′:N⦈ + w))) |bcᵢ′|≡|bᵢ′+cᴬ₂| ∶
+              length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:N⦈ + w) ≤ length bc
+                |> (subst ((length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:N⦈ + w) ≤_) ∘ length) $ sym suf+bᵢ′+cᴬ₂≡bc) ∶
+              length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:N⦈ + w) ≤ length ((cₜ ++ bⱼ ∷ c′ ++ cᴬ₁) ++ (bᵢ′ ∷ cᴬ₂))
+                |> subst (length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:N⦈ + w) ≤_) (L.length-++ (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)) ∶
+              length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:N⦈ + w) ≤ length (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁) + length (bᵢ′ ∷ cᴬ₂)
+                |> subst (length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:N⦈ + w) ≤_) (Nat.+-comm _ (length (bᵢ′ ∷ cᴬ₂))) ∶
+              length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:N⦈ + w) ≤ length (bᵢ′ ∷ cᴬ₂) + length (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
+                |> Nat.+-cancelˡ-≤ _ _ _ ∶
+              length cs[Nᵢ′:N⦈ + w ≤ length (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
+
+            [suf+bᵢ′+cᴬ₂]✓ : ((cₜ ++ bⱼ ∷ c′ ++ cᴬ₁) ++ (bᵢ′ ∷ cᴬ₂)) ✓
+            [suf+bᵢ′+cᴬ₂]✓ = subst _✓ (sym suf+bᵢ′+cᴬ₂≡bc) $ valid (ls .tree) (N .clock ∸ 1)
+
+            |cs[Nᵢ′:N]|+w-1≤|suf| : length cs[Nᵢ′:N] + (w ∸ 1) ≤ length (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
+            |cs[Nᵢ′:N]|+w-1≤|suf| = Nat.≤-trans π₂ |cs[Nᵢ′:N⦈|+w≤|suf|
+              where
+                π₀ : N .clock ∸ Nᵢ′ .clock ≡ N .clock ∸ 1 ∸ Nᵢ′ .clock + 1
+                π₀ = let open ≡-Reasoning in sym $ begin
+                  N .clock ∸ 1 ∸ Nᵢ′ .clock + 1       ≡⟨ cong (_+ 1) $ Nat.∸-+-assoc (N .clock) 1 (Nᵢ′ .clock) ⟩
+                  N .clock ∸ (1 + Nᵢ′ .clock) + 1     ≡⟨ cong (λ ◆ → N .clock ∸ ◆ + 1) $ Nat.+-comm 1 _ ⟩
+                  N .clock ∸ (Nᵢ′ .clock + 1) + 1     ≡⟨ cong (_+ 1) $ sym $ Nat.∸-+-assoc (N .clock) (Nᵢ′ .clock) 1 ⟩
+                  (N .clock ∸ Nᵢ′ .clock) ∸ 1 + 1     ≡⟨ Nat.+-suc (N .clock ∸ Nᵢ′ .clock ∸ 1) 0 ⟩
+                  suc (N .clock ∸ Nᵢ′ .clock ∸ 1 + 0) ≡⟨ cong suc $ Nat.+-identityʳ (N .clock ∸ Nᵢ′ .clock ∸ 1) ⟩
+                  suc (N .clock ∸ Nᵢ′ .clock ∸ 1)     ≡⟨ Nat.suc-pred (N .clock ∸ Nᵢ′ .clock) ⦃ Nat.>-nonZero Nₜ-Nᵢ′ₜ>0 ⦄ ⟩
+                  N .clock ∸ Nᵢ′ .clock               ∎
+                    where
+                      Nᵢ′<ˢNₜ : Nᵢ′ .clock < N .clock
+                      Nᵢ′<ˢNₜ rewrite Nᵢ′ₜ≡bᵢ′ₜ+1 = Nat.≤-<-trans bᵢ′<ˢNₜ-1 (n>0⇒pred[n]<n (positiveClock N₀↝⋆N))
+                        where
+                          bᵢ′<ˢNₜ-1 : bᵢ′ .slot < N .clock ∸ 1
+                          bᵢ′<ˢNₜ-1 = Nat.<-≤-trans bᵢ′ₜ<bⱼₜ bⱼₜ≤Nₜ-1
+                            where
+                              bⱼₜ≤Nₜ-1 : bⱼ .slot ≤ N .clock ∸ 1
+                              bⱼₜ≤Nₜ-1 = L.All.lookup (bestChainSlotBounded (ls .tree) (N .clock ∸ 1)) bⱼ∈bc
+
+                      Nₜ-Nᵢ′ₜ>0 : N .clock ∸ Nᵢ′ .clock > 0
+                      Nₜ-Nᵢ′ₜ>0 = Nat.m<n⇒0<n∸m Nᵢ′<ˢNₜ
+
+                π₁ : length cs[Nᵢ′:N] + (w ∸ 1)
+                     ≡
+                     length cs[Nᵢ′:N⦈ + length (filter ¿ CorruptSlot ¿¹ [ Nᵢ′ .clock + (N .clock ∸ 1 ∸ Nᵢ′ .clock) ])
+                       + (w ∸ 1)
+                π₁ rewrite
+                     π₀
+                   | ι-++ (Nᵢ′ .clock) (N .clock ∸ 1 ∸ Nᵢ′ .clock) 1
+                   = let open ≡-Reasoning in begin
+                  length (
+                    filter ¿ CorruptSlot ¿¹
+                    (
+                      ι (Nᵢ′ .clock) (N .clock ∸ 1 ∸ Nᵢ′ .clock)
+                      ++
+                      [ Nᵢ′ .clock + (N .clock ∸ 1 ∸ Nᵢ′ .clock) ]
+                    )
+                  ) + (w ∸ 1)
+                    ≡⟨ cong ((_+ (w ∸ 1)) ∘ length) $ L.filter-++ _ (ι (Nᵢ′ .clock) (N .clock ∸ 1 ∸ Nᵢ′ .clock)) _ ⟩
+                  length (
+                    cs[Nᵢ′:N⦈
+                    ++
+                    filter ¿ CorruptSlot ¿¹ [ Nᵢ′ .clock + (N .clock ∸ 1 ∸ Nᵢ′ .clock) ]
+                  )
+                  + (w ∸ 1)
+                    ≡⟨ cong (_+ (w ∸ 1)) $ L.length-++ cs[Nᵢ′:N⦈ ⟩
+                  length cs[Nᵢ′:N⦈
+                  +
+                  length (filter ¿ CorruptSlot ¿¹ [ Nᵢ′ .clock + (N .clock ∸ 1 ∸ Nᵢ′ .clock) ])
+                  + (w ∸ 1)
+                    ∎
+
+                π₂ : length cs[Nᵢ′:N] + (w ∸ 1) ≤ length cs[Nᵢ′:N⦈ + w
+                π₂ rewrite
+                     π₁
+                   | Nat.+-assoc
+                       (length cs[Nᵢ′:N⦈)
+                       (length (filter ¿ CorruptSlot ¿¹ [ clock Nᵢ′ + (clock N ∸ 1 ∸ clock Nᵢ′) ]))
+                       w′
+                    = Nat.+-monoʳ-≤ (length cs[Nᵢ′:N⦈) goal
+                  where
+                    goal : length (filter ¿ CorruptSlot ¿¹ [ Nᵢ′ .clock + (N .clock ∸ 1 ∸ Nᵢ′ .clock) ]) + (w ∸ 1) ≤ w
+                    goal with ¿ CorruptSlot ¿¹ (Nᵢ′ .clock + (N .clock ∸ 1 ∸ Nᵢ′ .clock))
+                    ... | no _  = Nat.<⇒≤ $ Nat.n<1+n _
+                    ... | yes _ = Nat.≤-refl
+
+            sufIn[Nᵢ′ₜ:Nₜ] : L.All.All (λ b → Nᵢ′ .clock ≤ b .slot × b .slot < N .clock) (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
+            sufIn[Nᵢ′ₜ:Nₜ] = L.All.tabulate ϕ
+              where
+                ϕ : ∀ {b} → b ∈ cₜ ++ bⱼ ∷ c′ ++ cᴬ₁ → Nᵢ′ .clock ≤ b .slot × b .slot < N .clock
+                ϕ {b} b∈[cₜ+bⱼ+c′+cᴬ₁] =  Nᵢ′≤ˢb , b<ˢN
+                  where
+                    Nᵢ′≤ˢb : Nᵢ′ .clock ≤ b .slot
+                    Nᵢ′≤ˢb rewrite Nᵢ′ₜ≡bᵢ′ₜ+1 = bᵢ′<ˢb b∈[cₜ+bⱼ+c′+cᴬ₁] (✓⇒ds [suf+bᵢ′+cᴬ₂]✓)
+                      where
+                        bᵢ′<ˢb : ∀ {c*} → b ∈ c* → DecreasingSlots (c* ++ bᵢ′ ∷ cᴬ₂) → bᵢ′ .slot < b .slot
+                        bᵢ′<ˢb {[]}      ()          _
+                        bᵢ′<ˢb {b* ∷ c*} (here b≡b*) q rewrite b≡b* =
+                          L.All.lookup (∷-DecreasingSlots q .proj₂) bᵢ′∈c*+bᵢ′+cᴬ₂
+                          where
+                            bᵢ′∈c*+bᵢ′+cᴬ₂ : bᵢ′ ∈ c* ++ bᵢ′ ∷ cᴬ₂
+                            bᵢ′∈c*+bᵢ′+cᴬ₂ = L.Mem.∈-++⁺ʳ _ $ L.Mem.∈-++⁺ˡ {xs = [ bᵢ′ ]} {ys = cᴬ₂} (here refl)
+                        bᵢ′<ˢb {b* ∷ c*} (there b∈c*) q = bᵢ′<ˢb {c*} b∈c* (∷-DecreasingSlots q .proj₁)
+
+                    b<ˢN : b .slot < N .clock
+                    b<ˢN = Nat.≤-<-trans
+                             (L.All.lookup (bestChainSlotBounded (ls .tree) (N .clock ∸ 1)) b∈bc)
+                             (n>0⇒pred[n]<n (positiveClock N₀↝⋆N))
+                      where
+                        b∈bc : b ∈ bc
+                        b∈bc = subst (b ∈_) suf+bᵢ′+cᴬ₂≡bc $ L.Mem.∈-++⁺ˡ {ys = bᵢ′ ∷ cᴬ₂} b∈[cₜ+bⱼ+c′+cᴬ₁]
+
+            cb[suf] : CorrectBlocks (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
+            cb[suf] = L.All.++⁻ˡ _ $ ✓⇒cb [suf+bᵢ′+cᴬ₂]✓
+
+            ds[suf] : DecreasingSlots (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
+            ds[suf] = ++-DecreasingSlots (✓⇒ds [suf+bᵢ′+cᴬ₂]✓) .proj₁
+
+    --      Case (b): There is an honest, first block bⱼ′ in the front of the chain.
+    ...     | just bⱼ′ = case find-∃ʳ ¿ HonestBlock ¿¹ {xs = cₜ L.∷ʳ bⱼ} eqf of goal
+      where
+        goal : ∃[ cᴮ′₁ ] ∃[ cᴮ′₂ ]
+                   cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂ ≡ cₜ L.∷ʳ bⱼ
+                 × HonestBlock bⱼ′
+                 × L.All.All (¬_ ∘ HonestBlock) cᴮ′₂
+                 → w ∸ 1 ≤ length (honestBlocks (bⱼ ∷ c′ ++ cᴬ₁))
+        goal (cᴮ′₁ , cᴮ′₂ , cᴮ′₁+bⱼ′+cᴮ′₂≡cₜ+bⱼ , hbⱼ′ , ¬hb[cᴮ′₂]) =
+          Nat.≤-trans
+            w-1≤|hb[cᴮ′₂+c′+cᴬ₁]|
+            |hb[cᴮ′₂+c′+cᴬ₁]|≤|hb[bⱼ+c′+cᴬ₁]|
+          where
+            |hb[cᴮ′₂+c′+cᴬ₁]|≤|hb[bⱼ+c′+cᴬ₁]| :
+              length (honestBlocks (cᴮ′₂ ++ c′ ++ cᴬ₁)) ≤ length (honestBlocks (bⱼ ∷ c′ ++ cᴬ₁))
+            |hb[cᴮ′₂+c′+cᴬ₁]|≤|hb[bⱼ+c′+cᴬ₁]| = let open Nat.≤-Reasoning in begin
+              length (honestBlocks (cᴮ′₂ ++ c′ ++ cᴬ₁))
+                ≡⟨ cong length $ L.filter-++ ¿ HonestBlock ¿¹ cᴮ′₂ _ ⟩
+              length (honestBlocks cᴮ′₂ ++ honestBlocks (c′ ++ cᴬ₁))
+                ≡⟨ L.length-++ $ honestBlocks cᴮ′₂ ⟩
+              length (honestBlocks cᴮ′₂) + length (honestBlocks (c′ ++ cᴬ₁))
+                ≡⟨ cong (_+ length (honestBlocks (c′ ++ cᴬ₁))) |hb[cᴮ′₂]|≡0 ⟩
+              length (honestBlocks (c′ ++ cᴬ₁))
+                ≤⟨ |hb[c′+cᴬ₁]|≤|hb[bⱼ+c′+cᴬ₁]| ⟩
+              length (honestBlocks (bⱼ ∷ c′ ++ cᴬ₁))
+              ∎
+                where
+                  |hb[cᴮ′₂]|≡0 : length (honestBlocks cᴮ′₂) ≡ 0
+                  |hb[cᴮ′₂]|≡0 rewrite All-∁-filter {P? = ¿ HonestBlock ¿¹} ¬hb[cᴮ′₂] = refl
+
+                  |hb[c′+cᴬ₁]|≤|hb[bⱼ+c′+cᴬ₁]| : length (honestBlocks (c′ ++ cᴬ₁)) ≤ length (honestBlocks (bⱼ ∷ c′ ++ cᴬ₁))
+                  |hb[c′+cᴬ₁]|≤|hb[bⱼ+c′+cᴬ₁]| with ¿ HonestBlock bⱼ ¿
+                  ... | no  _ = Nat.≤-refl
+                  ... | yes _ = Nat.n≤1+n _
+
+            suf′+bᵢ′+cᴬ₂≡bc : cᴮ′₁ ++ bⱼ′ ∷ (cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂) ≡ bc
+            suf′+bᵢ′+cᴬ₂≡bc = let open ≡-Reasoning in sym $ begin
+              bc
+                ≡⟨ suf+bᵢ′+cᴬ₂≡bc ⟨
+               (cₜ ++   bⱼ ∷            c′ ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂
+                ≡⟨ cong (_++ (bᵢ′ ∷ cᴬ₂)) $ sym $ L.++-assoc cₜ _ _ ⟩
+              ((cₜ L.∷ʳ bⱼ) ++          c′ ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂
+                ≡⟨ cong! (sym cᴮ′₁+bⱼ′+cᴮ′₂≡cₜ+bⱼ) ⟩
+              ((cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂) ++  c′ ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂
+                ≡⟨ L.++-assoc (cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂) _ _ ⟩
+               (cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂) ++ (c′ ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂
+                ≡⟨ cong ((cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂) ++_) $ L.++-assoc c′ _ _ ⟩
+               (cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂) ++  c′ ++ cᴬ₁ ++  bᵢ′ ∷ cᴬ₂
+                ≡⟨ L.++-assoc cᴮ′₁ _ _ ⟩
+                cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂  ++  c′ ++ cᴬ₁ ++  bᵢ′ ∷ cᴬ₂ ∎
+                where open import Tactic.Cong
+
+            [suf′+bᵢ′+cᴬ₂]✓ : (cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂  ++  c′ ++ cᴬ₁ ++  bᵢ′ ∷ cᴬ₂) ✓
+            [suf′+bᵢ′+cᴬ₂]✓ = subst _✓ (sym suf′+bᵢ′+cᴬ₂≡bc) $ valid (ls .tree) (N .clock ∸ 1)
+
+            bⱼ′>ˢcᴮ′₂+c′+cᴬ₁+bᵢ′+cᴬ₂ : L.All.All (bⱼ′ >ˢ_) (cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂)
+            bⱼ′>ˢcᴮ′₂+c′+cᴬ₁+bᵢ′+cᴬ₂ = ∷-DecreasingSlots (✓⇒ds $ ✓-++ʳ [suf′+bᵢ′+cᴬ₂]✓) .proj₂
+
+            Nᵢ′ₜ≤bⱼ′ₜ : Nᵢ′ .clock ≤ bⱼ′ .slot
+            Nᵢ′ₜ≤bⱼ′ₜ rewrite Nᵢ′ₜ≡bᵢ′ₜ+1 =
+              L.All.head $ L.All.++⁻ʳ cᴬ₁ $ L.All.++⁻ʳ c′ $ L.All.++⁻ʳ cᴮ′₂ bⱼ′>ˢcᴮ′₂+c′+cᴬ₁+bᵢ′+cᴬ₂
+
+            w-1≤|hb[cᴮ′₂+c′+cᴬ₁]| : w ∸ 1 ≤ length (honestBlocks (cᴮ′₂ ++ c′ ++ cᴬ₁))
+            w-1≤|hb[cᴮ′₂+c′+cᴬ₁]|
+              with
+                pastBestChainLength′
+                  N₀↝⋆Nᵢ′
+                  Nᵢ′↝⋆N
+                  ffN
+                  cfN
+                  Nᵢ′Ready
+                  {p}
+                  {ls}
+                  hp
+                  lspN
+                  {bⱼ′}
+                  {cᴮ′₁}
+                  {cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂}
+                  hbⱼ′
+                  Nᵢ′ₜ≤bⱼ′ₜ
+                  suf′+bᵢ′+cᴬ₂≡bc
+            ... | Nⱼ′ , pⱼ′ , Nᵢ′↝⋆Nⱼ′ , Nⱼ′↝⋆N , Nⱼ′ₜ≡bⱼ′ₜ+1 , Nⱼ′Ready , hpⱼ′ , π with π
+            ...   | lsⱼ′ , lspⱼ′Nⱼ′ , |bcⱼ′|≡|bⱼ′+cᴮ′₂+c′+cᴬ₁+bᵢ′+cᴬ₂| =
+                    honestBlocksLowerBound
+                      {Nᵢ′ .clock}
+                      {Nⱼ′ .clock ∸ 1}
+                      {cᴮ′₂ ++ c′ ++ cᴬ₁}
+                      suf′In[Nᵢ′ₜ:Nⱼ′ₜ⦈
+                      cb[suf′]
+                      ds[suf′]
+                      |cs[Nᵢ′:Nⱼ′⦈|+w-1≤|suf′|
+              where
+                bcᵢ′ = bestChain (Nᵢ′ .clock ∸ 1) (lsᵢ′ .tree)
+                bcⱼ′ = bestChain (Nⱼ′ .clock ∸ 1) (lsⱼ′ .tree)
+
+                cs[Nᵢ′:Nⱼ′⦈ = corruptSlotsInRange (Nᵢ′ .clock) (Nⱼ′ .clock ∸ 1)
+                ls[Nᵢ′:Nⱼ′⦈ = luckySlotsInRange   (Nᵢ′ .clock) (Nⱼ′ .clock ∸ 1)
+
+                bⱼ∈bⱼ′+cᴮ′₂ : bⱼ ∈ bⱼ′ ∷ cᴮ′₂
+                bⱼ∈bⱼ′+cᴮ′₂ = bⱼ∈bⱼ′*+cᴮ′₂* cᴮ′₂ cᴮ′₁+bⱼ′+cᴮ′₂≡cₜ+bⱼ
+                  where
+                    bⱼ∈bⱼ′*+cᴮ′₂* : ∀ {cᴮ′₁* cₜ* bⱼ′*} cᴮ′₂* → cᴮ′₁* ++ bⱼ′* ∷ cᴮ′₂* ≡ cₜ* L.∷ʳ bⱼ → bⱼ ∈ bⱼ′* ∷ cᴮ′₂*
+                    bⱼ∈bⱼ′*+cᴮ′₂* [] eq rewrite L.∷ʳ-injectiveʳ _ _ eq = here refl
+                    bⱼ∈bⱼ′*+cᴮ′₂* {cᴮ′₁*} {cₜ*} {bⱼ′*} (b* ∷ cᴮ′₂*) eq =
+                      L.Mem.∈-++⁺ʳ [ bⱼ′* ] (bⱼ∈bⱼ′*+cᴮ′₂* {cᴮ′₁* L.∷ʳ bⱼ′*} {cₜ*} {b*} cᴮ′₂* eq′)
+                      where
+                        eq′ : cᴮ′₁* L.∷ʳ bⱼ′* ++ b* ∷ cᴮ′₂* ≡ cₜ* L.∷ʳ bⱼ
+                        eq′ rewrite sym $ L.++-assoc cᴮ′₁* [ bⱼ′* ] (b* ∷ cᴮ′₂*) = eq
+
+                bⱼ≤ˢbⱼ′ : bⱼ .slot ≤ bⱼ′ .slot
+                bⱼ≤ˢbⱼ′ with bⱼ∈bⱼ′+cᴮ′₂
+                ... | here bⱼ≡bⱼ′ rewrite bⱼ≡bⱼ′ = Nat.≤-refl
+                ... | there bⱼ∈cᴮ′₂ = Nat.<⇒≤ $ L.All.lookup (L.All.++⁻ˡ cᴮ′₂ bⱼ′>ˢcᴮ′₂+c′+cᴬ₁+bᵢ′+cᴬ₂) bⱼ∈cᴮ′₂
+
+                Nᵢ′↝⁺Nⱼ′ : Nᵢ′ ↝⁺ Nⱼ′
+                Nᵢ′↝⁺Nⱼ′ rewrite Nᵢ′ₜ≡bᵢ′ₜ+1 | Nⱼ′ₜ≡bⱼ′ₜ+1 = Nᵢ′↝⋆Nⱼ′ , bᵢ′ₜ+1<bⱼ′ₜ+1
+                  where
+                    bᵢ′ₜ+1<bⱼ′ₜ+1 : suc (bᵢ′ .slot) < suc (bⱼ′ .slot)
+                    bᵢ′ₜ+1<bⱼ′ₜ+1 = Nat.s<s $ Nat.<-≤-trans bᵢ′ₜ<bⱼₜ bⱼ≤ˢbⱼ′
+
+                [bᵢ′+1:bⱼ′]InAdvRange : bⱼ .slot ∸ suc (bᵢ .slot) ≤ bⱼ′ .slot ∸ suc (bᵢ′ .slot)
+                [bᵢ′+1:bⱼ′]InAdvRange = Nat.∸-mono bⱼ≤ˢbⱼ′ (Nat.s≤s bᵢ′ₜ≤bᵢₜ)
+
+                [Nᵢ′:Nⱼ′⦈Adv : length cs[Nᵢ′:Nⱼ′⦈ + w ≤ length (luckySlotsInRange (Nᵢ′ .clock) (Nⱼ′ .clock ∸ 1))
+                [Nᵢ′:Nⱼ′⦈Adv
+                  rewrite
+                    cong Nat.pred Nⱼ′ₜ≡bⱼ′ₜ+1
+                  | Nᵢ′ₜ≡bᵢ′ₜ+1
+                  = adv {suc (bᵢ′ .slot)} {bⱼ′ .slot} [bᵢ′+1:bⱼ′]InAdvRange
+
+                |cs[Nᵢ′:Nⱼ′⦈|+w-1≤|suf′| : length cs[Nᵢ′:Nⱼ′⦈ + (w ∸ 1) ≤ length (cᴮ′₂ ++ c′ ++ cᴬ₁)
+                |cs[Nᵢ′:Nⱼ′⦈|+w-1≤|suf′| =
+                    chainGrowth
+                      N₀↝⋆Nᵢ′
+                      Nᵢ′↝⁺Nⱼ′
+                      Nᵢ′Ready
+                      hpᵢ′
+                      lspᵢ′Nᵢ′
+                      hpⱼ′
+                      lspⱼ′Nⱼ′
+                      {w = length cs[Nᵢ′:Nⱼ′⦈ + w}
+                      [Nᵢ′:Nⱼ′⦈Adv ∶
+                  length bcᵢ′ + (length cs[Nᵢ′:Nⱼ′⦈ + w) ≤ length bcⱼ′
+                    |> subst ((_≤ length bcⱼ′) ∘ (_+ (length cs[Nᵢ′:Nⱼ′⦈ + w))) |bcᵢ′|≡|bᵢ′+cᴬ₂| ∶
+                  length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:Nⱼ′⦈ + w) ≤ length bcⱼ′
+                    |> subst (length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:Nⱼ′⦈ + w) ≤_) |bcⱼ′|≡|bⱼ′+cᴮ′₂+c′+cᴬ₁+bᵢ′+cᴬ₂| ∶
+                  length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:Nⱼ′⦈ + w) ≤ length (bⱼ′ ∷ cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂)
+                    |> subst (λ ◆ → length (bᵢ′ ∷ cᴬ₂) + ◆ ≤ length (bⱼ′ ∷ cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂))
+                        (Nat.+-comm _ w) ∶
+                  length (bᵢ′ ∷ cᴬ₂) + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤ length (bⱼ′ ∷ cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂)
+                    |> subst ((length (bᵢ′ ∷ cᴬ₂) + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤_) ∘ length)
+                         (sym $ L.++-assoc (bⱼ′ ∷ cᴮ′₂) c′ _) ∶
+                  length (bᵢ′ ∷ cᴬ₂) + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤ length ((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ (cᴬ₁ ++ bᵢ′ ∷ cᴬ₂))
+                    |> subst ((length (bᵢ′ ∷ cᴬ₂) + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤_) ∘ length)
+                         (sym $ L.++-assoc (bⱼ′ ∷ cᴮ′₂ ++ c′) _ _) ∶
+                  length (bᵢ′ ∷ cᴬ₂) + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤ length (((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂)
+                    |> subst (length (bᵢ′ ∷ cᴬ₂) + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤_)
+                         (L.length-++ ((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ cᴬ₁)) ∶
+                  length (bᵢ′ ∷ cᴬ₂)
+                    + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤ length (((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ cᴬ₁))
+                    + length (bᵢ′ ∷ cᴬ₂)
+                    |> subst (length (bᵢ′ ∷ cᴬ₂) + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤_) (Nat.+-comm _ (length (bᵢ′ ∷ cᴬ₂))) ∶
+                  length (bᵢ′ ∷ cᴬ₂)
+                    + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤ length (bᵢ′ ∷ cᴬ₂)
+                    + length (((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ cᴬ₁))
+                    |> Nat.+-cancelˡ-≤ (length (bᵢ′ ∷ cᴬ₂)) _ _ ∶
+                  w + length cs[Nᵢ′:Nⱼ′⦈ ≤ length (((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ cᴬ₁))
+                    |> subst (_≤ length (((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ cᴬ₁))) (Nat.+-comm w _) ∶
+                  length cs[Nᵢ′:Nⱼ′⦈ + w ≤ length (((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ cᴬ₁))
+                    |> subst ((length cs[Nᵢ′:Nⱼ′⦈ + w ≤_) ∘ length) (L.++-assoc (bⱼ′ ∷ cᴮ′₂) c′ _) ∶
+                  length cs[Nᵢ′:Nⱼ′⦈ + w ≤ length (bⱼ′ ∷ cᴮ′₂ ++ c′ ++ cᴬ₁)
+                    |> subst ((length cs[Nᵢ′:Nⱼ′⦈ + w ≤_) ∘ length) (L.++-assoc [ bⱼ′ ] cᴮ′₂ _) ∶
+                  length cs[Nᵢ′:Nⱼ′⦈ + w ≤ suc (length (cᴮ′₂ ++ c′ ++ cᴬ₁))
+                    |> Nat.∸-monoˡ-≤ 1 ∶
+                  length cs[Nᵢ′:Nⱼ′⦈ + w ∸ 1 ≤ length (cᴮ′₂ ++ c′ ++ cᴬ₁)
+                    |> subst (_≤ length (cᴮ′₂ ++ c′ ++ cᴬ₁)) (Nat.+-∸-assoc (length cs[Nᵢ′:Nⱼ′⦈) (Nat.s≤s Nat.z≤n)) ∶
+                  length cs[Nᵢ′:Nⱼ′⦈ + (w ∸ 1) ≤ length (cᴮ′₂ ++ c′ ++ cᴬ₁)
+
+                eq-prf : cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂ ≡ (cᴮ′₂ ++ c′ ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂
+                eq-prf
+                  rewrite
+                    L.++-assoc cᴮ′₂ (c′ ++ cᴬ₁) (bᵢ′ ∷ cᴬ₂)
+                  | L.++-assoc c′ cᴬ₁ (bᵢ′ ∷ cᴬ₂)
+                  = refl
+
+                [suf″+bᵢ′+cᴬ₂]✓ : ((cᴮ′₁ L.∷ʳ bⱼ′) ++ (cᴮ′₂ ++ c′ ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂) ✓
+                [suf″+bᵢ′+cᴬ₂]✓
+                  rewrite
+                    sym eq-prf
+                  | L.++-assoc cᴮ′₁ [ bⱼ′ ] (cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂)
+                  = [suf′+bᵢ′+cᴬ₂]✓
+
+                ds[suf′+bᵢ′+cᴬ₂] : DecreasingSlots ((cᴮ′₂ ++ c′ ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂)
+                ds[suf′+bᵢ′+cᴬ₂] = ++-DecreasingSlots {c = cᴮ′₁ L.∷ʳ bⱼ′} (✓⇒ds $ [suf″+bᵢ′+cᴬ₂]✓) .proj₂ .proj₁
+
+                suf′In[Nᵢ′ₜ:Nⱼ′ₜ⦈ : L.All.All (λ b → Nᵢ′ .clock ≤ b .slot × b .slot < Nⱼ′ .clock ∸ 1) (cᴮ′₂ ++ c′ ++ cᴬ₁)
+                suf′In[Nᵢ′ₜ:Nⱼ′ₜ⦈ rewrite cong Nat.pred Nⱼ′ₜ≡bⱼ′ₜ+1 | Nᵢ′ₜ≡bᵢ′ₜ+1 = L.All.tabulate ϕ
+                  where
+                    ϕ : ∀ {b} → b ∈ cᴮ′₂ ++ c′ ++ cᴬ₁ → bᵢ′ .slot < b .slot × b .slot < bⱼ′ .slot
+                    ϕ {b} b∈[cᴮ′₂+c′+cᴬ₁] = bᵢ′<ˢb , b<ˢbⱼ′
+                      where
+                        bᵢ′<ˢb : bᵢ′ .slot < b .slot
+                        bᵢ′<ˢb = bᵢ′<ˢb* b∈[cᴮ′₂+c′+cᴬ₁] ds[suf′+bᵢ′+cᴬ₂]
+                          where
+
+                            bᵢ′<ˢb* : ∀ {c*} → b ∈ c* → DecreasingSlots (c* ++ bᵢ′ ∷ cᴬ₂) → bᵢ′ .slot < b .slot
+                            bᵢ′<ˢb* {[]}      ()           _
+                            bᵢ′<ˢb* {b* ∷ c*} (here b≡b*)  q rewrite b≡b* =
+                              nonAdjacentBlocksDecreasingSlots {cₕ = []} {cₘ = c*} {cₜ = cᴬ₂} {b₁ = b*} {b₂ = bᵢ′} q
+                            bᵢ′<ˢb* {b* ∷ c*} (there b∈c*) q = bᵢ′<ˢb* {c*} b∈c* (∷-DecreasingSlots q .proj₁)
+
+                        b<ˢbⱼ′ : b .slot < bⱼ′ .slot
+                        b<ˢbⱼ′ = L.All.lookup bⱼ′>ˢcᴮ′₂+c′+cᴬ₁+bᵢ′+cᴬ₂ b∈prf
+                          where
+                            b∈prf : b ∈ cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂
+                            b∈prf rewrite eq-prf = L.Mem.∈-++⁺ˡ {ys = bᵢ′ ∷ cᴬ₂} b∈[cᴮ′₂+c′+cᴬ₁]
+
+                cb[suf′] : CorrectBlocks (cᴮ′₂ ++ c′ ++ cᴬ₁)
+                cb[suf′] = L.All.++⁻ˡ (cᴮ′₂ ++ c′ ++ cᴬ₁) $ L.All.++⁻ʳ (cᴮ′₁ L.∷ʳ bⱼ′) $ ✓⇒cb [suf″+bᵢ′+cᴬ₂]✓
+
+                ds[suf′] : DecreasingSlots (cᴮ′₂ ++ c′ ++ cᴬ₁)
+                ds[suf′] = ++-DecreasingSlots {c = cᴮ′₂ ++ c′ ++ cᴬ₁} ds[suf′+bᵢ′+cᴬ₂] .proj₁
+
 chainQuality : ∀ {N : GlobalState} →
     N₀ ↝⋆ N
   → ForgingFree N
@@ -191,418 +631,4 @@ chainQuality {N} N₀↝⋆N ffN cfN {p} {ls} hp lspN {bᵢ} {bⱼ} {c′} {w} {
             bⱼ>ˢc′+cᴬ₁+bᵢ′+cᴬ₂ = ∷-DecreasingSlots (✓⇒ds [bⱼ+c′+cᴬ₁+bᵢ′+cᴬ₂]✓) .proj₂
 
         w-1≤|hb[bⱼ+c′+cᴬ₁]| : w ∸ 1 ≤ length (honestBlocks (bⱼ ∷ c′ ++ cᴬ₁))
-        w-1≤|hb[bⱼ+c′+cᴬ₁]| with pastBestChainLength N₀↝⋆N ffN cfN {p} {ls} hp lspN hbᵢ′ suf+bᵢ′+cᴬ₂≡bc
-        ... | Nᵢ′ , pᵢ′ , N₀↝⋆Nᵢ′ , Nᵢ′↝⋆N , Nᵢ′ₜ≡bᵢ′ₜ+1 , Nᵢ′Ready , hpᵢ′ , π with π
-        ...   | lsᵢ′ , lspᵢ′Nᵢ′ , |bcᵢ′|≡|bᵢ′+cᴬ₂| with L.find ¿ HonestBlock ¿¹ $ L.reverse (cₜ L.∷ʳ bⱼ) in eqf
-        --      Case (a): There is no honest block in the front of the chain.
-        ...     | nothing = subst ((w ∸ 1 ≤_) ∘ length) (sym hb[bⱼ+c′+cᴬ₁]≡hb[suf]) w-1≤|hb[suf]|
-          where
-            bcᵢ′ = bestChain (Nᵢ′ .clock ∸ 1) (lsᵢ′ .tree)
-
-            ¬hb[cₜ+bⱼ] : L.All.All (¬_ ∘ HonestBlock) (L.reverse (cₜ L.∷ʳ bⱼ))
-            ¬hb[cₜ+bⱼ] = L.All.¬Any⇒All¬ _ $ find-∄ ¿ HonestBlock ¿¹ eqf
-
-            hb[bⱼ+c′+cᴬ₁]≡hb[suf] : honestBlocks (bⱼ ∷ c′ ++ cᴬ₁) ≡ honestBlocks (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
-            hb[bⱼ+c′+cᴬ₁]≡hb[suf] = let open ≡-Reasoning in begin
-              honestBlocks (bⱼ ∷ c′ ++ cᴬ₁)
-                ≡⟨ cong (_++ honestBlocks (bⱼ ∷ c′ ++ cᴬ₁)) (sym hb[cₜ]≡[]) ⟩
-              honestBlocks cₜ ++ honestBlocks (bⱼ ∷ c′ ++ cᴬ₁)
-                ≡⟨ L.filter-++ _ cₜ _ ⟨
-              honestBlocks (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁) ∎
-                where
-                  hb[cₜ]≡[] : honestBlocks cₜ ≡ []
-                  hb[cₜ]≡[] = All-∁-filter $ L.All.++⁻ˡ cₜ $ All-reverse⁻ ¬hb[cₜ+bⱼ]
-
-            bⱼ∈bc : bⱼ ∈ bc
-            bⱼ∈bc = subst (bⱼ ∈_) (sym bc≡cₜ+c+cₕ) $ L.Mem.∈-++⁺ʳ cₜ (here refl)
-
-            Nᵢ′↝⁺N : Nᵢ′ ↝⁺ N
-            Nᵢ′↝⁺N = Nᵢ′↝⋆N , Nᵢ′<ˢN
-              where
-                Nᵢ′<ˢN : Nᵢ′ .clock < N .clock
-                Nᵢ′<ˢN rewrite Nᵢ′ₜ≡bᵢ′ₜ+1 = Nat.≤-<-trans bᵢ′ₜ<Nₜ-1 (n>0⇒pred[n]<n (positiveClock N₀↝⋆N))
-                  where
-                    bᵢ′ₜ<Nₜ-1 : bᵢ′ .slot < N .clock ∸ 1
-                    bᵢ′ₜ<Nₜ-1 = Nat.<-≤-trans bᵢ′ₜ<bⱼₜ bⱼₜ≤Nₜ-1
-                      where
-                        bⱼₜ≤Nₜ-1 : bⱼ .slot ≤ N .clock ∸ 1
-                        bⱼₜ≤Nₜ-1 = L.Mem.∈-filter⁻
-                                     _
-                                     {xs = allBlocks (ls .tree)}
-                                     (selfContained (ls .tree) (N .clock ∸ 1) bⱼ∈bc)
-                                     .proj₂
-
-            [bⱼ:bᵢ]InAdvRange : bⱼ .slot ∸ suc (bᵢ .slot) ≤ (N .clock ∸ 1) ∸ suc (bᵢ′ .slot)
-            [bⱼ:bᵢ]InAdvRange =
-              Nat.∸-mono
-                (bⱼ  .slot ≤ N .clock ∸ 1   ∋ L.All.lookup (bestChainSlotBounded (ls .tree) (N .clock ∸ 1)) bⱼ∈bc)
-                (bᵢ′ .slot < suc (bᵢ .slot) ∋ Nat.≤-<-trans bᵢ′ₜ≤bᵢₜ (Nat.n<1+n _))
-
-            cs[Nᵢ′:N⦈ = corruptSlotsInRange (Nᵢ′ .clock) (N .clock ∸ 1)
-            cs[Nᵢ′:N] = corruptSlotsInRange (Nᵢ′ .clock) (N .clock)
-            ls[Nᵢ′:N⦈ = luckySlotsInRange   (Nᵢ′ .clock) (N .clock ∸ 1)
-
-            [Nᵢ′:N]Adv : length cs[Nᵢ′:N⦈ + w ≤ length ls[Nᵢ′:N⦈
-            [Nᵢ′:N]Adv rewrite Nᵢ′ₜ≡bᵢ′ₜ+1 = adv {suc (bᵢ′ .slot)} {N .clock ∸ 1} [bⱼ:bᵢ]InAdvRange
-
-            w-1≤|hb[suf]| : w ∸ 1 ≤ length (honestBlocks (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁))
-            w-1≤|hb[suf]| = honestBlocksLowerBound
-                              {Nᵢ′ .clock}
-                              {N .clock}
-                              {cₜ ++ bⱼ ∷ c′ ++ cᴬ₁}
-                              {w ∸ 1}
-                              sufIn[Nᵢ′ₜ:Nₜ]
-                              cb[suf]
-                              ds[suf]
-                              |cs[Nᵢ′:N]|+w-1≤|suf|
-              where
-                |cs[Nᵢ′:N⦈|+w≤|suf| : length cs[Nᵢ′:N⦈ + w ≤ length (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
-                |cs[Nᵢ′:N⦈|+w≤|suf| =
-                    chainGrowth
-                      N₀↝⋆Nᵢ′
-                      Nᵢ′↝⁺N
-                      Nᵢ′Ready
-                      hpᵢ′
-                      lspᵢ′Nᵢ′
-                      hp
-                      lspN
-                      {w = length cs[Nᵢ′:N⦈ + w}
-                      [Nᵢ′:N]Adv ∶
-                  length bcᵢ′ + (length cs[Nᵢ′:N⦈ + w) ≤ length bc
-                    |> subst ((_≤ length bc) ∘ (_+ (length cs[Nᵢ′:N⦈ + w))) |bcᵢ′|≡|bᵢ′+cᴬ₂| ∶
-                  length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:N⦈ + w) ≤ length bc
-                    |> (subst ((length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:N⦈ + w) ≤_) ∘ length) $ sym suf+bᵢ′+cᴬ₂≡bc) ∶
-                  length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:N⦈ + w) ≤ length ((cₜ ++ bⱼ ∷ c′ ++ cᴬ₁) ++ (bᵢ′ ∷ cᴬ₂))
-                    |> subst (length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:N⦈ + w) ≤_) (L.length-++ (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)) ∶
-                  length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:N⦈ + w) ≤ length (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁) + length (bᵢ′ ∷ cᴬ₂)
-                    |> subst (length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:N⦈ + w) ≤_) (Nat.+-comm _ (length (bᵢ′ ∷ cᴬ₂))) ∶
-                  length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:N⦈ + w) ≤ length (bᵢ′ ∷ cᴬ₂) + length (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
-                    |> Nat.+-cancelˡ-≤ _ _ _ ∶
-                  length cs[Nᵢ′:N⦈ + w ≤ length (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
-
-                [suf+bᵢ′+cᴬ₂]✓ : ((cₜ ++ bⱼ ∷ c′ ++ cᴬ₁) ++ (bᵢ′ ∷ cᴬ₂)) ✓
-                [suf+bᵢ′+cᴬ₂]✓ = subst _✓ (sym suf+bᵢ′+cᴬ₂≡bc) $ valid (ls .tree) (N .clock ∸ 1)
-
-                |cs[Nᵢ′:N]|+w-1≤|suf| : length cs[Nᵢ′:N] + (w ∸ 1) ≤ length (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
-                |cs[Nᵢ′:N]|+w-1≤|suf| = Nat.≤-trans π₂ |cs[Nᵢ′:N⦈|+w≤|suf|
-                  where
-                    π₀ : N .clock ∸ Nᵢ′ .clock ≡ N .clock ∸ 1 ∸ Nᵢ′ .clock + 1
-                    π₀ = let open ≡-Reasoning in sym $ begin
-                      N .clock ∸ 1 ∸ Nᵢ′ .clock + 1       ≡⟨ cong (_+ 1) $ Nat.∸-+-assoc (N .clock) 1 (Nᵢ′ .clock) ⟩
-                      N .clock ∸ (1 + Nᵢ′ .clock) + 1     ≡⟨ cong (λ ◆ → N .clock ∸ ◆ + 1) $ Nat.+-comm 1 _ ⟩
-                      N .clock ∸ (Nᵢ′ .clock + 1) + 1     ≡⟨ cong (_+ 1) $ sym $ Nat.∸-+-assoc (N .clock) (Nᵢ′ .clock) 1 ⟩
-                      (N .clock ∸ Nᵢ′ .clock) ∸ 1 + 1     ≡⟨ Nat.+-suc (N .clock ∸ Nᵢ′ .clock ∸ 1) 0 ⟩
-                      suc (N .clock ∸ Nᵢ′ .clock ∸ 1 + 0) ≡⟨ cong suc $ Nat.+-identityʳ (N .clock ∸ Nᵢ′ .clock ∸ 1) ⟩
-                      suc (N .clock ∸ Nᵢ′ .clock ∸ 1)     ≡⟨ Nat.suc-pred (N .clock ∸ Nᵢ′ .clock) ⦃ Nat.>-nonZero Nₜ-Nᵢ′ₜ>0 ⦄ ⟩
-                      N .clock ∸ Nᵢ′ .clock               ∎
-                        where
-                          Nᵢ′<ˢNₜ : Nᵢ′ .clock < N .clock
-                          Nᵢ′<ˢNₜ rewrite Nᵢ′ₜ≡bᵢ′ₜ+1 = Nat.≤-<-trans bᵢ′<ˢNₜ-1 (n>0⇒pred[n]<n (positiveClock N₀↝⋆N))
-                            where
-                              bᵢ′<ˢNₜ-1 : bᵢ′ .slot < N .clock ∸ 1
-                              bᵢ′<ˢNₜ-1 = Nat.<-≤-trans bᵢ′ₜ<bⱼₜ bⱼₜ≤Nₜ-1
-                                where
-                                  bⱼₜ≤Nₜ-1 : bⱼ .slot ≤ N .clock ∸ 1
-                                  bⱼₜ≤Nₜ-1 = L.All.lookup (bestChainSlotBounded (ls .tree) (N .clock ∸ 1)) bⱼ∈bc
-
-                          Nₜ-Nᵢ′ₜ>0 : N .clock ∸ Nᵢ′ .clock > 0
-                          Nₜ-Nᵢ′ₜ>0 = Nat.m<n⇒0<n∸m Nᵢ′<ˢNₜ
-
-                    π₁ : length cs[Nᵢ′:N] + (w ∸ 1)
-                         ≡
-                         length cs[Nᵢ′:N⦈ + length (filter ¿ CorruptSlot ¿¹ [ Nᵢ′ .clock + (N .clock ∸ 1 ∸ Nᵢ′ .clock) ])
-                           + (w ∸ 1)
-                    π₁ rewrite
-                         π₀
-                       | ι-++ (Nᵢ′ .clock) (N .clock ∸ 1 ∸ Nᵢ′ .clock) 1
-                       = let open ≡-Reasoning in begin
-                      length (
-                        filter ¿ CorruptSlot ¿¹
-                        (
-                          ι (Nᵢ′ .clock) (N .clock ∸ 1 ∸ Nᵢ′ .clock)
-                          ++
-                          [ Nᵢ′ .clock + (N .clock ∸ 1 ∸ Nᵢ′ .clock) ]
-                        )
-                      ) + (w ∸ 1)
-                        ≡⟨ cong ((_+ (w ∸ 1)) ∘ length) $ L.filter-++ _ (ι (Nᵢ′ .clock) (N .clock ∸ 1 ∸ Nᵢ′ .clock)) _ ⟩
-                      length (
-                        cs[Nᵢ′:N⦈
-                        ++
-                        filter ¿ CorruptSlot ¿¹ [ Nᵢ′ .clock + (N .clock ∸ 1 ∸ Nᵢ′ .clock) ]
-                      )
-                      + (w ∸ 1)
-                        ≡⟨ cong (_+ (w ∸ 1)) $ L.length-++ cs[Nᵢ′:N⦈ ⟩
-                      length cs[Nᵢ′:N⦈
-                      +
-                      length (filter ¿ CorruptSlot ¿¹ [ Nᵢ′ .clock + (N .clock ∸ 1 ∸ Nᵢ′ .clock) ])
-                      + (w ∸ 1)
-                        ∎
-
-                    π₂ : length cs[Nᵢ′:N] + (w ∸ 1) ≤ length cs[Nᵢ′:N⦈ + w
-                    π₂ rewrite
-                         π₁
-                       | Nat.+-assoc
-                           (length cs[Nᵢ′:N⦈)
-                           (length (filter ¿ CorruptSlot ¿¹ [ clock Nᵢ′ + (clock N ∸ 1 ∸ clock Nᵢ′) ]))
-                           w′
-                        = Nat.+-monoʳ-≤ (length cs[Nᵢ′:N⦈) goal
-                      where
-                        goal : length (filter ¿ CorruptSlot ¿¹ [ Nᵢ′ .clock + (N .clock ∸ 1 ∸ Nᵢ′ .clock) ]) + (w ∸ 1) ≤ w
-                        goal with ¿ CorruptSlot ¿¹ (Nᵢ′ .clock + (N .clock ∸ 1 ∸ Nᵢ′ .clock))
-                        ... | no _  = Nat.<⇒≤ $ Nat.n<1+n _
-                        ... | yes _ = Nat.≤-refl
-
-                sufIn[Nᵢ′ₜ:Nₜ] : L.All.All (λ b → Nᵢ′ .clock ≤ b .slot × b .slot < N .clock) (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
-                sufIn[Nᵢ′ₜ:Nₜ] = L.All.tabulate ϕ
-                  where
-                    ϕ : ∀ {b} → b ∈ cₜ ++ bⱼ ∷ c′ ++ cᴬ₁ → Nᵢ′ .clock ≤ b .slot × b .slot < N .clock
-                    ϕ {b} b∈[cₜ+bⱼ+c′+cᴬ₁] =  Nᵢ′≤ˢb , b<ˢN
-                      where
-                        Nᵢ′≤ˢb : Nᵢ′ .clock ≤ b .slot
-                        Nᵢ′≤ˢb rewrite Nᵢ′ₜ≡bᵢ′ₜ+1 = bᵢ′<ˢb b∈[cₜ+bⱼ+c′+cᴬ₁] (✓⇒ds [suf+bᵢ′+cᴬ₂]✓)
-                          where
-                            bᵢ′<ˢb : ∀ {c*} → b ∈ c* → DecreasingSlots (c* ++ bᵢ′ ∷ cᴬ₂) → bᵢ′ .slot < b .slot
-                            bᵢ′<ˢb {[]}      ()          _
-                            bᵢ′<ˢb {b* ∷ c*} (here b≡b*) q rewrite b≡b* =
-                              L.All.lookup (∷-DecreasingSlots q .proj₂) bᵢ′∈c*+bᵢ′+cᴬ₂
-                              where
-                                bᵢ′∈c*+bᵢ′+cᴬ₂ : bᵢ′ ∈ c* ++ bᵢ′ ∷ cᴬ₂
-                                bᵢ′∈c*+bᵢ′+cᴬ₂ = L.Mem.∈-++⁺ʳ _ $ L.Mem.∈-++⁺ˡ {xs = [ bᵢ′ ]} {ys = cᴬ₂} (here refl)
-                            bᵢ′<ˢb {b* ∷ c*} (there b∈c*) q = bᵢ′<ˢb {c*} b∈c* (∷-DecreasingSlots q .proj₁)
-
-                        b<ˢN : b .slot < N .clock
-                        b<ˢN = Nat.≤-<-trans
-                                 (L.All.lookup (bestChainSlotBounded (ls .tree) (N .clock ∸ 1)) b∈bc)
-                                 (n>0⇒pred[n]<n (positiveClock N₀↝⋆N))
-                          where
-                            b∈bc : b ∈ bc
-                            b∈bc = subst (b ∈_) suf+bᵢ′+cᴬ₂≡bc $ L.Mem.∈-++⁺ˡ {ys = bᵢ′ ∷ cᴬ₂} b∈[cₜ+bⱼ+c′+cᴬ₁]
-
-                cb[suf] : CorrectBlocks (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
-                cb[suf] = L.All.++⁻ˡ _ $ ✓⇒cb [suf+bᵢ′+cᴬ₂]✓
-
-                ds[suf] : DecreasingSlots (cₜ ++ bⱼ ∷ c′ ++ cᴬ₁)
-                ds[suf] = ++-DecreasingSlots (✓⇒ds [suf+bᵢ′+cᴬ₂]✓) .proj₁
-
-        --      Case (b): There is an honest, first block bⱼ′ in the front of the chain.
-        ...     | just bⱼ′ = case find-∃ʳ ¿ HonestBlock ¿¹ {xs = cₜ L.∷ʳ bⱼ} eqf of goal
-          where
-            goal : ∃[ cᴮ′₁ ] ∃[ cᴮ′₂ ]
-                       cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂ ≡ cₜ L.∷ʳ bⱼ
-                     × HonestBlock bⱼ′
-                     × L.All.All (¬_ ∘ HonestBlock) cᴮ′₂
-                     → w ∸ 1 ≤ length (honestBlocks (bⱼ ∷ c′ ++ cᴬ₁))
-            goal (cᴮ′₁ , cᴮ′₂ , cᴮ′₁+bⱼ′+cᴮ′₂≡cₜ+bⱼ , hbⱼ′ , ¬hb[cᴮ′₂]) =
-              Nat.≤-trans
-                w-1≤|hb[cᴮ′₂+c′+cᴬ₁]|
-                |hb[cᴮ′₂+c′+cᴬ₁]|≤|hb[bⱼ+c′+cᴬ₁]|
-              where
-                |hb[cᴮ′₂+c′+cᴬ₁]|≤|hb[bⱼ+c′+cᴬ₁]| :
-                  length (honestBlocks (cᴮ′₂ ++ c′ ++ cᴬ₁)) ≤ length (honestBlocks (bⱼ ∷ c′ ++ cᴬ₁))
-                |hb[cᴮ′₂+c′+cᴬ₁]|≤|hb[bⱼ+c′+cᴬ₁]| = let open Nat.≤-Reasoning in begin
-                  length (honestBlocks (cᴮ′₂ ++ c′ ++ cᴬ₁))
-                    ≡⟨ cong length $ L.filter-++ ¿ HonestBlock ¿¹ cᴮ′₂ _ ⟩
-                  length (honestBlocks cᴮ′₂ ++ honestBlocks (c′ ++ cᴬ₁))
-                    ≡⟨ L.length-++ $ honestBlocks cᴮ′₂ ⟩
-                  length (honestBlocks cᴮ′₂) + length (honestBlocks (c′ ++ cᴬ₁))
-                    ≡⟨ cong (_+ length (honestBlocks (c′ ++ cᴬ₁))) |hb[cᴮ′₂]|≡0 ⟩
-                  length (honestBlocks (c′ ++ cᴬ₁))
-                    ≤⟨ |hb[c′+cᴬ₁]|≤|hb[bⱼ+c′+cᴬ₁]| ⟩
-                  length (honestBlocks (bⱼ ∷ c′ ++ cᴬ₁))
-                  ∎
-                    where
-                      |hb[cᴮ′₂]|≡0 : length (honestBlocks cᴮ′₂) ≡ 0
-                      |hb[cᴮ′₂]|≡0 rewrite All-∁-filter {P? = ¿ HonestBlock ¿¹} ¬hb[cᴮ′₂] = refl                      
-
-                      |hb[c′+cᴬ₁]|≤|hb[bⱼ+c′+cᴬ₁]| : length (honestBlocks (c′ ++ cᴬ₁)) ≤ length (honestBlocks (bⱼ ∷ c′ ++ cᴬ₁))
-                      |hb[c′+cᴬ₁]|≤|hb[bⱼ+c′+cᴬ₁]| with ¿ HonestBlock bⱼ ¿
-                      ... | no  _ = Nat.≤-refl
-                      ... | yes _ = Nat.n≤1+n _
-
-                suf′+bᵢ′+cᴬ₂≡bc : cᴮ′₁ ++ bⱼ′ ∷ (cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂) ≡ bc
-                suf′+bᵢ′+cᴬ₂≡bc = let open ≡-Reasoning in sym $ begin
-                  bc
-                    ≡⟨ suf+bᵢ′+cᴬ₂≡bc ⟨
-                   (cₜ ++   bⱼ ∷            c′ ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂
-                    ≡⟨ cong (_++ (bᵢ′ ∷ cᴬ₂)) $ sym $ L.++-assoc cₜ _ _ ⟩
-                  ((cₜ L.∷ʳ bⱼ) ++          c′ ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂
-                    ≡⟨ cong! (sym cᴮ′₁+bⱼ′+cᴮ′₂≡cₜ+bⱼ) ⟩
-                  ((cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂) ++  c′ ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂
-                    ≡⟨ L.++-assoc (cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂) _ _ ⟩
-                   (cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂) ++ (c′ ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂
-                    ≡⟨ cong ((cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂) ++_) $ L.++-assoc c′ _ _ ⟩
-                   (cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂) ++  c′ ++ cᴬ₁ ++  bᵢ′ ∷ cᴬ₂
-                    ≡⟨ L.++-assoc cᴮ′₁ _ _ ⟩
-                    cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂  ++  c′ ++ cᴬ₁ ++  bᵢ′ ∷ cᴬ₂ ∎
-                    where open import Tactic.Cong
-
-                [suf′+bᵢ′+cᴬ₂]✓ : (cᴮ′₁ ++ bⱼ′ ∷ cᴮ′₂  ++  c′ ++ cᴬ₁ ++  bᵢ′ ∷ cᴬ₂) ✓
-                [suf′+bᵢ′+cᴬ₂]✓ = subst _✓ (sym suf′+bᵢ′+cᴬ₂≡bc) $ valid (ls .tree) (N .clock ∸ 1)
-
-                bⱼ′>ˢcᴮ′₂+c′+cᴬ₁+bᵢ′+cᴬ₂ : L.All.All (bⱼ′ >ˢ_) (cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂)
-                bⱼ′>ˢcᴮ′₂+c′+cᴬ₁+bᵢ′+cᴬ₂ = ∷-DecreasingSlots (✓⇒ds $ ✓-++ʳ [suf′+bᵢ′+cᴬ₂]✓) .proj₂
-
-                Nᵢ′ₜ≤bⱼ′ₜ : Nᵢ′ .clock ≤ bⱼ′ .slot
-                Nᵢ′ₜ≤bⱼ′ₜ rewrite Nᵢ′ₜ≡bᵢ′ₜ+1 =
-                  L.All.head $ L.All.++⁻ʳ cᴬ₁ $ L.All.++⁻ʳ c′ $ L.All.++⁻ʳ cᴮ′₂ bⱼ′>ˢcᴮ′₂+c′+cᴬ₁+bᵢ′+cᴬ₂
-
-                w-1≤|hb[cᴮ′₂+c′+cᴬ₁]| : w ∸ 1 ≤ length (honestBlocks (cᴮ′₂ ++ c′ ++ cᴬ₁))
-                w-1≤|hb[cᴮ′₂+c′+cᴬ₁]|
-                  with
-                    pastBestChainLength′
-                      N₀↝⋆Nᵢ′
-                      Nᵢ′↝⋆N
-                      ffN
-                      cfN
-                      Nᵢ′Ready
-                      {p}
-                      {ls}
-                      hp
-                      lspN
-                      {bⱼ′}
-                      {cᴮ′₁}
-                      {cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂}
-                      hbⱼ′
-                      Nᵢ′ₜ≤bⱼ′ₜ
-                      suf′+bᵢ′+cᴬ₂≡bc
-                ... | Nⱼ′ , pⱼ′ , Nᵢ′↝⋆Nⱼ′ , Nⱼ′↝⋆N , Nⱼ′ₜ≡bⱼ′ₜ+1 , Nⱼ′Ready , hpⱼ′ , π with π
-                ...   | lsⱼ′ , lspⱼ′Nⱼ′ , |bcⱼ′|≡|bⱼ′+cᴮ′₂+c′+cᴬ₁+bᵢ′+cᴬ₂| =
-                        honestBlocksLowerBound
-                          {Nᵢ′ .clock}
-                          {Nⱼ′ .clock ∸ 1}
-                          {cᴮ′₂ ++ c′ ++ cᴬ₁}
-                          suf′In[Nᵢ′ₜ:Nⱼ′ₜ⦈
-                          cb[suf′]
-                          ds[suf′]
-                          |cs[Nᵢ′:Nⱼ′⦈|+w-1≤|suf′|
-                  where
-                    bcᵢ′ = bestChain (Nᵢ′ .clock ∸ 1) (lsᵢ′ .tree)
-                    bcⱼ′ = bestChain (Nⱼ′ .clock ∸ 1) (lsⱼ′ .tree)
-
-                    cs[Nᵢ′:Nⱼ′⦈ = corruptSlotsInRange (Nᵢ′ .clock) (Nⱼ′ .clock ∸ 1)
-                    ls[Nᵢ′:Nⱼ′⦈ = luckySlotsInRange   (Nᵢ′ .clock) (Nⱼ′ .clock ∸ 1)
-
-                    bⱼ∈bⱼ′+cᴮ′₂ : bⱼ ∈ bⱼ′ ∷ cᴮ′₂
-                    bⱼ∈bⱼ′+cᴮ′₂ = bⱼ∈bⱼ′*+cᴮ′₂* cᴮ′₂ cᴮ′₁+bⱼ′+cᴮ′₂≡cₜ+bⱼ
-                      where
-                        bⱼ∈bⱼ′*+cᴮ′₂* : ∀ {cᴮ′₁* cₜ* bⱼ′*} cᴮ′₂* → cᴮ′₁* ++ bⱼ′* ∷ cᴮ′₂* ≡ cₜ* L.∷ʳ bⱼ → bⱼ ∈ bⱼ′* ∷ cᴮ′₂*
-                        bⱼ∈bⱼ′*+cᴮ′₂* [] eq rewrite L.∷ʳ-injectiveʳ _ _ eq = here refl
-                        bⱼ∈bⱼ′*+cᴮ′₂* {cᴮ′₁*} {cₜ*} {bⱼ′*} (b* ∷ cᴮ′₂*) eq =
-                          L.Mem.∈-++⁺ʳ [ bⱼ′* ] (bⱼ∈bⱼ′*+cᴮ′₂* {cᴮ′₁* L.∷ʳ bⱼ′*} {cₜ*} {b*} cᴮ′₂* eq′)
-                          where
-                            eq′ : cᴮ′₁* L.∷ʳ bⱼ′* ++ b* ∷ cᴮ′₂* ≡ cₜ* L.∷ʳ bⱼ
-                            eq′ rewrite sym $ L.++-assoc cᴮ′₁* [ bⱼ′* ] (b* ∷ cᴮ′₂*) = eq
-
-                    bⱼ≤ˢbⱼ′ : bⱼ .slot ≤ bⱼ′ .slot
-                    bⱼ≤ˢbⱼ′ with bⱼ∈bⱼ′+cᴮ′₂
-                    ... | here bⱼ≡bⱼ′ rewrite bⱼ≡bⱼ′ = Nat.≤-refl
-                    ... | there bⱼ∈cᴮ′₂ = Nat.<⇒≤ $ L.All.lookup (L.All.++⁻ˡ cᴮ′₂ bⱼ′>ˢcᴮ′₂+c′+cᴬ₁+bᵢ′+cᴬ₂) bⱼ∈cᴮ′₂
-
-                    Nᵢ′↝⁺Nⱼ′ : Nᵢ′ ↝⁺ Nⱼ′
-                    Nᵢ′↝⁺Nⱼ′ rewrite Nᵢ′ₜ≡bᵢ′ₜ+1 | Nⱼ′ₜ≡bⱼ′ₜ+1 = Nᵢ′↝⋆Nⱼ′ , bᵢ′ₜ+1<bⱼ′ₜ+1
-                      where
-                        bᵢ′ₜ+1<bⱼ′ₜ+1 : suc (bᵢ′ .slot) < suc (bⱼ′ .slot)
-                        bᵢ′ₜ+1<bⱼ′ₜ+1 = Nat.s<s $ Nat.<-≤-trans bᵢ′ₜ<bⱼₜ bⱼ≤ˢbⱼ′
-
-                    [bᵢ′+1:bⱼ′]InAdvRange : bⱼ .slot ∸ suc (bᵢ .slot) ≤ bⱼ′ .slot ∸ suc (bᵢ′ .slot)
-                    [bᵢ′+1:bⱼ′]InAdvRange = Nat.∸-mono bⱼ≤ˢbⱼ′ (Nat.s≤s bᵢ′ₜ≤bᵢₜ)
-
-                    [Nᵢ′:Nⱼ′⦈Adv : length cs[Nᵢ′:Nⱼ′⦈ + w ≤ length (luckySlotsInRange (Nᵢ′ .clock) (Nⱼ′ .clock ∸ 1))
-                    [Nᵢ′:Nⱼ′⦈Adv
-                      rewrite
-                        cong Nat.pred Nⱼ′ₜ≡bⱼ′ₜ+1
-                      | Nᵢ′ₜ≡bᵢ′ₜ+1
-                      = adv {suc (bᵢ′ .slot)} {bⱼ′ .slot} [bᵢ′+1:bⱼ′]InAdvRange
-
-                    |cs[Nᵢ′:Nⱼ′⦈|+w-1≤|suf′| : length cs[Nᵢ′:Nⱼ′⦈ + (w ∸ 1) ≤ length (cᴮ′₂ ++ c′ ++ cᴬ₁)
-                    |cs[Nᵢ′:Nⱼ′⦈|+w-1≤|suf′| =
-                        chainGrowth
-                          N₀↝⋆Nᵢ′
-                          Nᵢ′↝⁺Nⱼ′
-                          Nᵢ′Ready
-                          hpᵢ′
-                          lspᵢ′Nᵢ′
-                          hpⱼ′
-                          lspⱼ′Nⱼ′
-                          {w = length cs[Nᵢ′:Nⱼ′⦈ + w}
-                          [Nᵢ′:Nⱼ′⦈Adv ∶
-                      length bcᵢ′ + (length cs[Nᵢ′:Nⱼ′⦈ + w) ≤ length bcⱼ′
-                        |> subst ((_≤ length bcⱼ′) ∘ (_+ (length cs[Nᵢ′:Nⱼ′⦈ + w))) |bcᵢ′|≡|bᵢ′+cᴬ₂| ∶
-                      length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:Nⱼ′⦈ + w) ≤ length bcⱼ′
-                        |> subst (length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:Nⱼ′⦈ + w) ≤_) |bcⱼ′|≡|bⱼ′+cᴮ′₂+c′+cᴬ₁+bᵢ′+cᴬ₂| ∶
-                      length (bᵢ′ ∷ cᴬ₂) + (length cs[Nᵢ′:Nⱼ′⦈ + w) ≤ length (bⱼ′ ∷ cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂)
-                        |> subst (λ ◆ → length (bᵢ′ ∷ cᴬ₂) + ◆ ≤ length (bⱼ′ ∷ cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂))
-                            (Nat.+-comm _ w) ∶
-                      length (bᵢ′ ∷ cᴬ₂) + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤ length (bⱼ′ ∷ cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂)
-                        |> subst ((length (bᵢ′ ∷ cᴬ₂) + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤_) ∘ length)
-                             (sym $ L.++-assoc (bⱼ′ ∷ cᴮ′₂) c′ _) ∶
-                      length (bᵢ′ ∷ cᴬ₂) + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤ length ((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ (cᴬ₁ ++ bᵢ′ ∷ cᴬ₂))
-                        |> subst ((length (bᵢ′ ∷ cᴬ₂) + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤_) ∘ length)
-                             (sym $ L.++-assoc (bⱼ′ ∷ cᴮ′₂ ++ c′) _ _) ∶
-                      length (bᵢ′ ∷ cᴬ₂) + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤ length (((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂)
-                        |> subst (length (bᵢ′ ∷ cᴬ₂) + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤_)
-                             (L.length-++ ((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ cᴬ₁)) ∶
-                      length (bᵢ′ ∷ cᴬ₂)
-                        + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤ length (((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ cᴬ₁))
-                        + length (bᵢ′ ∷ cᴬ₂)
-                        |> subst (length (bᵢ′ ∷ cᴬ₂) + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤_) (Nat.+-comm _ (length (bᵢ′ ∷ cᴬ₂))) ∶
-                      length (bᵢ′ ∷ cᴬ₂)
-                        + (w + length cs[Nᵢ′:Nⱼ′⦈) ≤ length (bᵢ′ ∷ cᴬ₂)
-                        + length (((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ cᴬ₁))
-                        |> Nat.+-cancelˡ-≤ (length (bᵢ′ ∷ cᴬ₂)) _ _ ∶
-                      w + length cs[Nᵢ′:Nⱼ′⦈ ≤ length (((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ cᴬ₁))
-                        |> subst (_≤ length (((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ cᴬ₁))) (Nat.+-comm w _) ∶
-                      length cs[Nᵢ′:Nⱼ′⦈ + w ≤ length (((bⱼ′ ∷ cᴮ′₂ ++ c′) ++ cᴬ₁))
-                        |> subst ((length cs[Nᵢ′:Nⱼ′⦈ + w ≤_) ∘ length) (L.++-assoc (bⱼ′ ∷ cᴮ′₂) c′ _) ∶
-                      length cs[Nᵢ′:Nⱼ′⦈ + w ≤ length (bⱼ′ ∷ cᴮ′₂ ++ c′ ++ cᴬ₁)
-                        |> subst ((length cs[Nᵢ′:Nⱼ′⦈ + w ≤_) ∘ length) (L.++-assoc [ bⱼ′ ] cᴮ′₂ _) ∶
-                      length cs[Nᵢ′:Nⱼ′⦈ + w ≤ suc (length (cᴮ′₂ ++ c′ ++ cᴬ₁))
-                        |> Nat.∸-monoˡ-≤ 1 ∶
-                      length cs[Nᵢ′:Nⱼ′⦈ + w ∸ 1 ≤ length (cᴮ′₂ ++ c′ ++ cᴬ₁)
-                        |> subst (_≤ length (cᴮ′₂ ++ c′ ++ cᴬ₁)) (Nat.+-∸-assoc (length cs[Nᵢ′:Nⱼ′⦈) (Nat.s≤s Nat.z≤n)) ∶
-                      length cs[Nᵢ′:Nⱼ′⦈ + (w ∸ 1) ≤ length (cᴮ′₂ ++ c′ ++ cᴬ₁)
-
-                    eq-prf : cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂ ≡ (cᴮ′₂ ++ c′ ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂
-                    eq-prf
-                      rewrite
-                        L.++-assoc cᴮ′₂ (c′ ++ cᴬ₁) (bᵢ′ ∷ cᴬ₂)
-                      | L.++-assoc c′ cᴬ₁ (bᵢ′ ∷ cᴬ₂)
-                      = refl
-
-                    [suf″+bᵢ′+cᴬ₂]✓ : ((cᴮ′₁ L.∷ʳ bⱼ′) ++ (cᴮ′₂ ++ c′ ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂) ✓
-                    [suf″+bᵢ′+cᴬ₂]✓
-                      rewrite
-                        sym eq-prf
-                      | L.++-assoc cᴮ′₁ [ bⱼ′ ] (cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂)
-                      = [suf′+bᵢ′+cᴬ₂]✓
-
-                    ds[suf′+bᵢ′+cᴬ₂] : DecreasingSlots ((cᴮ′₂ ++ c′ ++ cᴬ₁) ++ bᵢ′ ∷ cᴬ₂)
-                    ds[suf′+bᵢ′+cᴬ₂] = ++-DecreasingSlots {c = cᴮ′₁ L.∷ʳ bⱼ′} (✓⇒ds $ [suf″+bᵢ′+cᴬ₂]✓) .proj₂ .proj₁
-
-                    suf′In[Nᵢ′ₜ:Nⱼ′ₜ⦈ : L.All.All (λ b → Nᵢ′ .clock ≤ b .slot × b .slot < Nⱼ′ .clock ∸ 1) (cᴮ′₂ ++ c′ ++ cᴬ₁)
-                    suf′In[Nᵢ′ₜ:Nⱼ′ₜ⦈ rewrite cong Nat.pred Nⱼ′ₜ≡bⱼ′ₜ+1 | Nᵢ′ₜ≡bᵢ′ₜ+1 = L.All.tabulate ϕ
-                      where
-                        ϕ : ∀ {b} → b ∈ cᴮ′₂ ++ c′ ++ cᴬ₁ → bᵢ′ .slot < b .slot × b .slot < bⱼ′ .slot
-                        ϕ {b} b∈[cᴮ′₂+c′+cᴬ₁] = bᵢ′<ˢb , b<ˢbⱼ′
-                          where
-                            bᵢ′<ˢb : bᵢ′ .slot < b .slot
-                            bᵢ′<ˢb = bᵢ′<ˢb* b∈[cᴮ′₂+c′+cᴬ₁] ds[suf′+bᵢ′+cᴬ₂]
-                              where
-
-                                bᵢ′<ˢb* : ∀ {c*} → b ∈ c* → DecreasingSlots (c* ++ bᵢ′ ∷ cᴬ₂) → bᵢ′ .slot < b .slot
-                                bᵢ′<ˢb* {[]}      ()           _
-                                bᵢ′<ˢb* {b* ∷ c*} (here b≡b*)  q rewrite b≡b* =
-                                  nonAdjacentBlocksDecreasingSlots {cₕ = []} {cₘ = c*} {cₜ = cᴬ₂} {b₁ = b*} {b₂ = bᵢ′} q
-                                bᵢ′<ˢb* {b* ∷ c*} (there b∈c*) q = bᵢ′<ˢb* {c*} b∈c* (∷-DecreasingSlots q .proj₁)
-
-                            b<ˢbⱼ′ : b .slot < bⱼ′ .slot
-                            b<ˢbⱼ′ = L.All.lookup bⱼ′>ˢcᴮ′₂+c′+cᴬ₁+bᵢ′+cᴬ₂ b∈prf
-                              where
-                                b∈prf : b ∈ cᴮ′₂ ++ c′ ++ cᴬ₁ ++ bᵢ′ ∷ cᴬ₂
-                                b∈prf rewrite eq-prf = L.Mem.∈-++⁺ˡ {ys = bᵢ′ ∷ cᴬ₂} b∈[cᴮ′₂+c′+cᴬ₁]
-
-                    cb[suf′] : CorrectBlocks (cᴮ′₂ ++ c′ ++ cᴬ₁)
-                    cb[suf′] = L.All.++⁻ˡ (cᴮ′₂ ++ c′ ++ cᴬ₁) $ L.All.++⁻ʳ (cᴮ′₁ L.∷ʳ bⱼ′) $ ✓⇒cb [suf″+bᵢ′+cᴬ₂]✓
-
-                    ds[suf′] : DecreasingSlots (cᴮ′₂ ++ c′ ++ cᴬ₁)
-                    ds[suf′] = ++-DecreasingSlots {c = cᴮ′₂ ++ c′ ++ cᴬ₁} ds[suf′+bᵢ′+cᴬ₂] .proj₁
+        w-1≤|hb[bⱼ+c′+cᴬ₁]| = frontHonestBound {N} {p} {ls} {bᵢ} {bⱼ} {c′} {cₜ} {cₕ} {w′} {cᴬ₁} {cᴬ₂} {bᵢ′} N₀↝⋆N ffN cfN hp lspN (λ {s₁} {s₂} → adv {s₁} {s₂}) bc≡cₜ+c+cₕ hbᵢ′ suf+bᵢ′+cᴬ₂≡bc bᵢ′ₜ<bⱼₜ bᵢ′ₜ≤bᵢₜ
